@@ -22,7 +22,7 @@ from views import calendar_view, courses_view, home_view, library_view, settings
 st.set_page_config(page_title="Study Assistant", page_icon=":material/book:", layout="wide",
                    initial_sidebar_state="expanded")
 init_db()
-photos.upgrade_legacy_photos()
+photos.organize_photos()
 
 # (label, material icon, renderer)
 NAV_TOP = {

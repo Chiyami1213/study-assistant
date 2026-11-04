@@ -1,28 +1,19 @@
 """Course photos.
 
-Every photo is stored in four ready-made resolutions (HD, Full HD, 2K, 4K) the moment it is added, even when the
-original is smaller (it is scaled up). Choosing a different quality in Settings then only picks another stored file,
-so nothing has to be generated at that point.
+An uploaded photo is copied into data/course_photos as a JPEG named after its course (for example
+AE_6009_Viscous_Fluid_Flow.jpg), at the uploaded resolution. The app never keeps a link to the file you picked, so
+the original can be deleted. If a course is renamed, its photo file is renamed to match.
 """
 import re
 from io import BytesIO
 
 from PIL import Image, ImageOps
 
-import settings
-from database import BASE_DIR
+from database import BASE_DIR, get_conn
 
 PHOTO_DIR = BASE_DIR / "data" / "course_photos"
-
-# key -> (name, width, height). Each version is scaled (keeping the aspect ratio) so it covers this frame.
-TIERS = {
-    "hd": ("HD", 1280, 720),
-    "fullhd": ("Full HD", 1920, 1080),
-    "2k": ("2K", 2560, 1440),
-    "4k": ("4K", 3840, 2160),
-}
-DEFAULT_TIER = "fullhd"
-JPEG_QUALITY = 90
+MAX_SIDE = 3840      # only protects against enormous files; smaller photos are never enlarged
+JPEG_QUALITY = 95
 
 # Every common photo format (no documents such as PDF or HTML). HEIC/HEIF are phone camera formats.
 PHOTO_TYPES = ["png", "jpg", "jpeg", "jpe", "jfif", "webp", "gif", "bmp", "tif", "tiff", "heic", "heif"]
@@ -34,69 +25,88 @@ except ImportError:  # HEIC photos just won't open without the optional package
     pass
 
 
-def tier_label(key):
-    name, w, h = TIERS[key]
-    return f"{name} ({w} × {h})"
+def _course(course_id):
+    with get_conn() as conn:
+        row = conn.execute("SELECT code, name, photo_file FROM courses WHERE id=?", (course_id,)).fetchone()
+    return dict(row) if row else None
 
 
-def _tier_path(course_id, tier):
-    return PHOTO_DIR / f"course_{course_id}_{tier}.jpg"
+def _set_file(course_id, filename):
+    with get_conn() as conn:
+        conn.execute("UPDATE courses SET photo_file=? WHERE id=?", (filename, course_id))
+        conn.commit()
 
 
 def _legacy_path(course_id):
-    return PHOTO_DIR / f"course_{course_id}.jpg"
+    return PHOTO_DIR / f"course_{course_id}.jpg"   # name used by earlier versions of the app
 
 
-def photo_path(course_id, tier=None):
-    """The course's photo at the chosen quality (default: the Settings choice), or None if it has no photo."""
-    tier = tier or settings.get_photo_quality()
-    for candidate in (_tier_path(course_id, tier), *(_tier_path(course_id, t) for t in TIERS), _legacy_path(course_id)):
-        if candidate.exists():
-            return candidate
-    return None
+def _logical_name(course_id, code, name):
+    """AE 6009 + Viscous Fluid Flow -> AE_6009_Viscous_Fluid_Flow.jpg (unique across courses)."""
+    parts = [code] if code else []
+    if name and name != code:
+        parts.append(name)
+    base = re.sub(r"[^A-Za-z0-9]+", "_", " ".join(parts)).strip("_")[:80] or "Course"
+    filename = f"{base}.jpg"
+    with get_conn() as conn:
+        taken = conn.execute("SELECT 1 FROM courses WHERE photo_file=? AND id!=?", (filename, course_id)).fetchone()
+    return f"{base}_{course_id}.jpg" if taken else filename
 
 
-def photo_size(course_id, tier=None):
-    """(width, height) in pixels of the stored photo at the chosen quality, or None."""
-    p = photo_path(course_id, tier)
-    if not p:
-        return None
-    with Image.open(p) as img:
-        return img.size
-
-
-def _cover(img, width, height):
-    """Scale up or down so the image covers width x height, keeping its aspect ratio."""
-    scale = max(width / img.width, height / img.height)
-    size = (max(1, round(img.width * scale)), max(1, round(img.height * scale)))
-    return img.resize(size, Image.Resampling.LANCZOS)
+def photo_path(course_id):
+    """The course's photo file, or None if it has none."""
+    c = _course(course_id)
+    if c and c["photo_file"] and (PHOTO_DIR / c["photo_file"]).exists():
+        return PHOTO_DIR / c["photo_file"]
+    return _legacy_path(course_id) if _legacy_path(course_id).exists() else None
 
 
 def save_photo(course_id, data):
-    """Store an uploaded image (any common format) in every quality tier. Returns False if it can't be read."""
+    """Copy an uploaded image (any common format) into the project as a JPEG. False if it can't be read."""
+    c = _course(course_id)
+    if not c:
+        return False
     try:
         img = ImageOps.exif_transpose(Image.open(BytesIO(data))).convert("RGB")
     except Exception:
         return False
+    img.thumbnail((MAX_SIDE, MAX_SIDE), Image.Resampling.LANCZOS)  # shrinks only when larger than MAX_SIDE
     PHOTO_DIR.mkdir(parents=True, exist_ok=True)
-    for key, (_, w, h) in TIERS.items():
-        _cover(img, w, h).save(_tier_path(course_id, key), "JPEG", quality=JPEG_QUALITY, optimize=True)
-    if _legacy_path(course_id).exists():
-        _legacy_path(course_id).unlink()
+    filename = _logical_name(course_id, c["code"], c["name"])
+    img.save(PHOTO_DIR / filename, "JPEG", quality=JPEG_QUALITY, subsampling=0, optimize=True)
+    for old in (c["photo_file"], _legacy_path(course_id).name):
+        if old and old != filename and (PHOTO_DIR / old).exists():
+            (PHOTO_DIR / old).unlink()
+    _set_file(course_id, filename)
     return True
 
 
 def remove_photo(course_id):
-    for p in [_legacy_path(course_id), *(_tier_path(course_id, t) for t in TIERS)]:
-        if p.exists():
-            p.unlink()
+    c = _course(course_id)
+    for name in (c["photo_file"] if c else None, _legacy_path(course_id).name):
+        if name and (PHOTO_DIR / name).exists():
+            (PHOTO_DIR / name).unlink()
+    if c:
+        _set_file(course_id, None)
 
 
-def upgrade_legacy_photos():
-    """Photos saved before quality tiers existed (course_<id>.jpg) get all four versions generated once."""
+def rename_photo(course_id):
+    """Keep the photo's file name in step with its course's number and name."""
+    c = _course(course_id)
+    current = photo_path(course_id)
+    if not c or not current:
+        return
+    filename = _logical_name(course_id, c["code"], c["name"])
+    if current.name != filename:
+        current.rename(PHOTO_DIR / filename)
+        _set_file(course_id, filename)
+
+
+def organize_photos():
+    """Photos saved under the old id-based names (course_<id>.jpg) get their course-based names once."""
     if not PHOTO_DIR.exists():
         return
     for p in PHOTO_DIR.glob("course_*.jpg"):
         m = re.fullmatch(r"course_(\d+)\.jpg", p.name)
-        if m:
-            save_photo(int(m.group(1)), p.read_bytes())
+        if m and _course(int(m.group(1))):
+            rename_photo(int(m.group(1)))

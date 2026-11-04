@@ -101,18 +101,6 @@ def set_appearance(choice):
     _save(data)
 
 
-def get_photo_quality():
-    """'hd', 'fullhd' (default), '2k' or '4k' - which stored version of each course photo is shown."""
-    v = _load().get("photo_quality", "fullhd")
-    return v if v in ("hd", "fullhd", "2k", "4k") else "fullhd"
-
-
-def set_photo_quality(tier):
-    data = _load()
-    data["photo_quality"] = tier
-    _save(data)
-
-
 def get_collapsed():
     """Sidebar sections the user folded (remembered between sessions)."""
     return set(_load().get("collapsed_sections", []))

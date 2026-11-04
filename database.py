@@ -7,7 +7,7 @@ DB_PATH = BASE_DIR / "data" / "study.db"
 PDF_DIR = BASE_DIR / "data" / "pdfs"
 
 USER_COURSES = [  # (code, name, sidebar icon)
-    ("AE 6009", "Viscous Fluid Flow", "svg:flow_cylinder"),
+    ("AE 6009", "Viscous Fluid Flow", "svg:boundary_layer"),
     ("AE 6451", "Electric Propulsion", "svg:ion_rings"),
     ("AE 6765", "Kinetics & Thermodynamics of Gases", ":material/thermostat:"),
     ("PHYS 6105", "Quantum Mechanics I", "svg:spin_electron"),
@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS courses (
     name           TEXT NOT NULL,
     semester       TEXT NOT NULL,
     school         TEXT,
+    photo_file     TEXT,  -- file name of the course photo in data/course_photos
     category       TEXT,
     color          TEXT,  -- tile color (NULL = default from palette)
     is_active      INTEGER NOT NULL DEFAULT 1,
@@ -165,6 +166,8 @@ def init_db() -> None:
             conn.execute("ALTER TABLE books ADD COLUMN kind TEXT NOT NULL DEFAULT 'Textbook'")
         if "author" not in book_cols:
             conn.execute("ALTER TABLE books ADD COLUMN author TEXT")
+        if "photo_file" not in cols:
+            conn.execute("ALTER TABLE courses ADD COLUMN photo_file TEXT")
         if "category" not in cols:
             conn.execute("ALTER TABLE courses ADD COLUMN category TEXT")
         if "color" not in cols:
