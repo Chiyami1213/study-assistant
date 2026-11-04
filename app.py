@@ -4,10 +4,16 @@ import streamlit.components.v1 as components
 
 import crud
 import importlib
+import sys
 
 import icons
 
-importlib.reload(icons)  # the dev server caches imported modules; keep icon CSS fresh
+# The dev server caches imported modules between reruns; reload ours so edits apply without a restart.
+for _m in ("database", "crud", "settings", "icons", "views.notes_view", "views.courses_view", "views.home_view",
+           "views.homework_view", "views.exam_mode_view", "views.recall_view", "views.library_view",
+           "views.settings_view"):
+    if _m in sys.modules:
+        importlib.reload(sys.modules[_m])
 import settings
 from database import init_db
 from views import courses_view, home_view, library_view, settings_view
@@ -76,7 +82,8 @@ section[data-testid="stSidebar"].nav-collapsed > div:first-child button p {{opac
 [data-testid="stSidebar"] button > div {{justify-content: flex-start; width: 100%;}}
 [data-testid="stSidebar"] button > div > span {{justify-content: flex-start; gap: 19px;}}
 .st-key-nav_head button > div {{justify-content: center;}}
-.st-key-nav_sub {{gap: 0; margin-top: -0.6rem;}}
+[class*="st-key-nav_group_"] {{gap: 0;}}
+[class*="st-key-nav_sub"] {{gap: 0; margin-top: 0;}}
 
 /* Rail toggle icons: » when collapsed, « (top right) when expanded */
 .st-key-nav_head {{margin-bottom: 0.4rem;}}
@@ -93,9 +100,9 @@ section[data-testid="stSidebar"].nav-collapsed .st-key-nav_collapse {{display: n
 .st-key-nav_expand button {{margin: 0 !important;}}
 
 /* Courses: sub-items revealed while hovering the Courses group */
-.st-key-nav_sub {{max-height: 0; overflow: hidden; transition: max-height .25s ease;}}
-.st-key-nav_courses_group:hover .st-key-nav_sub {{max-height: 400px;}}
-.st-key-nav_sub button {{padding: 0.5rem 16px 0.5rem 34px !important;}}
+[class*="st-key-nav_sub"] {{max-height: 0; overflow: hidden; transition: max-height .25s ease;}}
+[class*="st-key-nav_group_"]:hover [class*="st-key-nav_sub"] {{max-height: 400px;}}
+[class*="st-key-nav_sub"] button {{padding: 0.5rem 16px 0.5rem 34px !important;}}
 
 /* Folded rail: compact centered icon blocks with even edge spacing */
 section[data-testid="stSidebar"] > div:first-child:not(:hover) button,
@@ -107,7 +114,7 @@ section[data-testid="stSidebar"] > div:first-child:not(:hover) button > div > sp
 section[data-testid="stSidebar"].nav-collapsed > div:first-child button > div > span {{gap: 0;}}
 section[data-testid="stSidebar"] > div:first-child:not(:hover) button [data-testid="stMarkdownContainer"],
 section[data-testid="stSidebar"].nav-collapsed > div:first-child button [data-testid="stMarkdownContainer"] {{display: none;}}
-section[data-testid="stSidebar"].nav-collapsed .st-key-nav_sub {{max-height: 0 !important;}}
+section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-height: 0 !important;}}
 
 /* Appearance cards */
 .st-key-appearance button {{height: 130px; border-radius: 12px; border: 1px solid var(--border); background: transparent;}}
@@ -116,7 +123,7 @@ section[data-testid="stSidebar"].nav-collapsed .st-key-nav_sub {{max-height: 0 !
 .st-key-appearance button span[data-testid="stIconMaterial"] {{font-size: 2rem;}}
 </style>
 """
-COURSE_ICON_CSS = "".join(icons.css_for_course(c["id"], c["icon"]) for c in crud.list_courses(active_only=True) if icons.is_custom(c["icon"]))
+COURSE_ICON_CSS = "".join(icons.css_for_course(c["id"], c["icon"]) for c in crud.list_courses(active_only=True, section=None) if icons.is_custom(c["icon"]))
 st.markdown(CSS + f"<style>{COURSE_ICON_CSS}</style>", unsafe_allow_html=True)
 
 # Collapse the rail after a click; re-arm when the mouse leaves it.
@@ -145,16 +152,22 @@ def nav_button(label, icon):
     active = st.session_state["page"] == label
     if st.button(label, icon=icon, key=f"nav_{label}", type="primary" if active else "tertiary"):
         st.session_state["page"] = label
+        if label == "Library":
+            st.session_state["lib_course"] = None  # top-level Library shows the reference overview
         st.rerun()
 
 
-def course_sub_buttons():
-    """Per-course shortcuts nested under Courses."""
-    with st.container(key="nav_sub"):
-        for c in crud.list_courses(active_only=True):
-            selected = st.session_state["page"] == "Courses" and st.session_state.get("course_id") == c["id"]
-            if st.button(c["code"], icon=(":material/water:" if icons.is_custom(c.get("icon")) else c.get("icon") or ":material/book:"), key=f"nav_course_{c['id']}", type="primary" if selected else "tertiary"):
-                st.session_state["page"] = "Courses"
+def course_sub_buttons(section, page):
+    """Per-item shortcuts nested under a menu entry (numbered courses or library subjects)."""
+    with st.container(key=f"nav_sub_{section}"):
+        for c in crud.list_courses(active_only=True, section=section):
+            sel_key = "course_id" if section == "courses" else "lib_course"
+            selected = st.session_state["page"] == page and st.session_state.get(sel_key) == c["id"]
+            icon = ":material/water:" if icons.is_custom(c.get("icon")) else c.get("icon") or ":material/book:"
+            if st.button(c["code"] or c["name"], icon=icon, key=f"nav_course_{c['id']}",
+                         type="primary" if selected else "tertiary"):
+                st.session_state["page"] = page
+                st.session_state[sel_key] = c["id"]
                 st.session_state["course_id"] = c["id"]
                 st.rerun()
 
@@ -164,10 +177,10 @@ with st.sidebar:
         st.button(" ", icon=":material/keyboard_double_arrow_right:", key="nav_expand", type="tertiary")
         st.button(" ", icon=":material/keyboard_double_arrow_left:", key="nav_collapse", type="tertiary")
     for label, (icon, _) in NAV_TOP.items():
-        if label == "Courses":
-            with st.container(key="nav_courses_group"):
+        if label in ("Courses", "Library"):
+            with st.container(key=f"nav_group_{label}"):
                 nav_button(label, icon)
-                course_sub_buttons()
+                course_sub_buttons("courses" if label == "Courses" else "library", label)
         else:
             nav_button(label, icon)
     with st.container(key="nav_spacer"):
@@ -176,7 +189,7 @@ with st.sidebar:
         nav_button(label, icon)
 
 # Active course is chosen from the Courses sub-menu in the sidebar
-active = crud.list_courses(active_only=True)
+active = crud.list_courses(active_only=True, section=None)
 if st.session_state.get("course_id") not in [c["id"] for c in active]:
     st.session_state["course_id"] = active[0]["id"] if active else None
 

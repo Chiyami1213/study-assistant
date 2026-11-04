@@ -24,7 +24,8 @@ OVERRIDE = """
 .stApp [data-baseweb="input"], .stApp [data-baseweb="base-input"], .stApp [data-baseweb="textarea"],
 .stApp [data-baseweb="select"] > div, .stApp textarea, .stApp input {
     background: var(--input) !important; color: var(--text) !important;}
-.stApp [data-testid="stBaseButton-secondary"], .stApp [data-testid="stDownloadButton"] button {
+.stApp button[data-testid^="stBaseButton-secondary"], .stApp [data-testid="stDownloadButton"] button,
+.stApp [data-testid="stFormSubmitButton"] button {
     background: var(--bg) !important; border: 1px solid var(--border) !important;}
 .stApp [data-testid="stProgress"] > div > div {background: var(--border) !important;}
 .stApp [data-testid="stCode"], .stApp pre {background: var(--input) !important;}

@@ -24,13 +24,22 @@ def _exec(sql, params=()):
 # ---------- Courses & syllabus ----------
 def label(course):
     """Display name: just the code when the course has no separate title."""
+    if not course["code"]:
+        return course["name"]
     return course["code"] if course["name"] == course["code"] else f"{course['code']}: {course['name']}"
 
 
 
-def list_courses(active_only=False):
-    sql = "SELECT * FROM courses" + (" WHERE is_active=1" if active_only else "") + " ORDER BY code"
-    return _all(sql)
+def list_courses(active_only=False, section="courses"):
+    """section: 'courses' (numbered), 'library' (custom subjects) or None for both."""
+    where, params = [], []
+    if active_only:
+        where.append("is_active=1")
+    if section:
+        where.append("section=?")
+        params.append(section)
+    sql = "SELECT * FROM courses" + (" WHERE " + " AND ".join(where) if where else "")
+    return _all(sql + " ORDER BY code, id", params)
 
 
 def get_course(course_id):

@@ -26,7 +26,7 @@ def render():
 
     st.divider()
     cid = st.session_state.get("course_id")
-    if cid and crud.get_course(cid):
+    if cid and crud.get_course(cid) and crud.get_course(cid)["section"] == "courses":
         _manage(crud.get_course(cid))
 
     with st.expander("➕ Add course"):

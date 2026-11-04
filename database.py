@@ -13,6 +13,13 @@ USER_COURSES = [  # (code, name, sidebar icon)
     ("PHYS 6105", "Quantum Mechanics I", "svg:spin_electron"),
 ]
 
+LIBRARY_COURSES = [  # custom subjects without a course number: (name, sidebar icon)
+    ("Anatomy", ":material/accessibility_new:"),
+    ("Tonal Harmony", ":material/piano:"),
+    ("Orbital Mechanics", ":material/satellite_alt:"),
+    ("Macroeconomics", ":material/trending_up:"),
+]
+
 SCHEMA = """
 PRAGMA foreign_keys = ON;
 
@@ -24,6 +31,7 @@ CREATE TABLE IF NOT EXISTS courses (
     is_active      INTEGER NOT NULL DEFAULT 1,
     target_hours   REAL NOT NULL DEFAULT 0,
     icon           TEXT,
+    section        TEXT NOT NULL DEFAULT 'courses',  -- 'courses' (numbered) | 'library' (custom)
     created_at     TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -126,6 +134,13 @@ def init_db() -> None:
         cols = [r["name"] for r in conn.execute("PRAGMA table_info(courses)")]
         if "icon" not in cols:  # migrate databases created before icons existed
             conn.execute("ALTER TABLE courses ADD COLUMN icon TEXT")
+        if "section" not in cols:
+            conn.execute("ALTER TABLE courses ADD COLUMN section TEXT NOT NULL DEFAULT 'courses'")
+        have = {r["name"] for r in conn.execute("SELECT name FROM courses WHERE section='library'")}
+        for name, icon in LIBRARY_COURSES:
+            if name not in have:
+                conn.execute("INSERT INTO courses(code,name,icon,section,semester,target_hours) "
+                             "VALUES ('',?,?,'library','',0)", (name, icon))
         if conn.execute("SELECT COUNT(*) FROM courses").fetchone()[0] == 0:
             _seed(conn)
 
