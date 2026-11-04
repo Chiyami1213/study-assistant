@@ -32,6 +32,10 @@ OVERRIDE = """
 [data-baseweb="popover"] *, [data-baseweb="menu"] {background-color: var(--bg2) !important; color: var(--text) !important;}
 [data-testid="stVerticalBlockBorderWrapper"] {border-color: var(--border) !important;}
 [data-testid="stTabs"] button p {color: var(--text) !important;}
+/* filter pills (segmented controls) and primary buttons follow the explicit theme */
+.stApp button[data-variant="segmented_control"][aria-checked="false"] {background: var(--bg) !important; border-color: var(--border) !important;}
+.stApp button[data-variant="segmented_control"][aria-checked="false"] p {color: var(--text) !important;}
+.stApp button[data-testid^="stBaseButton-primary"] p {color: #fff !important;}
 [role="dialog"] {background: var(--bg2) !important;}
 [role="dialog"] p, [role="dialog"] label, [role="dialog"] h2, [role="dialog"] span {color: var(--text) !important;}
 [role="dialog"] input, [role="dialog"] [data-baseweb="select"] > div, [role="dialog"] [data-testid="stFileUploaderDropzone"] {

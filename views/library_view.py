@@ -1,6 +1,7 @@
 """Library: PDF books and notes as a cover grid (first page = cover) with a dashed add tile and a page preview."""
 import base64
 import hashlib
+import re
 import uuid
 
 import streamlit as st
@@ -39,6 +40,47 @@ def _cover_html(book):
             f'hsl({(hue + 40) % 360},50%,24%));"><span>{title}</span></div>')
 
 
+def detect_course(filename, title=""):
+    """Course id guessed from a file name (then the title): 'PHYS_6105 notes.pdf' -> PHYS 6105."""
+    courses = crud.list_courses(section=None)
+    for text in (filename, title):
+        if not text:
+            continue
+        hits = []
+        for c in courses:
+            m = re.fullmatch(r"([A-Za-z]+)\s*(\d+)", (c["code"] or "").strip())
+            if not m:
+                continue
+            pat = rf"(?<![A-Za-z]){m.group(1)}[\s_\-.]*{m.group(2)}(?!\d)"
+            if re.search(pat, text, re.I):
+                hits.append(c)
+        if hits:  # longest code wins if several match
+            return max(hits, key=lambda c: len(c["code"]))["id"]
+        named = [c for c in courses if c["name"] and c["name"] != c["code"] and len(c["name"]) > 5
+                 and re.search(rf"(?<![A-Za-z]){re.escape(c['name'])}(?![A-Za-z])", text.replace("_", " "), re.I)]
+        if len(named) == 1:
+            return named[0]["id"]
+    return None
+
+
+NOTES_WORDS = re.compile(r"(?<![a-z])(notes?|lectures?|lec|slides?|handouts?|cheat[\s_\-]*sheets?|study[\s_\-]*guides?|"
+                         r"summary|summaries|review|annotated|worksheet|recitation)(?![a-z])", re.I)
+BOOK_WORDS = re.compile(r"(?<![a-z])(textbook|text[\s_\-]*book|edition|ed\.?\s*\d+|\d+(st|nd|rd|th)[\s_\-]*ed)(?![a-z])", re.I)
+
+
+def detect_kind(filename, title=""):
+    """'Notes' or 'Textbook' when the file name (then title) says so, else None."""
+    for text in (filename, title):
+        if not text:
+            continue
+        text = text.replace("_", " ")
+        if BOOK_WORDS.search(text):
+            return "Textbook"
+        if NOTES_WORDS.search(text):
+            return "Notes"
+    return None
+
+
 def _course_options():
     return {0: "None"} | {c["id"]: crud.label(c) for c in crud.list_courses(section=None)}
 
@@ -58,14 +100,22 @@ def _add_dialog():
         st.caption("Detected " + (", ".join(found) if found else "nothing") +
                    f" from {info['source']} - edit anything that looks wrong.")
     k = up.file_id if up else "none"  # reset the fields whenever a different file is chosen
-    kind = st.segmented_control("Type", KINDS, default="Textbook", key=f"bk_kind_{k}") or "Textbook"
+    kind_guess = detect_kind(up.name, info["title"]) if up else None
+    kind = st.segmented_control("Type", KINDS, default=kind_guess or "Textbook", key=f"bk_kind_{k}") or "Textbook"
+    if kind_guess:
+        st.caption(f"Type detected from the file name: {kind_guess}")
     title = st.text_input("Title", value=info["title"], key=f"bk_title_{k}")
     c1, c2 = st.columns(2)
     author = c1.text_input("Author", value=info["author"], key=f"bk_author_{k}")
     edition = c2.text_input("Edition / year", value=info["edition"], key=f"bk_edition_{k}",
                             placeholder="7th Edition (2019)")
     courses = _course_options()
-    course_id = st.selectbox("Course (optional)", list(courses), format_func=courses.get, key=f"bk_course_{k}")
+    guess = detect_course(up.name, info["title"]) if up else None
+    ids = list(courses)
+    course_id = st.selectbox("Course (optional)", ids, index=ids.index(guess) if guess in ids else 0,
+                             format_func=courses.get, key=f"bk_course_{k}")
+    if guess:
+        st.caption(f"Course detected from the file name: {crud.label(crud.get_course(guess))}")
     if st.button("Add to library", type="primary", disabled=not (up and title.strip())):
         PDF_DIR.mkdir(parents=True, exist_ok=True)
         ext = ".pdf" if up.name.lower().endswith(".pdf") else ".html"
@@ -105,6 +155,46 @@ def _viewer(book):
     st.image(_page_png(str(path), path.stat().st_mtime, page - 1, width * 2), width=width)
 
 
+@st.dialog("Edit File", width="large")
+def _edit_dialog(book):
+    st.caption(f"Stored file: {book['pdf_path']}")
+    kind = st.segmented_control("Type", KINDS, default=book["kind"] if book["kind"] in KINDS else "Textbook",
+                                key=f"ek_{book['id']}") or book["kind"]
+    title = st.text_input("Title", value=book["title"], key=f"et_{book['id']}")
+    c1, c2 = st.columns(2)
+    author = c1.text_input("Author", value=book["author"] or "", key=f"ea_{book['id']}")
+    edition = c2.text_input("Edition / year", value=book["edition"] or "", key=f"ee_{book['id']}")
+    courses = _course_options()
+    ids = list(courses)
+    cur = book["course_id"] if book["course_id"] in courses else 0
+    course_id = st.selectbox("Course (optional)", ids, index=ids.index(cur), format_func=courses.get,
+                             key=f"ec_{book['id']}")
+
+    a, b, _ = st.columns([1, 1.4, 8])
+    if a.button("Save", type="primary", key=f"save_book_{book['id']}"):
+        crud.update_book(book["id"], title.strip() or book["title"], author.strip(), edition.strip(), kind,
+                         course_id or None)
+        st.rerun()
+    if b.button("Preview", key=f"open_book_{book['id']}"):
+        st.session_state["open_book"] = book["id"]
+        st.rerun()
+
+    st.divider()
+    confirm = f"confirm_remove_{book['id']}"
+    if st.button("Remove from library", key=f"del_book_{book['id']}"):
+        st.session_state[confirm] = True
+    if st.session_state.get(confirm):
+        st.warning("This also deletes the stored copy in data/pdfs. Your original file is not touched.")
+        if st.button("Yes, remove it", type="primary", key=f"del_yes_{book['id']}"):
+            p = BASE_DIR / book["pdf_path"]
+            crud.delete_book(book["id"])
+            covers.remove_cover(book["id"])
+            if p.exists():
+                p.unlink()
+            st.session_state[confirm] = False
+            st.rerun()
+
+
 def _book_card(book):
     with st.container(key=f"bookcard_{book['id']}"):
         st.markdown(_cover_html(book), unsafe_allow_html=True)
@@ -112,34 +202,19 @@ def _book_card(book):
             st.session_state["open_book"] = book["id"]
             st.rerun()
 
-    tag = f'<span class="book-badge tag">{book["course_code"]}</span>' if book["course_code"] else ""
-    st.markdown(f'<div class="book-badges"><span class="book-badge">{book["kind"]}</span>{tag}</div>',
+    course = crud.get_course(book["course_id"]) if book["course_id"] else None
+    tag = ""
+    if course and course["code"]:
+        tag = (f'<span class="book-badge tag" style="background:{crud.course_color(course)};'
+               f'border-color:{crud.course_color(course)}">{course["code"]}</span>')
+    state = crud.course_status(course) if course else ""
+    status = f'<span class="book-badge status {state.lower().replace("-", "")}">{state}</span>' if course else ""
+    st.markdown(f'<div class="book-badges"><span class="book-badge">{book["kind"]}</span>{tag}{status}</div>',
                 unsafe_allow_html=True)
     t_col, m_col = st.columns([4, 1], vertical_alignment="top")
     t_col.markdown(f"**{book['title']}**")
-    with m_col.popover("..."):
-        if st.button("Preview", key=f"open_book_{book['id']}"):
-            st.session_state["open_book"] = book["id"]; st.rerun()
-        t = st.text_input("Title", value=book["title"], key=f"et_{book['id']}")
-        au = st.text_input("Author", value=book["author"] or "", key=f"ea_{book['id']}")
-        ed = st.text_input("Edition / year", value=book["edition"] or "", key=f"ee_{book['id']}")
-        kd = st.selectbox("Type", KINDS, index=KINDS.index(book["kind"]) if book["kind"] in KINDS else 0,
-                          key=f"ek_{book['id']}")
-        courses = _course_options()
-        ids = list(courses)
-        cur = book["course_id"] if book["course_id"] in courses else 0
-        cs = st.selectbox("Course", ids, index=ids.index(cur), format_func=courses.get, key=f"ec_{book['id']}")
-        if st.button("Save details", key=f"save_book_{book['id']}"):
-            crud.update_book(book["id"], t.strip() or book["title"], au.strip(), ed.strip(), kd, cs or None)
-            st.rerun()
-        st.caption("Removing deletes the stored copy in data/pdfs.")
-        if st.button("Remove from library", key=f"del_book_{book['id']}"):
-            p = BASE_DIR / book["pdf_path"]
-            crud.delete_book(book["id"])
-            covers.remove_cover(book["id"])
-            if p.exists():
-                p.unlink()
-            st.rerun()
+    if m_col.button("...", key=f"menu_{book['id']}", type="tertiary"):
+        _edit_dialog(book)
     sub = " · ".join(x for x in (book["author"], book["edition"]) if x)
     if sub:
         st.caption(sub)

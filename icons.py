@@ -137,11 +137,22 @@ _SVG = {
         "<path d='M12 22.5V15.4M10.4 17.1L12 15.4L13.6 17.1'/>"
         "</svg>"
     ),
+    # Flame silhouette with an inner flame cut out
+    "flame": (
+        "<svg xmlns='http://www.w3.org/2000/svg' viewBox='270 50 640 880'>"
+        "<path fill-rule='evenodd' d='M611 65C480 110 470 230 475 262C482 345 460 420 420 459C395 405 360 380 327 378C345 405 340 440 328 470C312 512 296 550 291 600C284 650 290 690 291 695C305 790 370 870 493 915L692 909C900 850 930 640 835 413C830 480 805 525 780 532C775 440 735 370 705 330C690 310 678 298 665 288C600 235 590 140 611 65ZM602 421C520 450 518 530 520 540C525 600 505 640 488 657C470 622 448 610 432 608C445 630 440 650 430 670C415 710 405 760 410 795C418 855 450 890 493 915L692 909C790 850 780 700 737 630C733 665 720 695 703 700C700 650 680 600 655 568C646 558 640 555 633 552C590 515 590 460 602 421Z'/></svg>"
+    ),
 }
 
 
 def is_custom(icon):
     return bool(icon) and icon.startswith("svg:")
+
+
+def mask_url(icon):
+    """CSS url() of the custom icon's SVG (for use with mask-image), or '' if unknown."""
+    svg = _SVG.get((icon or "")[4:])
+    return f"url('data:image/svg+xml,{quote(svg)}')" if svg else ""
 
 
 def css_for_course(course_id, icon):

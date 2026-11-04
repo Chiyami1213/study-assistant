@@ -18,6 +18,7 @@ LIBRARY_COURSES = [  # custom subjects without a course number: (name, sidebar i
     ("Tonal Harmony", ":material/piano:"),
     ("Macroeconomics", "svg:macro_globe"),
     ("Thermodynamics", "svg:steam_engine"),
+    ("Pyrochemistry", "svg:flame"),
 ]
 
 SCHEMA = """
@@ -29,6 +30,8 @@ CREATE TABLE IF NOT EXISTS courses (
     name           TEXT NOT NULL,
     semester       TEXT NOT NULL,
     school         TEXT,
+    category       TEXT,
+    color          TEXT,  -- tile color (NULL = default from palette)
     is_active      INTEGER NOT NULL DEFAULT 1,
     target_hours   REAL NOT NULL DEFAULT 0,
     icon           TEXT,
@@ -115,6 +118,14 @@ CREATE TABLE IF NOT EXISTS quizzes (
     next_review  TEXT NOT NULL DEFAULT (date('now'))
 );
 
+-- Calendar events (homework due dates come from homework_pairs).
+CREATE TABLE IF NOT EXISTS events (
+    id        INTEGER PRIMARY KEY AUTOINCREMENT,
+    title     TEXT NOT NULL,
+    date      TEXT NOT NULL,
+    course_id INTEGER REFERENCES courses(id) ON DELETE SET NULL
+);
+
 -- Library books / PDFs (stored under data/pdfs). course_id is optional.
 CREATE TABLE IF NOT EXISTS books (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -154,6 +165,10 @@ def init_db() -> None:
             conn.execute("ALTER TABLE books ADD COLUMN kind TEXT NOT NULL DEFAULT 'Textbook'")
         if "author" not in book_cols:
             conn.execute("ALTER TABLE books ADD COLUMN author TEXT")
+        if "category" not in cols:
+            conn.execute("ALTER TABLE courses ADD COLUMN category TEXT")
+        if "color" not in cols:
+            conn.execute("ALTER TABLE courses ADD COLUMN color TEXT")
         if "school" not in cols:
             conn.execute("ALTER TABLE courses ADD COLUMN school TEXT")
         if "sort_order" not in cols:

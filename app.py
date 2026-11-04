@@ -9,14 +9,14 @@ import sys
 import icons
 
 # The dev server caches imported modules between reruns; reload ours so edits apply without a restart.
-for _m in ("database", "crud", "settings", "icons", "pdfmeta", "covers", "views.notes_view", "views.courses_view", "views.home_view",
-           "views.homework_view", "views.exam_mode_view", "views.recall_view", "views.library_view",
+for _m in ("database", "crud", "settings", "icons", "pdfmeta", "covers", "photos", "views.notes_view", "views.courses_view", "views.home_view",
+           "views.homework_view", "views.exam_mode_view", "views.recall_view", "views.library_view", "views.calendar_view",
            "views.settings_view"):
     if _m in sys.modules:
         importlib.reload(sys.modules[_m])
 import settings
 from database import init_db
-from views import courses_view, home_view, library_view, settings_view
+from views import calendar_view, courses_view, home_view, library_view, settings_view
 
 st.set_page_config(page_title="Study Assistant", page_icon=":material/book:", layout="wide",
                    initial_sidebar_state="expanded")
@@ -25,6 +25,7 @@ init_db()
 # (label, material icon, renderer)
 NAV_TOP = {
     "Home": (":material/home:", home_view.render),
+    "Calendar": (":material/calendar_month:", calendar_view.render),
     "Library": (":material/library_books:", library_view.render),
     "Courses": (":material/folder:", courses_view.render),
 }
@@ -142,6 +143,14 @@ section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-h
 
 /* No upload size hint ("200MB per file") in file pickers */
 [data-testid="stFileUploaderDropzoneInstructions"] {{display: none;}}
+/* Accepted file types shown beside the Upload button (until a file is chosen) */
+[data-testid="stFileUploaderDropzone"]:not(:has([data-testid="stFileUploaderFile"]))::after {{
+    content: "PDF, HTML"; color: #8b90a0; font-size: 0.9rem; margin-left: 14px; align-self: center;}}
+
+/* Library card menu button: plain "..." (opens the Edit File window) */
+[class*="st-key-menu_"] button {{min-width: 34px; padding: 0 4px; min-height: 0; justify-content: flex-end;}}
+[class*="st-key-menu_"] button p {{font-size: 1.5rem; font-weight: 700; line-height: 0.8; letter-spacing: 1px;}}
+[class*="st-key-menu_"] button:hover p {{color: var(--accent) !important;}}
 
 /* Library card menu: plain "..." with no box edge or chevron */
 .stApp [data-testid="stPopover"] button {{border: none !important; background: transparent !important;
@@ -158,7 +167,43 @@ section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-h
 [class*="st-key-cover_"] {{position: absolute !important; top: 0; left: 0; width: 100%; aspect-ratio: 2 / 3; z-index: 2;}}
 [class*="st-key-cover_"] button {{width: 100%; height: 100% !important; opacity: 0; cursor: pointer; min-height: 0;}}
 .book-cover.has-img {{background-size: cover; background-position: top center; padding: 0;}}
-.book-badge.tag {{border-color: var(--border); color: var(--text);}}
+.book-badge.tag {{color: #fff !important;}}
+.book-badge.status {{border-color: var(--border); color: var(--text); opacity: 0.85;}}
+.book-badge.status.active {{border-color: #2f9e5f; color: #2f9e5f; background: rgba(47, 158, 95, 0.12); opacity: 1;}}
+.book-badge.status.completed {{border-color: #6a77dd; color: #6a77dd; background: rgba(106, 119, 221, 0.12); opacity: 1;}}
+
+/* Course summary tiles */
+.course-tile {{aspect-ratio: 1 / 1; border-radius: 14px; padding: 16px; display: flex; flex-direction: column;
+    color: #fff; box-shadow: 0 2px 8px #0004; overflow: hidden; margin-bottom: 0.6rem;}}
+.course-banner {{height: 150px; border-radius: 12px; background-size: cover; background-position: center;
+    margin: 4px 0 12px; box-shadow: 0 2px 8px #0003;}}
+.course-tile .ct-code, .course-tile .ct-name, .course-tile .ct-meta {{text-shadow: 0 1px 3px #0008;}}
+.ct-top {{display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;}}
+.ct-icon {{flex: none; width: 30px; height: 30px; opacity: 0.92;}}
+.ct-icon.svg {{background: #fff;}}
+.ct-icon.material {{font-family: "Material Symbols Rounded"; font-size: 30px; line-height: 1; color: #fff;
+    font-weight: normal; font-style: normal; font-feature-settings: "liga"; white-space: nowrap; overflow: hidden;}}
+.ct-code {{font-weight: 800; font-size: 1.3rem; line-height: 1.1; flex: 1; min-width: 0; overflow-wrap: anywhere;}}
+.ct-code.ct-title {{font-size: 1.1rem; line-height: 1.2;}}
+.ct-name {{margin-top: 8px; font-size: 1rem; font-weight: 500; line-height: 1.25; display: -webkit-box;
+    -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden;}}
+.ct-cat {{display: inline-block; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.04em;
+    background: rgba(255,255,255,0.22); border-radius: 999px; padding: 1px 10px; margin-bottom: 6px;}}
+.ct-meta {{margin-top: auto; font-size: 0.85rem; opacity: 0.9; line-height: 1.35;}}
+[class*="st-key-coursetile_"] {{position: relative;}}
+[class*="st-key-coursetile_"]:hover .course-tile {{filter: brightness(1.1);}}
+[class*="st-key-tile_"] {{position: absolute !important; top: 0; left: 0; width: 100%; aspect-ratio: 1 / 1; z-index: 2;}}
+[class*="st-key-tile_"] button {{width: 100%; height: 100% !important; opacity: 0; cursor: pointer; min-height: 0;}}
+
+/* Calendar */
+.cal-head {{text-align: center; font-weight: 600; font-size: 0.85rem; opacity: 0.7; padding-bottom: 4px;}}
+.cal-cell {{border: 1px solid var(--border); border-radius: 8px; min-height: 112px; padding: 6px; overflow: hidden;}}
+.cal-cell.blank {{border-color: transparent; background: transparent;}}
+.cal-cell.today {{border: 2px solid var(--accent);}}
+.cal-day {{font-weight: 600; font-size: 0.9rem; margin-bottom: 3px;}}
+.cal-chip {{color: #fff; font-size: 0.72rem; border-radius: 4px; padding: 1px 6px; margin-top: 3px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}}
+.cal-more {{font-size: 0.72rem; opacity: 0.7; margin-top: 3px;}}
 
 /* Library */
 .lib-title {{font-family: Georgia, "Roboto Slab", serif; font-weight: 700;}}
@@ -270,12 +315,15 @@ def nav_button(label, icon):
     active = st.session_state["page"] == label
     if st.button(label, icon=icon, key=f"nav_{label}", type="primary" if active else "tertiary"):
         st.session_state["page"] = label
+        if label == "Courses":
+            st.session_state["open_course"] = None  # top-level Courses shows the summary tiles
         st.rerun()
 
 
 def _open_course(c):
     st.session_state["page"] = "Courses"
     st.session_state["course_id"] = c["id"]
+    st.session_state["open_course"] = c["id"]
     st.session_state["courses_filter"] = crud.course_status(c)
     st.rerun()
 

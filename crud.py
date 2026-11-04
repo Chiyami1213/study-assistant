@@ -88,13 +88,58 @@ def term_label(course):
     return ", ".join(x for x in (course.get("semester"), course.get("school")) if x)
 
 
+COURSE_PALETTE = ["#2f6fb5", "#2e8b7a", "#8a5a9e", "#c26a3a", "#b5483f", "#4f7a3b",
+                  "#a1862f", "#3d5a99", "#a8527a", "#2b8794", "#6b5fa6", "#5b6e7c"]
+
+
+CATEGORY_HUES = {"Aerospace": 215, "Biology": 140, "Chemistry": 12, "Economics": 45,
+                 "Engineering": 180, "Music": 330, "Physics": 285}
+
+
+def _category_shade(category, course_id):
+    """Courses in one category share a hue, with a small shift in hue and lightness per course."""
+    import colorsys
+    hue = (CATEGORY_HUES[category] + ((course_id * 7) % 5 - 2) * 5) % 360
+    light = (0.34, 0.39, 0.44)[course_id % 3]
+    r, g, b = colorsys.hls_to_rgb(hue / 360, light, 0.52)
+    return "#{:02x}{:02x}{:02x}".format(int(r * 255), int(g * 255), int(b * 255))
+
+
+def course_color(course):
+    """Tile color: the user's choice, else a shade of the category color, else a palette color."""
+    if course.get("color"):
+        return course["color"]
+    if course.get("category") in CATEGORY_HUES:
+        return _category_shade(course["category"], course["id"])
+    return COURSE_PALETTE[course["id"] % len(COURSE_PALETTE)]
+
+
+def darken(hex_color, factor=0.7):
+    h = hex_color.lstrip("#")
+    r, g, b = (int(h[i:i + 2], 16) for i in (0, 2, 4))
+    return "#{:02x}{:02x}{:02x}".format(int(r * factor), int(g * factor), int(b * factor))
+
+
+CATEGORIES = ["Aerospace", "Biology", "Chemistry", "Economics", "Engineering", "Music", "Physics"]
+
+
+def set_course_category(course_id, category):
+    """category=None clears the label."""
+    _exec("UPDATE courses SET category=? WHERE id=?", (category, course_id))
+
+
+def set_course_color(course_id, color):
+    """color=None goes back to the default palette color."""
+    _exec("UPDATE courses SET color=? WHERE id=?", (color, course_id))
+
+
 def update_course_info(course_id, semester, school):
     _exec("UPDATE courses SET semester=?, school=? WHERE id=?", (semester or "", school or None, course_id))
 
 
-def add_course(code, name, semester, target_hours, status="Active", school=None):
-    cid = _exec("INSERT INTO courses(code,name,semester,school,target_hours) VALUES (?,?,?,?,?)",
-                (code, name, semester, school or None, target_hours))
+def add_course(code, name, semester, target_hours, status="Active", school=None, category=None):
+    cid = _exec("INSERT INTO courses(code,name,semester,school,category,target_hours) VALUES (?,?,?,?,?,?)",
+                (code, name, semester, school or None, category, target_hours))
     set_course_status(cid, status)
     return cid
 
@@ -270,3 +315,21 @@ def update_book(book_id, title, author, edition, kind="Textbook", course_id=None
 
 def delete_book(book_id):
     _exec("DELETE FROM books WHERE id=?", (book_id,))
+
+
+# ---------- Calendar ----------
+def list_events(start, end):
+    return _all("SELECT * FROM events WHERE date BETWEEN ? AND ? ORDER BY date, id", (start, end))
+
+
+def add_event(title, day, course_id=None):
+    return _exec("INSERT INTO events(title,date,course_id) VALUES (?,?,?)", (title, day, course_id))
+
+
+def delete_event(event_id):
+    _exec("DELETE FROM events WHERE id=?", (event_id,))
+
+
+def homework_due_between(start, end):
+    return _all("SELECT * FROM homework_pairs WHERE due_date BETWEEN ? AND ? AND status != 'verified' "
+                "ORDER BY due_date", (start, end))
