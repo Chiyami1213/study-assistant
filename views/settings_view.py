@@ -1,6 +1,7 @@
 """Settings."""
 import streamlit as st
 
+import photos
 import settings
 
 OPTIONS = {
@@ -21,3 +22,14 @@ def render():
                           type="primary" if key == current else "secondary"):
                 settings.set_appearance(key)
                 st.rerun()
+
+    st.header("Photo Quality")
+    tiers = list(photos.TIERS)
+    current_tier = settings.get_photo_quality()
+    choice = st.radio("Course photo resolution", tiers, index=tiers.index(current_tier), horizontal=True,
+                      format_func=lambda t: photos.tier_label(t) + ("  ·  Default" if t == photos.DEFAULT_TIER else ""))
+    if choice != current_tier:
+        settings.set_photo_quality(choice)
+        st.rerun()
+    st.caption("Each photo is saved in all four resolutions when you add it (smaller photos are scaled up), "
+               "so changing this setting is instant.")

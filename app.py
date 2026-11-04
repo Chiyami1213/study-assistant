@@ -14,6 +14,7 @@ for _m in ("database", "crud", "settings", "icons", "pdfmeta", "covers", "photos
            "views.settings_view"):
     if _m in sys.modules:
         importlib.reload(sys.modules[_m])
+import photos
 import settings
 from database import init_db
 from views import calendar_view, courses_view, home_view, library_view, settings_view
@@ -21,6 +22,7 @@ from views import calendar_view, courses_view, home_view, library_view, settings
 st.set_page_config(page_title="Study Assistant", page_icon=":material/book:", layout="wide",
                    initial_sidebar_state="expanded")
 init_db()
+photos.upgrade_legacy_photos()
 
 # (label, material icon, renderer)
 NAV_TOP = {

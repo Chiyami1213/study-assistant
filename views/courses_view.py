@@ -9,6 +9,7 @@ import base64
 import crud
 import icons
 import photos
+import settings
 from views import exam_mode_view, homework_view, notes_view, recall_view
 
 COLUMNS = 5
@@ -106,6 +107,9 @@ def _edit_course_dialog(course):
     with c2:
         with st.container(key=f"photo_box_edit_{cid}"):
             photo = st.file_uploader("Photo (Optional)", type=photos.PHOTO_TYPES, key=f"ec_photo_{cid}")
+            size = photos.photo_size(cid)
+            if size:
+                st.caption(f"Current photo: {size[0]} × {size[1]} px ({photos.tier_label(settings.get_photo_quality())})")
 
     ready = bool((name.strip() or code.strip()) and (code.strip() or status == "Self-Study"))
     a, b, c, _ = st.columns([1, 1.6, 1.4, 4])
@@ -288,6 +292,9 @@ def _syllabus(course):
             color = st.color_picker("Tile Color", value=crud.course_color(course), key=f"color_{cid}")
             with st.container(key=f"photo_box_{cid}"):
                 up = st.file_uploader("Course Photo", type=photos.PHOTO_TYPES, key=f"photo_{cid}")
+                size = photos.photo_size(cid)
+                if size:
+                    st.caption(f"Current photo: {size[0]} × {size[1]} px")
             if photos.photo_path(cid) and st.button("Remove Photo", key=f"rm_photo_{cid}"):
                 photos.remove_photo(cid)
                 st.rerun()
