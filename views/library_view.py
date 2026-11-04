@@ -2,16 +2,10 @@
 import streamlit as st
 
 import crud
-from views.courses_view import _manage
 from views.notes_view import pdf_viewer
 
 
 def render():
-    sel = crud.get_course(st.session_state["lib_course"]) if st.session_state.get("lib_course") else None
-    if sel and sel["section"] == "library":
-        _manage(sel)
-        return
-
     st.title("Library")
     courses = {c["id"]: c for c in crud.list_courses(section=None)}
     refs = [(r, courses[cid]) for cid in courses for r in crud.list_references(cid)]

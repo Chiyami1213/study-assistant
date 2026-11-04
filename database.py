@@ -1,4 +1,4 @@
-"""SQLite connection, schema (DDL) and seed data for the Study Planner."""
+"""SQLite connection, schema (DDL) and seed data for Study Assistant."""
 import sqlite3
 from pathlib import Path
 
@@ -14,10 +14,10 @@ USER_COURSES = [  # (code, name, sidebar icon)
 ]
 
 LIBRARY_COURSES = [  # custom subjects without a course number: (name, sidebar icon)
-    ("Anatomy", ":material/accessibility_new:"),
+    ("Anatomy", "svg:anatomy_body"),
     ("Tonal Harmony", ":material/piano:"),
-    ("Orbital Mechanics", ":material/satellite_alt:"),
-    ("Macroeconomics", ":material/trending_up:"),
+    ("Macroeconomics", "svg:macro_globe"),
+    ("Thermodynamics", "svg:steam_engine"),
 ]
 
 SCHEMA = """
@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS courses (
     is_active      INTEGER NOT NULL DEFAULT 1,
     target_hours   REAL NOT NULL DEFAULT 0,
     icon           TEXT,
+    sort_order     INTEGER,  -- manual order within a sidebar section (NULL = default order)
     section        TEXT NOT NULL DEFAULT 'courses',  -- 'courses' (numbered) | 'library' (custom)
     created_at     TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -134,9 +135,11 @@ def init_db() -> None:
         cols = [r["name"] for r in conn.execute("PRAGMA table_info(courses)")]
         if "icon" not in cols:  # migrate databases created before icons existed
             conn.execute("ALTER TABLE courses ADD COLUMN icon TEXT")
+        if "sort_order" not in cols:
+            conn.execute("ALTER TABLE courses ADD COLUMN sort_order INTEGER")
         if "section" not in cols:
             conn.execute("ALTER TABLE courses ADD COLUMN section TEXT NOT NULL DEFAULT 'courses'")
-        have = {r["name"] for r in conn.execute("SELECT name FROM courses WHERE section='library'")}
+        have = {r["name"] for r in conn.execute("SELECT name FROM courses")}
         for name, icon in LIBRARY_COURSES:
             if name not in have:
                 conn.execute("INSERT INTO courses(code,name,icon,section,semester,target_hours) "
@@ -148,6 +151,8 @@ def init_db() -> None:
 def _seed(conn: sqlite3.Connection) -> None:
     conn.executemany("INSERT INTO courses(code,name,icon,semester,target_hours) VALUES (?,?,?,?,?)",
                      [(c, n, i, "Fall 2026", 60) for c, n, i in USER_COURSES])
+    conn.execute("INSERT INTO courses(code,name,icon,is_active,semester,target_hours) "
+                 "VALUES ('AAE 532','Orbital Mechanics','svg:orbit_planet',0,'',0)")  # completed
     conn.commit()
 
 

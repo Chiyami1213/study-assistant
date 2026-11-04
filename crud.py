@@ -1,4 +1,5 @@
 """Database helper functions (CRUD) used by the Streamlit views."""
+import re
 from datetime import date, timedelta
 
 from database import get_conn
@@ -46,9 +47,47 @@ def get_course(course_id):
     return _one("SELECT * FROM courses WHERE id=?", (course_id,))
 
 
-def add_course(code, name, semester, target_hours):
-    return _exec("INSERT INTO courses(code,name,semester,target_hours) VALUES (?,?,?,?)",
-                 (code, name, semester, target_hours))
+STATUSES = ("Active", "Self-Study", "Completed")
+
+
+def course_status(course):
+    """Active = current semester, Completed = finished, Self-Study = non-school (section 'library')."""
+    if course["section"] == "library":
+        return "Self-Study"
+    return "Active" if course["is_active"] else "Completed"
+
+
+def _natural_key(text):
+    """Alphabetical with numbers compared numerically (AE 532 < AE 6009)."""
+    return [int(t) if t.isdigit() else t.lower() for t in re.split(r"(\d+)", text or "")]
+
+
+def courses_by_status(status):
+    """Courses in a section: manual drag order first, otherwise alphabetical/numerical."""
+    items = [c for c in list_courses(section=None) if course_status(c) == status]
+    return sorted(items, key=lambda c: (c["sort_order"] is None, c["sort_order"] or 0,
+                                        _natural_key(c["code"] or c["name"])))
+
+
+def set_course_order(course_ids):
+    """Persist a manual order for the given courses (list of ids, first = top)."""
+    with get_conn() as conn:
+        conn.executemany("UPDATE courses SET sort_order=? WHERE id=?",
+                         [(i, cid) for i, cid in enumerate(course_ids)])
+        conn.commit()
+
+
+def set_course_status(course_id, status):
+    section = "library" if status == "Self-Study" else "courses"
+    _exec("UPDATE courses SET section=?, is_active=? WHERE id=?",
+          (section, 0 if status == "Completed" else 1, course_id))
+
+
+def add_course(code, name, semester, target_hours, status="Active"):
+    cid = _exec("INSERT INTO courses(code,name,semester,target_hours) VALUES (?,?,?,?)",
+                (code, name, semester, target_hours))
+    set_course_status(cid, status)
+    return cid
 
 
 def set_course_active(course_id, active):

@@ -7,37 +7,45 @@ from views import exam_mode_view, homework_view, notes_view, recall_view
 
 def render():
     st.title("Courses")
-    courses = crud.list_courses()
+    st.session_state.setdefault("courses_filter", "Active")
+    groups = {s: crud.courses_by_status(s) for s in crud.STATUSES}
+    choice = st.segmented_control(
+        "Show", list(crud.STATUSES), key="courses_filter", label_visibility="collapsed",
+        format_func=lambda s: f"{s} ({len(groups[s])})") or "Active"
+    courses = groups[choice]
 
+    if not courses:
+        st.info(f"No {choice.lower()} courses.")
     cols = st.columns(2)
     for i, c in enumerate(courses):
         s = crud.course_stats(c["id"])
         with cols[i % 2]:
             with st.container(border=True):
                 st.subheader(crud.label(c))
-                st.caption(f"{c['semester']} · {'Active' if c['is_active'] else 'Archived'}")
+                st.caption(" · ".join(x for x in (c["semester"], choice) if x))
                 st.progress(s["pct"], text=f"Syllabus {s['done']}/{s['topics']} topics")
                 tgt = c["target_hours"] or 0
                 st.progress(min(s["hours"] / tgt, 1.0) if tgt else 0.0,
-                            text=f"Study hours {s['hours']:.1f} / {tgt:.0f}")
+                            text=f"Study hours {s['hours']:.1f} / {tgt:.0f}" if tgt else f"Study hours {s['hours']:.1f}")
                 if st.button("Open", key=f"open_{c['id']}"):
                     st.session_state["course_id"] = c["id"]
                     st.rerun()
 
     st.divider()
     cid = st.session_state.get("course_id")
-    if cid and crud.get_course(cid) and crud.get_course(cid)["section"] == "courses":
+    if cid and crud.get_course(cid):
         _manage(crud.get_course(cid))
 
     with st.expander("➕ Add course"):
         with st.form("add_course", clear_on_submit=True):
             a, b = st.columns(2)
-            code = a.text_input("Code", placeholder="PHYS102")
+            status = a.selectbox("Type", list(crud.STATUSES))
             name = b.text_input("Name")
-            sem = a.text_input("Semester", value="Fall 2026")
-            hrs = b.number_input("Target study hours", 0.0, 1000.0, 60.0)
-            if st.form_submit_button("Create") and code and name:
-                crud.add_course(code, name, sem, hrs)
+            code = a.text_input("Course number (optional for self-study)", placeholder="PHYS 6105")
+            sem = b.text_input("Semester", value="Fall 2026")
+            hrs = a.number_input("Target study hours", 0.0, 1000.0, 60.0)
+            if st.form_submit_button("Create") and name and (code or status == "Self-Study"):
+                crud.add_course(code, name, sem, hrs, status)
                 st.rerun()
 
 
@@ -87,7 +95,10 @@ def _syllabus(course):
         for l in crud.recent_logs(cid):
             st.caption(f"{l['logged_on']} · {l['hours']}h · {l['note'] or ''}")
 
-        active = st.toggle("Active this semester", value=bool(course["is_active"]), key=f"act_{cid}")
-        if active != bool(course["is_active"]):
-            crud.set_course_active(cid, active)
+        cur = crud.course_status(course)
+        status = st.radio("Type", list(crud.STATUSES), index=crud.STATUSES.index(cur), horizontal=True,
+                          key=f"status_{cid}")
+        if status != cur:
+            crud.set_course_status(cid, status)
+            st.session_state["courses_filter"] = status
             st.rerun()

@@ -1,4 +1,4 @@
-"""Study Planner & Course Management - Streamlit entry point."""
+"""Study Assistant - Streamlit entry point."""
 import streamlit as st
 import streamlit.components.v1 as components
 
@@ -18,7 +18,7 @@ import settings
 from database import init_db
 from views import courses_view, home_view, library_view, settings_view
 
-st.set_page_config(page_title="Study Planner", page_icon=":material/book:", layout="wide",
+st.set_page_config(page_title="Study Assistant", page_icon=":material/book:", layout="wide",
                    initial_sidebar_state="expanded")
 init_db()
 
@@ -49,7 +49,7 @@ section[data-testid="stSidebar"] {{
     overflow: visible !important; border: none; z-index: 1000; background: #1b1c20 !important;}}
 section[data-testid="stSidebar"] > div:first-child {{
     position: absolute; top: 0; left: 0; height: 100vh; width: {COLLAPSED_W}px !important;
-    overflow: hidden; background: #1b1c20; border-right: 1px solid #2a2c33;
+    overflow-x: hidden; overflow-y: auto; scrollbar-width: none; background: #1b1c20; border-right: 1px solid #2a2c33;
     transition: width .2s ease, box-shadow .2s ease;}}
 section[data-testid="stSidebar"] > div:first-child:hover {{
     width: {EXPANDED_W}px !important; box-shadow: 8px 0 24px #00000066;}}
@@ -61,7 +61,7 @@ header[data-testid="stHeader"] {{z-index: 1; background: transparent;}}
 
 /* Nav buttons (no radio dots) */
 [data-testid="stSidebar"] button {{
-    width: calc(100% - 20px) !important; margin: 0; justify-content: flex-start; gap: 19px; padding: 0.8rem 16px;
+    width: calc(100% - 20px) !important; margin: 0 10px; justify-content: flex-start; gap: 19px; padding: 0.8rem 16px;
     border-radius: 12px; border: none; border-left: 3px solid transparent;
     background: transparent; box-shadow: none; white-space: nowrap;}}
 [data-testid="stSidebar"] button p {{font-size: 1.05rem; color: #d5d7dd; white-space: nowrap; opacity: 0; transition: opacity .15s;}}
@@ -96,18 +96,18 @@ section[data-testid="stSidebar"].nav-collapsed .st-key-nav_expand {{display: blo
 section[data-testid="stSidebar"].nav-collapsed .st-key-nav_collapse {{display: none !important;}}
 .st-key-nav_head [data-testid="stButton"] {{display: flex; justify-content: flex-end;}}
 .st-key-nav_expand [data-testid="stButton"] {{justify-content: flex-start;}}
-.st-key-nav_head button {{margin: 0 17px 0 0 !important;}}
-.st-key-nav_expand button {{margin: 0 !important;}}
+.st-key-nav_head button {{margin: 0 7px 0 0 !important;}}
+.st-key-nav_expand button {{margin: 0 0 0 10px !important;}}
 
 /* Courses: sub-items revealed while hovering the Courses group */
 [class*="st-key-nav_sub"] {{max-height: 0; overflow: hidden; transition: max-height .25s ease;}}
-[class*="st-key-nav_group_"]:hover [class*="st-key-nav_sub"] {{max-height: 400px;}}
+[class*="st-key-nav_group_"]:hover [class*="st-key-nav_sub"] {{max-height: 2400px;}}
 [class*="st-key-nav_sub"] button {{padding: 0.5rem 16px 0.5rem 34px !important;}}
 
 /* Folded rail: compact centered icon blocks with even edge spacing */
 section[data-testid="stSidebar"] > div:first-child:not(:hover) button,
 section[data-testid="stSidebar"].nav-collapsed > div:first-child button {{
-    width: {COLLAPSED_W - 20}px !important; margin: 0 !important; padding-left: 0 !important; padding-right: 0 !important;}}
+    width: {COLLAPSED_W - 20}px !important; margin: 0 10px !important; padding-left: 0 !important; padding-right: 0 !important;}}
 section[data-testid="stSidebar"] > div:first-child:not(:hover) button > div,
 section[data-testid="stSidebar"].nav-collapsed > div:first-child button > div {{justify-content: center;}}
 section[data-testid="stSidebar"] > div:first-child:not(:hover) button > div > span,
@@ -116,6 +116,14 @@ section[data-testid="stSidebar"] > div:first-child:not(:hover) button [data-test
 section[data-testid="stSidebar"].nav-collapsed > div:first-child button [data-testid="stMarkdownContainer"] {{display: none;}}
 section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-height: 0 !important;}}
 
+.nav-label {{font-size: 1.05rem; color: #7d8190; padding: 0.9rem 0 0.4rem 44px; margin-bottom: 1rem; line-height: 1.2;
+    white-space: nowrap;}}
+
+.st-key-nav_order_sink {{position: absolute !important; width: 1px; height: 1px; overflow: hidden; opacity: 0; pointer-events: none;}}
+.nav-dragging {{opacity: 0.4;}}
+.nav-drop-above button {{box-shadow: 0 -2px 0 0 #4c8dff !important;}}
+.nav-drop-below button {{box-shadow: 0 2px 0 0 #4c8dff !important;}}
+
 /* Appearance cards */
 .st-key-appearance button {{height: 130px; border-radius: 12px; border: 1px solid var(--border); background: transparent;}}
 .st-key-appearance button > div > span {{flex-direction: column; gap: 10px;}}
@@ -123,7 +131,7 @@ section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-h
 .st-key-appearance button span[data-testid="stIconMaterial"] {{font-size: 2rem;}}
 </style>
 """
-COURSE_ICON_CSS = "".join(icons.css_for_course(c["id"], c["icon"]) for c in crud.list_courses(active_only=True, section=None) if icons.is_custom(c["icon"]))
+COURSE_ICON_CSS = "".join(icons.css_for_course(c["id"], c["icon"]) for c in crud.list_courses(section=None) if icons.is_custom(c["icon"]))
 st.markdown(CSS + f"<style>{COURSE_ICON_CSS}</style>", unsafe_allow_html=True)
 
 # Collapse the rail after a click; re-arm when the mouse leaves it.
@@ -143,6 +151,65 @@ if (!window.parent.__navHooked) {
 }
 </script>""", height=0)
 
+components.html("""
+<script>
+const win = window.parent, doc = win.document;
+if (!win.__navDragV1) {
+  win.__navDragV1 = true;
+  let dragged = null;
+  const SEL = '[class*="st-key-nav_course_"]';
+  const course = el => (el && el.closest) ? el.closest(SEL) : null;
+  const idOf = c => (c.className.match(/st-key-nav_course_(\d+)/) || [])[1];
+  const sectionOf = c => {
+    for (let e = c.previousElementSibling; e; e = e.previousElementSibling)
+      if (e.querySelector('.nav-label')) return e;
+    return null;
+  };
+  const members = label => {
+    const out = [];
+    for (let e = label.nextElementSibling; e && !e.querySelector('.nav-label'); e = e.nextElementSibling)
+      if (e.matches(SEL)) out.push(e);
+    return out;
+  };
+  const clear = () => doc.querySelectorAll('.nav-drop-above,.nav-drop-below,.nav-dragging')
+      .forEach(e => e.classList.remove('nav-drop-above', 'nav-drop-below', 'nav-dragging'));
+  const arm = () => doc.querySelectorAll(SEL + ' button').forEach(b => b.setAttribute('draggable', 'true'));
+  doc.addEventListener('mouseover', arm);
+  doc.addEventListener('dragstart', e => {
+    const c = course(e.target); if (!c) return;
+    dragged = c; c.classList.add('nav-dragging');
+    e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', idOf(c));
+  });
+  doc.addEventListener('dragover', e => {
+    if (!dragged) return;
+    const t = course(e.target);
+    if (!t || t === dragged || sectionOf(t) !== sectionOf(dragged)) return;
+    e.preventDefault();
+    const r = t.getBoundingClientRect();
+    doc.querySelectorAll('.nav-drop-above,.nav-drop-below').forEach(x => x.classList.remove('nav-drop-above', 'nav-drop-below'));
+    t.classList.add(e.clientY > r.top + r.height / 2 ? 'nav-drop-below' : 'nav-drop-above');
+  });
+  doc.addEventListener('drop', e => {
+    if (!dragged) return;
+    const t = course(e.target);
+    if (!t || t === dragged || sectionOf(t) !== sectionOf(dragged)) { clear(); dragged = null; return; }
+    e.preventDefault();
+    const r = t.getBoundingClientRect(), below = e.clientY > r.top + r.height / 2;
+    const ids = members(sectionOf(dragged)).map(idOf).filter(i => i !== idOf(dragged));
+    let at = ids.indexOf(idOf(t)); if (below) at += 1;
+    ids.splice(at, 0, idOf(dragged));
+    clear(); dragged = null;
+    const inp = doc.querySelector('.st-key-nav_order_sink input'); if (!inp) return;
+    const set = Object.getOwnPropertyDescriptor(win.HTMLInputElement.prototype, 'value').set;
+    inp.focus(); set.call(inp, ids.join(',') + '|' + Date.now());
+    inp.dispatchEvent(new win.Event('input', {bubbles: true}));
+    inp.dispatchEvent(new win.KeyboardEvent('keydown', {key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true}));
+    inp.blur();
+  });
+  doc.addEventListener('dragend', () => { clear(); dragged = null; });
+}
+</script>""", height=0)
+
 st.session_state.setdefault("page", "Home")
 st.session_state.setdefault("mode", "Detailed")
 st.session_state.setdefault("pdf_page", 1)
@@ -152,35 +219,46 @@ def nav_button(label, icon):
     active = st.session_state["page"] == label
     if st.button(label, icon=icon, key=f"nav_{label}", type="primary" if active else "tertiary"):
         st.session_state["page"] = label
-        if label == "Library":
-            st.session_state["lib_course"] = None  # top-level Library shows the reference overview
         st.rerun()
 
 
-def course_sub_buttons(section, page):
-    """Per-item shortcuts nested under a menu entry (numbered courses or library subjects)."""
-    with st.container(key=f"nav_sub_{section}"):
-        for c in crud.list_courses(active_only=True, section=section):
-            sel_key = "course_id" if section == "courses" else "lib_course"
-            selected = st.session_state["page"] == page and st.session_state.get(sel_key) == c["id"]
-            icon = ":material/water:" if icons.is_custom(c.get("icon")) else c.get("icon") or ":material/book:"
-            if st.button(c["code"] or c["name"], icon=icon, key=f"nav_course_{c['id']}",
-                         type="primary" if selected else "tertiary"):
-                st.session_state["page"] = page
-                st.session_state[sel_key] = c["id"]
-                st.session_state["course_id"] = c["id"]
-                st.rerun()
+def _open_course(c):
+    st.session_state["page"] = "Courses"
+    st.session_state["course_id"] = c["id"]
+    st.session_state["courses_filter"] = crud.course_status(c)
+    st.rerun()
+
+
+def course_sub_buttons():
+    """Courses submenu sections: Active, Self-Study, Completed."""
+    with st.container(key="nav_sub_courses"):
+        for title, status in (("Active", "Active"), ("Self-Study", "Self-Study"), ("Completed", "Completed")):
+            items = crud.courses_by_status(status)
+            if not items:
+                continue
+            st.markdown(f'<div class="nav-label">{title}</div>', unsafe_allow_html=True)
+            for c in items:
+                selected = st.session_state["page"] == "Courses" and st.session_state.get("course_id") == c["id"]
+                icon = ":material/water:" if icons.is_custom(c.get("icon")) else c.get("icon") or ":material/book:"
+                if st.button(c["code"] or c["name"], icon=icon, key=f"nav_course_{c['id']}",
+                             type="primary" if selected else "tertiary"):
+                    _open_course(c)
 
 
 with st.sidebar:
+    # Hidden channel: the drag script writes "id,id,...|stamp" here and we persist the new order.
+    sink = st.text_input("order", key="nav_order_sink", label_visibility="collapsed")
+    if sink and sink != st.session_state.get("_order_saved"):
+        st.session_state["_order_saved"] = sink
+        crud.set_course_order([int(i) for i in sink.split("|")[0].split(",") if i.isdigit()])
     with st.container(key="nav_head"):
         st.button(" ", icon=":material/keyboard_double_arrow_right:", key="nav_expand", type="tertiary")
         st.button(" ", icon=":material/keyboard_double_arrow_left:", key="nav_collapse", type="tertiary")
     for label, (icon, _) in NAV_TOP.items():
-        if label in ("Courses", "Library"):
-            with st.container(key=f"nav_group_{label}"):
+        if label == "Courses":
+            with st.container(key="nav_group_Courses"):
                 nav_button(label, icon)
-                course_sub_buttons("courses" if label == "Courses" else "library", label)
+                course_sub_buttons()
         else:
             nav_button(label, icon)
     with st.container(key="nav_spacer"):
@@ -189,8 +267,8 @@ with st.sidebar:
         nav_button(label, icon)
 
 # Active course is chosen from the Courses sub-menu in the sidebar
-active = crud.list_courses(active_only=True, section=None)
-if st.session_state.get("course_id") not in [c["id"] for c in active]:
-    st.session_state["course_id"] = active[0]["id"] if active else None
+if not crud.get_course(st.session_state.get("course_id")):
+    first = crud.courses_by_status("Active")
+    st.session_state["course_id"] = first[0]["id"] if first else None
 
 PAGES[st.session_state["page"]][1]()
