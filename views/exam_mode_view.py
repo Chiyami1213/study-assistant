@@ -16,12 +16,12 @@ def render():
     s = crud.course_stats(cid)
 
     m1, m2, m3, m4 = st.columns(4)
-    m1.metric("Syllabus done", f"{s['pct']:.0%}")
-    m2.metric("Core concepts", len(core))
-    m3.metric("Open errata", len(open_err))
-    m4.metric("Cards due", len(due))
+    m1.metric("Syllabus Done", f"{s['pct']:.0%}")
+    m2.metric("Core Concepts", len(core))
+    m3.metric("Open Errata", len(open_err))
+    m4.metric("Cards Due", len(due))
 
-    tab_f, tab_c, tab_e = st.tabs(["📄 Formula sheet", "⭐ High-yield concepts", "🐞 Known errata"])
+    tab_f, tab_c, tab_e = st.tabs(["📄 Formula Sheet", "⭐ High-Yield Concepts", "🐞 Known Errata"])
     with tab_f:
         formulas = [n for n in core if n["key_formula"]]
         if not formulas:

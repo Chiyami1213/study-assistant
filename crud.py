@@ -96,10 +96,18 @@ CATEGORY_HUES = {"Aerospace": 215, "Biology": 140, "Chemistry": 12, "Economics":
                  "Engineering": 180, "Music": 330, "Physics": 285}
 
 
+def _category_hue(category):
+    """Built-in categories have fixed hues; a custom category gets a stable hue from its name."""
+    if category in CATEGORY_HUES:
+        return CATEGORY_HUES[category]
+    import hashlib
+    return int(hashlib.md5(category.lower().encode()).hexdigest()[:4], 16) % 360
+
+
 def _category_shade(category, course_id):
     """Courses in one category share a hue, with a small shift in hue and lightness per course."""
     import colorsys
-    hue = (CATEGORY_HUES[category] + ((course_id * 7) % 5 - 2) * 5) % 360
+    hue = (_category_hue(category) + ((course_id * 7) % 5 - 2) * 5) % 360
     light = (0.34, 0.39, 0.44)[course_id % 3]
     r, g, b = colorsys.hls_to_rgb(hue / 360, light, 0.52)
     return "#{:02x}{:02x}{:02x}".format(int(r * 255), int(g * 255), int(b * 255))
@@ -109,7 +117,7 @@ def course_color(course):
     """Tile color: the user's choice, else a shade of the category color, else a palette color."""
     if course.get("color"):
         return course["color"]
-    if course.get("category") in CATEGORY_HUES:
+    if course.get("category"):
         return _category_shade(course["category"], course["id"])
     return COURSE_PALETTE[course["id"] % len(COURSE_PALETTE)]
 
@@ -121,6 +129,23 @@ def darken(hex_color, factor=0.7):
 
 
 CATEGORIES = ["Aerospace", "Biology", "Chemistry", "Economics", "Engineering", "Music", "Physics"]
+
+
+def all_categories():
+    """Built-in categories first, then any custom category that a course uses (alphabetical)."""
+    used = {c["category"] for c in list_courses(section=None) if c.get("category")}
+    return CATEGORIES + sorted(used - set(CATEGORIES), key=str.lower)
+
+
+def normalize_category(name):
+    """Trim a typed category; reuse an existing one that differs only by case."""
+    name = " ".join((name or "").split())
+    if not name:
+        return None
+    for existing in all_categories():
+        if existing.lower() == name.lower():
+            return existing
+    return name[0].upper() + name[1:]
 
 
 def set_course_category(course_id, category):

@@ -79,18 +79,18 @@ def render():
     st.divider()
     left, right = st.columns([2, 3])
     with left:
-        st.subheader("Add event")
+        st.subheader("Add Event")
         courses = {0: "None"} | {c["id"]: crud.label(c) for c in crud.list_courses(section=None)}
         with st.form("add_event", clear_on_submit=True):
-            title = st.text_input("Title", placeholder="Midterm exam")
+            title = st.text_input("Title", placeholder="Midterm Exam")
             when = st.date_input("Date", value=today)
-            course_id = st.selectbox("Course (optional)", list(courses), format_func=courses.get)
+            course_id = st.selectbox("Course (Optional)", list(courses), format_func=courses.get)
             if st.form_submit_button("Add") and title.strip():
                 crud.add_event(title.strip(), when.isoformat(), course_id or None)
                 st.session_state["cal_month"] = (when.year, when.month)
                 st.rerun()
     with right:
-        st.subheader("This month")
+        st.subheader("This Month")
         first = date(year, month, 1).isoformat()
         last = date(year, month, calendar.monthrange(year, month)[1]).isoformat()
         homework = crud.homework_due_between(first, last)
@@ -98,7 +98,7 @@ def render():
         if not homework and not events:
             st.caption("Nothing scheduled this month.")
         for hw in homework:
-            st.markdown(f"**{hw['due_date']}** · Homework due: {hw['title']}")
+            st.markdown(f"**{hw['due_date']}** · Homework Due: {hw['title']}")
         for ev in events:
             a, b = st.columns([6, 1], vertical_alignment="center")
             a.markdown(f"**{ev['date']}** · {ev['title']}")

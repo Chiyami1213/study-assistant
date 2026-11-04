@@ -26,7 +26,7 @@ def render_note(note, mode):
         if note["key_formula"]:
             st.markdown(note["key_formula"])
         if note["derivation_md"]:
-            with st.expander("Step-by-step derivation", expanded=True):
+            with st.expander("Step-by-Step Derivation", expanded=True):
                 st.markdown(note["derivation_md"])
 
 
@@ -48,7 +48,7 @@ def pdf_viewer(ref):
                     f'height="700" style="border:0;border-radius:8px"></iframe>', unsafe_allow_html=True)
     else:
         st.info(f"No PDF attached to “{ref['title']}” yet. Upload one below to enable page jumping.")
-    up = st.file_uploader("Attach / replace PDF", type="pdf", key=f"up_{ref['id']}")
+    up = st.file_uploader("Attach / Replace PDF", type="pdf", key=f"up_{ref['id']}")
     if up:
         dest = PDF_DIR / f"ref_{ref['id']}.pdf"
         dest.write_bytes(up.getvalue())
@@ -60,12 +60,12 @@ def _errata_panel(cid, notes, refs):
     st.markdown("### 🐞 Errata")
     note_map = {0: "(none)", **{n["id"]: n["title"] for n in notes}}
     with st.form("add_erratum", clear_on_submit=True):
-        desc = st.text_area("What's wrong?", height=70)
-        fix = st.text_input("Correction (optional, LaTeX ok)")
+        desc = st.text_area("What's Wrong?", height=70)
+        fix = st.text_input("Correction (Optional, LaTeX OK)")
         a, b = st.columns(2)
         nid = a.selectbox("Note", list(note_map), format_func=note_map.get)
-        page = b.number_input("Page (0 = n/a)", 0, 9999, 0)
-        if st.form_submit_button("Log erratum") and desc:
+        page = b.number_input("Page (0 = N/A)", 0, 9999, 0)
+        if st.form_submit_button("Log Erratum") and desc:
             crud.add_erratum(cid, desc, fix, nid or None, refs[0]["id"] if refs and page else None, page or None)
             st.rerun()
 
@@ -85,16 +85,16 @@ def _errata_panel(cid, notes, refs):
 
 
 def _new_note_form(cid):
-    with st.expander("➕ New note"):
+    with st.expander("New Note"):
         with st.form("new_note", clear_on_submit=True):
             title = st.text_input("Title")
             body = st.text_area("Prose (Markdown + $LaTeX$)", height=100)
-            deriv = st.text_area("Derivation (collapsible)", height=100)
-            formula = st.text_input("Key formula (e.g. $$E=mc^2$$)")
+            deriv = st.text_area("Derivation (Collapsible)", height=100)
+            formula = st.text_input("Key Formula (e.g., $$E=mc^2$$)")
             a, b = st.columns(2)
-            imp = a.selectbox("Importance", ["core", "detail"])
-            page = b.number_input("Reference page (0 = none)", 0, 9999, 0)
-            if st.form_submit_button("Save note") and title:
+            imp = a.selectbox("Importance", ["core", "detail"], format_func=str.title)
+            page = b.number_input("Reference Page (0 = None)", 0, 9999, 0)
+            if st.form_submit_button("Save Note") and title:
                 crud.add_note(cid, title, body, deriv, formula, imp, page or None)
                 st.rerun()
 

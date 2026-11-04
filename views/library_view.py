@@ -87,7 +87,8 @@ def _course_options():
 
 @st.dialog("Add File", width="large")
 def _add_dialog():
-    up = st.file_uploader("File", type=["pdf", "html", "htm"])
+    with st.container(key="library_file_box"):
+        up = st.file_uploader("File", type=["pdf", "html", "htm"])
     info = {"title": "", "author": "", "edition": "", "pages": None, "source": ""}
     if up:
         cache = st.session_state.setdefault("_pdf_info", {})
@@ -107,16 +108,16 @@ def _add_dialog():
     title = st.text_input("Title", value=info["title"], key=f"bk_title_{k}")
     c1, c2 = st.columns(2)
     author = c1.text_input("Author", value=info["author"], key=f"bk_author_{k}")
-    edition = c2.text_input("Edition / year", value=info["edition"], key=f"bk_edition_{k}",
+    edition = c2.text_input("Edition / Year", value=info["edition"], key=f"bk_edition_{k}",
                             placeholder="7th Edition (2019)")
     courses = _course_options()
     guess = detect_course(up.name, info["title"]) if up else None
     ids = list(courses)
-    course_id = st.selectbox("Course (optional)", ids, index=ids.index(guess) if guess in ids else 0,
+    course_id = st.selectbox("Course (Optional)", ids, index=ids.index(guess) if guess in ids else 0,
                              format_func=courses.get, key=f"bk_course_{k}")
     if guess:
         st.caption(f"Course detected from the file name: {crud.label(crud.get_course(guess))}")
-    if st.button("Add to library", type="primary", disabled=not (up and title.strip())):
+    if st.button("Add to Library", type="primary", disabled=not (up and title.strip())):
         PDF_DIR.mkdir(parents=True, exist_ok=True)
         ext = ".pdf" if up.name.lower().endswith(".pdf") else ".html"
         dest = PDF_DIR / f"book_{uuid.uuid4().hex[:10]}{ext}"
@@ -128,7 +129,7 @@ def _add_dialog():
 
 def _viewer(book):
     """Preview: pages rendered as images, with prev/next, page jump and zoom."""
-    if st.button("← Back to library"):
+    if st.button("← Back to Library"):
         st.session_state["open_book"] = None
         st.rerun()
     st.header(book["title"])
@@ -157,17 +158,17 @@ def _viewer(book):
 
 @st.dialog("Edit File", width="large")
 def _edit_dialog(book):
-    st.caption(f"Stored file: {book['pdf_path']}")
+    st.caption(f"Stored File: {book['pdf_path']}")
     kind = st.segmented_control("Type", KINDS, default=book["kind"] if book["kind"] in KINDS else "Textbook",
                                 key=f"ek_{book['id']}") or book["kind"]
     title = st.text_input("Title", value=book["title"], key=f"et_{book['id']}")
     c1, c2 = st.columns(2)
     author = c1.text_input("Author", value=book["author"] or "", key=f"ea_{book['id']}")
-    edition = c2.text_input("Edition / year", value=book["edition"] or "", key=f"ee_{book['id']}")
+    edition = c2.text_input("Edition / Year", value=book["edition"] or "", key=f"ee_{book['id']}")
     courses = _course_options()
     ids = list(courses)
     cur = book["course_id"] if book["course_id"] in courses else 0
-    course_id = st.selectbox("Course (optional)", ids, index=ids.index(cur), format_func=courses.get,
+    course_id = st.selectbox("Course (Optional)", ids, index=ids.index(cur), format_func=courses.get,
                              key=f"ec_{book['id']}")
 
     a, b, _ = st.columns([1, 1.4, 8])
@@ -181,11 +182,11 @@ def _edit_dialog(book):
 
     st.divider()
     confirm = f"confirm_remove_{book['id']}"
-    if st.button("Remove from library", key=f"del_book_{book['id']}"):
+    if st.button("Remove from Library", key=f"del_book_{book['id']}"):
         st.session_state[confirm] = True
     if st.session_state.get(confirm):
         st.warning("This also deletes the stored copy in data/pdfs. Your original file is not touched.")
-        if st.button("Yes, remove it", type="primary", key=f"del_yes_{book['id']}"):
+        if st.button("Yes, Remove It", type="primary", key=f"del_yes_{book['id']}"):
             p = BASE_DIR / book["pdf_path"]
             crud.delete_book(book["id"])
             covers.remove_cover(book["id"])

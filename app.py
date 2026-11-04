@@ -62,16 +62,16 @@ header[data-testid="stHeader"] {{z-index: 1; background: transparent;}}
 
 /* Nav buttons (no radio dots) */
 [data-testid="stSidebar"] button {{
-    width: calc(100% - 20px) !important; margin: 0 10px; justify-content: flex-start; gap: 19px; padding: 0.8rem 16px;
-    border-radius: 12px; border: none; border-left: 3px solid transparent;
+    width: calc(100% - 20px) !important; margin: 0 10px; justify-content: flex-start; gap: 19px; padding: 0.8rem 18px;
+    border-radius: 12px; border: 1px solid transparent;
     background: transparent; box-shadow: none; white-space: nowrap;}}
 [data-testid="stSidebar"] button p {{font-size: 1.05rem; color: #d5d7dd; white-space: nowrap; opacity: 0; transition: opacity .15s;}}
 section[data-testid="stSidebar"] > div:first-child:hover button p {{opacity: 1;}}
 section[data-testid="stSidebar"].nav-collapsed > div:first-child button p {{opacity: 0 !important;}}
 [data-testid="stSidebar"] button span[data-testid="stIconMaterial"] {{font-size: 1.5rem; color: #d5d7dd;}}
-[data-testid="stSidebar"] button:hover {{background: #23252c; border-left-color: transparent;}}
+[data-testid="stSidebar"] button:hover {{background: #23252c;}}
 [data-testid="stSidebar"] button[data-testid="stBaseButton-primary"] {{
-    background: #252d42; border-left-color: #4c8dff;}}
+    background: transparent; border-color: rgba(255, 255, 255, 0.9);}}
 [data-testid="stSidebar"] button[data-testid="stBaseButton-primary"] p,
 [data-testid="stSidebar"] button[data-testid="stBaseButton-primary"] span[data-testid="stIconMaterial"] {{color: #fff;}}
 [data-testid="stSidebarResizeHandle"] {{display: none !important;}}
@@ -103,7 +103,7 @@ section[data-testid="stSidebar"].nav-collapsed .st-key-nav_collapse {{display: n
 /* Courses: sub-items revealed while hovering the Courses group */
 [class*="st-key-nav_sub"] {{max-height: 0; overflow: hidden; transition: max-height .25s ease;}}
 [class*="st-key-nav_group_"]:hover [class*="st-key-nav_sub"] {{max-height: 2400px;}}
-[class*="st-key-nav_sub"] button {{padding: 0.5rem 16px 0.5rem 34px !important;}}
+[class*="st-key-nav_sub"] button {{padding: 0.5rem 16px 0.5rem 36px !important;}}
 
 /* Folded rail: compact centered icon blocks with even edge spacing */
 section[data-testid="stSidebar"] > div:first-child:not(:hover) button,
@@ -132,7 +132,7 @@ section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-h
 
 /* Foldable section headings in the Courses submenu */
 [class*="st-key-nav_sub"] [class*="st-key-nav_sec_"] button, [class*="st-key-nav_sec_"] button {{
-    padding: 0.55rem 16px 0.35rem 28px !important; gap: 8px !important;}}
+    padding: 0.55rem 16px 0.35rem 30px !important; gap: 8px !important;}}
 [class*="st-key-nav_sec_"] button p {{color: #7d8190 !important;}}
 [class*="st-key-nav_sec_"] button span[data-testid="stIconMaterial"] {{font-size: 1.2rem !important; color: #7d8190 !important;}}
 [class*="st-key-nav_sec_"] button:hover {{background: transparent !important;}}
@@ -145,7 +145,11 @@ section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-h
 [data-testid="stFileUploaderDropzoneInstructions"] {{display: none;}}
 /* Accepted file types shown beside the Upload button (until a file is chosen) */
 [data-testid="stFileUploaderDropzone"]:not(:has([data-testid="stFileUploaderFile"]))::after {{
-    content: "PDF, HTML"; color: #8b90a0; font-size: 0.9rem; margin-left: 14px; align-self: center;}}
+    color: #8b90a0; font-size: 0.9rem; margin-left: 14px; align-self: center;}}
+.st-key-library_file_box [data-testid="stFileUploaderDropzone"]:not(:has([data-testid="stFileUploaderFile"]))::after {{
+    content: "PDF, HTML";}}
+[class*="st-key-photo_box_"] [data-testid="stFileUploaderDropzone"]:not(:has([data-testid="stFileUploaderFile"]))::after {{
+    content: "PNG, JPG, HEIC, WebP, GIF";}}
 
 /* Library card menu button: plain "..." (opens the Edit File window) */
 [class*="st-key-menu_"] button {{min-width: 34px; padding: 0 4px; min-height: 0; justify-content: flex-end;}}
@@ -165,12 +169,17 @@ section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-h
 [class*="st-key-bookcard_"] {{position: relative;}}
 [class*="st-key-bookcard_"]:hover .book-cover {{filter: brightness(1.08);}}
 [class*="st-key-cover_"] {{position: absolute !important; top: 0; left: 0; width: 100%; aspect-ratio: 2 / 3; z-index: 2;}}
+[class*="st-key-cover_"] [data-testid="stButton"], [class*="st-key-tile_"] [data-testid="stButton"] {{width: 100%; height: 100%;}}
 [class*="st-key-cover_"] button {{width: 100%; height: 100% !important; opacity: 0; cursor: pointer; min-height: 0;}}
 .book-cover.has-img {{background-size: cover; background-position: top center; padding: 0;}}
 .book-badge.tag {{color: #fff !important;}}
 .book-badge.status {{border-color: var(--border); color: var(--text); opacity: 0.85;}}
 .book-badge.status.active {{border-color: #2f9e5f; color: #2f9e5f; background: rgba(47, 158, 95, 0.12); opacity: 1;}}
 .book-badge.status.completed {{border-color: #6a77dd; color: #6a77dd; background: rgba(106, 119, 221, 0.12); opacity: 1;}}
+
+/* Add Course button: plain outlined button at the top right */
+.st-key-add_course_open {{width: 100% !important;}}
+.st-key-add_course_open [data-testid="stButton"] {{width: 100%; display: flex; justify-content: flex-end;}}
 
 /* Course summary tiles */
 .course-tile {{aspect-ratio: 1 / 1; border-radius: 14px; padding: 16px; display: flex; flex-direction: column;
@@ -255,7 +264,7 @@ if (!win.__navDragV2) {
   let dragged = null;
   const SEL = '[class*="st-key-nav_course_"]';
   const course = el => (el && el.closest) ? el.closest(SEL) : null;
-  const idOf = c => (c.className.match(/st-key-nav_course_(\d+)/) || [])[1];
+  const idOf = c => (c.className.match(/st-key-nav_course_([0-9]+)/) || [])[1];
   const sectionOf = c => {
     for (let e = c.previousElementSibling; e; e = e.previousElementSibling)
       if (e.matches('[class*="st-key-nav_sec_"]')) return e;

@@ -27,7 +27,7 @@ OVERRIDE = """
 .stApp button[data-testid^="stBaseButton-secondary"], .stApp [data-testid="stDownloadButton"] button,
 .stApp [data-testid="stFormSubmitButton"] button {
     background: var(--bg) !important; border: 1px solid var(--border) !important;}
-.stApp [data-testid="stProgress"] > div > div {background: var(--border) !important;}
+.stApp [data-testid="stProgressBarTrack"] {background: var(--border) !important;}
 .stApp [data-testid="stCode"], .stApp pre {background: var(--input) !important;}
 [data-baseweb="popover"] *, [data-baseweb="menu"] {background-color: var(--bg2) !important; color: var(--text) !important;}
 [data-testid="stVerticalBlockBorderWrapper"] {border-color: var(--border) !important;}
@@ -36,6 +36,16 @@ OVERRIDE = """
 .stApp button[data-variant="segmented_control"][aria-checked="false"] {background: var(--bg) !important; border-color: var(--border) !important;}
 .stApp button[data-variant="segmented_control"][aria-checked="false"] p {color: var(--text) !important;}
 .stApp button[data-testid^="stBaseButton-primary"] p {color: #fff !important;}
+/* select dropdown lists render outside .stApp in their own virtual list */
+[data-testid="stSelectboxVirtualDropdown"] {background: var(--bg2) !important;}
+[data-testid="stSelectboxVirtualDropdown"] [role="option"] {color: var(--text) !important;}
+[data-testid="stSelectboxVirtualDropdown"] [role="option"]:hover,
+[data-testid="stSelectboxVirtualDropdown"] [role="option"][aria-selected="true"] {background: var(--hover) !important;}
+/* the selected Light/Dark/Device card is a primary button on a light tint: keep its text dark */
+.stApp .st-key-appearance button[data-testid^="stBaseButton-primary"] p {color: var(--active-text) !important;}
+/* dialogs render outside .stApp, so they need their own filter-pill rules */
+[role="dialog"] button[data-variant="segmented_control"][aria-checked="false"] {background: var(--bg2) !important; border-color: var(--border) !important;}
+[role="dialog"] button[data-variant="segmented_control"][aria-checked="false"] p {color: var(--text) !important;}
 [role="dialog"] {background: var(--bg2) !important;}
 [role="dialog"] p, [role="dialog"] label, [role="dialog"] h2, [role="dialog"] span {color: var(--text) !important;}
 [role="dialog"] input, [role="dialog"] [data-baseweb="select"] > div, [role="dialog"] [data-testid="stFileUploaderDropzone"] {

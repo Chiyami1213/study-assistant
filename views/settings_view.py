@@ -6,7 +6,7 @@ import settings
 OPTIONS = {
     "light": (":material/light_mode:", "Light"),
     "dark": (":material/dark_mode:", "Dark"),
-    "device": (":material/desktop_windows:", "Use device settings"),
+    "device": (":material/desktop_windows:", "Use Device Settings"),
 }
 
 
