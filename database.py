@@ -114,6 +114,18 @@ CREATE TABLE IF NOT EXISTS quizzes (
     next_review  TEXT NOT NULL DEFAULT (date('now'))
 );
 
+-- Library books / PDFs (stored under data/pdfs). course_id is optional.
+CREATE TABLE IF NOT EXISTS books (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    title       TEXT NOT NULL,
+    author      TEXT,
+    edition     TEXT,
+    pdf_path    TEXT NOT NULL,
+    total_pages INTEGER,
+    course_id   INTEGER REFERENCES courses(id) ON DELETE SET NULL,
+    added_at    TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE INDEX IF NOT EXISTS idx_notes_course  ON notes(course_id);
 CREATE INDEX IF NOT EXISTS idx_errata_course ON errata(course_id);
 CREATE INDEX IF NOT EXISTS idx_quiz_review   ON quizzes(course_id, next_review);
@@ -135,6 +147,9 @@ def init_db() -> None:
         cols = [r["name"] for r in conn.execute("PRAGMA table_info(courses)")]
         if "icon" not in cols:  # migrate databases created before icons existed
             conn.execute("ALTER TABLE courses ADD COLUMN icon TEXT")
+        book_cols = [r["name"] for r in conn.execute("PRAGMA table_info(books)")]
+        if "author" not in book_cols:
+            conn.execute("ALTER TABLE books ADD COLUMN author TEXT")
         if "sort_order" not in cols:
             conn.execute("ALTER TABLE courses ADD COLUMN sort_order INTEGER")
         if "section" not in cols:

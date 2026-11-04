@@ -124,11 +124,44 @@ section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-h
 .nav-drop-above button {{box-shadow: 0 -2px 0 0 #4c8dff !important;}}
 .nav-drop-below button {{box-shadow: 0 2px 0 0 #4c8dff !important;}}
 
+/* The sidebar stays dark in every theme: beat the Light override's text colors */
+[data-testid="stSidebar"] button p, [data-testid="stSidebar"] button span[data-testid="stIconMaterial"] {{color: #d5d7dd !important;}}
+[data-testid="stSidebar"] button[data-testid="stBaseButton-primary"] p,
+[data-testid="stSidebar"] button[data-testid="stBaseButton-primary"] span[data-testid="stIconMaterial"] {{color: #fff !important;}}
+
+/* Foldable section headings in the Courses submenu */
+[class*="st-key-nav_sub"] [class*="st-key-nav_sec_"] button, [class*="st-key-nav_sec_"] button {{
+    padding: 0.55rem 16px 0.35rem 28px !important; gap: 8px !important;}}
+[class*="st-key-nav_sec_"] button p {{color: #7d8190 !important;}}
+[class*="st-key-nav_sec_"] button span[data-testid="stIconMaterial"] {{font-size: 1.2rem !important; color: #7d8190 !important;}}
+[class*="st-key-nav_sec_"] button:hover {{background: transparent !important;}}
+[class*="st-key-nav_sec_"] button:hover p, [class*="st-key-nav_sec_"] button:hover span[data-testid="stIconMaterial"] {{color: #d5d7dd !important;}}
+
+/* All hover tooltips are lower case (project style) */
+[data-testid="stTooltipContent"] {{text-transform: lowercase;}}
+
+/* No upload size hint ("200MB per file") in file pickers */
+[data-testid="stFileUploaderDropzoneInstructions"] {{display: none;}}
+
+/* Library */
+.lib-title {{font-family: Georgia, "Roboto Slab", serif; font-weight: 700;}}
+.book-cover {{aspect-ratio: 2 / 3; border-radius: 6px; display: flex; align-items: flex-end; padding: 14px;
+    box-shadow: 0 2px 8px #0005; margin-bottom: 0.6rem; color: #fff;}}
+.book-cover span {{font-family: Georgia, serif; font-weight: 700; font-size: 1.15rem; line-height: 1.2;}}
+.book-badge {{display: inline-block; border: 1px solid var(--accent); color: var(--accent); border-radius: 999px;
+    padding: 2px 14px; font-size: 0.85rem;}}
+.stApp .st-key-add_book_tile button[data-testid^="stBaseButton"] {{aspect-ratio: 2 / 3; height: auto !important; min-height: 0; width: 100%;
+    border-style: dashed !important; border-width: 2px !important; border-color: rgba(140, 146, 160, 0.6) !important; border-radius: 6px; background: transparent !important;}}
+.st-key-add_book_tile button:hover {{border-color: var(--accent) !important;}}
+.st-key-add_book_tile button span[data-testid="stIconMaterial"] {{font-size: 2.2rem; color: var(--text);}}
+.st-key-add_book_tile button p {{display: none;}}
+
 /* Appearance cards */
 .st-key-appearance button {{height: 130px; border-radius: 12px; border: 1px solid var(--border); background: transparent;}}
 .st-key-appearance button > div > span {{flex-direction: column; gap: 10px;}}
 .st-key-appearance button[data-testid="stBaseButton-primary"] {{background: var(--active); border-color: var(--accent);}}
-.st-key-appearance button span[data-testid="stIconMaterial"] {{font-size: 2rem;}}
+.st-key-appearance button span[data-testid="stIconMaterial"] {{font-size: 2rem; color: var(--text) !important;}}
+.st-key-appearance button[data-testid="stBaseButton-primary"] span[data-testid="stIconMaterial"] {{color: var(--active-text) !important;}}
 </style>
 """
 COURSE_ICON_CSS = "".join(icons.css_for_course(c["id"], c["icon"]) for c in crud.list_courses(section=None) if icons.is_custom(c["icon"]))
@@ -142,7 +175,7 @@ if (!window.parent.__navHooked) {
   window.parent.__navHooked = true;
   doc.addEventListener('click', e => {
     const sb = doc.querySelector('section[data-testid="stSidebar"]');
-    if (sb && sb.contains(e.target) && e.target.closest('button')) sb.classList.add('nav-collapsed');
+    if (sb && sb.contains(e.target) && e.target.closest('button') && !e.target.closest('[class*="st-key-nav_sec_"]')) sb.classList.add('nav-collapsed');
   }, true);
   doc.addEventListener('mouseover', e => {
     const sb = doc.querySelector('section[data-testid="stSidebar"]');
@@ -154,20 +187,20 @@ if (!window.parent.__navHooked) {
 components.html("""
 <script>
 const win = window.parent, doc = win.document;
-if (!win.__navDragV1) {
-  win.__navDragV1 = true;
+if (!win.__navDragV2) {
+  win.__navDragV2 = true;
   let dragged = null;
   const SEL = '[class*="st-key-nav_course_"]';
   const course = el => (el && el.closest) ? el.closest(SEL) : null;
   const idOf = c => (c.className.match(/st-key-nav_course_(\d+)/) || [])[1];
   const sectionOf = c => {
     for (let e = c.previousElementSibling; e; e = e.previousElementSibling)
-      if (e.querySelector('.nav-label')) return e;
+      if (e.matches('[class*="st-key-nav_sec_"]')) return e;
     return null;
   };
   const members = label => {
     const out = [];
-    for (let e = label.nextElementSibling; e && !e.querySelector('.nav-label'); e = e.nextElementSibling)
+    for (let e = label.nextElementSibling; e && !e.matches('[class*="st-key-nav_sec_"]'); e = e.nextElementSibling)
       if (e.matches(SEL)) out.push(e);
     return out;
   };
@@ -230,13 +263,21 @@ def _open_course(c):
 
 
 def course_sub_buttons():
-    """Courses submenu sections: Active, Self-Study, Completed."""
+    """Courses submenu sections (Active, Self-Study, Completed); click a heading to fold it."""
+    collapsed = st.session_state.setdefault("collapsed_sections", settings.get_collapsed())
     with st.container(key="nav_sub_courses"):
         for title, status in (("Active", "Active"), ("Self-Study", "Self-Study"), ("Completed", "Completed")):
             items = crud.courses_by_status(status)
             if not items:
                 continue
-            st.markdown(f'<div class="nav-label">{title}</div>', unsafe_allow_html=True)
+            closed = status in collapsed
+            if st.button(title, icon=":material/chevron_right:" if closed else ":material/expand_more:",
+                         key=f"nav_sec_{status}", type="tertiary"):
+                collapsed.symmetric_difference_update({status})
+                settings.set_collapsed(collapsed)
+                st.rerun()
+            if closed:
+                continue
             for c in items:
                 selected = st.session_state["page"] == "Courses" and st.session_state.get("course_id") == c["id"]
                 icon = ":material/water:" if icons.is_custom(c.get("icon")) else c.get("icon") or ":material/book:"

@@ -237,3 +237,27 @@ def grade_card(card_id, correct):
     nxt = (date.today() + timedelta(days=BOX_INTERVAL_DAYS[box])).isoformat()
     _exec("""UPDATE quizzes SET box=?, next_review=?, times_right=times_right+?, times_wrong=times_wrong+?
              WHERE id=?""", (box, nxt, int(correct), int(not correct), card_id))
+
+
+# ---------- Library books ----------
+def list_books():
+    return _all("SELECT b.*, c.code AS course_code, c.name AS course_name FROM books b "
+                "LEFT JOIN courses c ON c.id=b.course_id ORDER BY b.title COLLATE NOCASE")
+
+
+def get_book(book_id):
+    return _one("SELECT * FROM books WHERE id=?", (book_id,))
+
+
+def add_book(title, author, edition, pdf_path, total_pages, course_id=None):
+    return _exec("INSERT INTO books(title,author,edition,pdf_path,total_pages,course_id) VALUES (?,?,?,?,?,?)",
+                 (title, author or None, edition or None, pdf_path, total_pages, course_id))
+
+
+def update_book(book_id, title, author, edition):
+    _exec("UPDATE books SET title=?, author=?, edition=? WHERE id=?",
+          (title, author or None, edition or None, book_id))
+
+
+def delete_book(book_id):
+    _exec("DELETE FROM books WHERE id=?", (book_id,))

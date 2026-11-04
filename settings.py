@@ -32,6 +32,11 @@ OVERRIDE = """
 [data-baseweb="popover"] *, [data-baseweb="menu"] {background-color: var(--bg2) !important; color: var(--text) !important;}
 [data-testid="stVerticalBlockBorderWrapper"] {border-color: var(--border) !important;}
 [data-testid="stTabs"] button p {color: var(--text) !important;}
+[role="dialog"] {background: var(--bg2) !important;}
+[role="dialog"] p, [role="dialog"] label, [role="dialog"] h2, [role="dialog"] span {color: var(--text) !important;}
+[role="dialog"] input, [role="dialog"] [data-baseweb="select"] > div, [role="dialog"] [data-testid="stFileUploaderDropzone"] {
+    background: var(--input) !important; color: var(--text) !important;}
+[role="dialog"] button[data-testid^="stBaseButton-secondary"] {background: var(--bg2) !important; border: 1px solid var(--border) !important;}
 """
 
 
@@ -42,14 +47,35 @@ def css_vars(choice):
     return f":root{{{PALETTES[choice]}color-scheme:{choice};}}" + OVERRIDE
 
 
-def get_appearance():
+def _load():
     try:
-        v = json.loads(SETTINGS_FILE.read_text()).get("appearance", "device")
-        return v if v in THEMES else "device"
+        return json.loads(SETTINGS_FILE.read_text())
     except Exception:
-        return "device"
+        return {}
+
+
+def _save(data):
+    SETTINGS_FILE.parent.mkdir(parents=True, exist_ok=True)
+    SETTINGS_FILE.write_text(json.dumps(data))
+
+
+def get_appearance():
+    v = _load().get("appearance", "device")
+    return v if v in THEMES else "device"
 
 
 def set_appearance(choice):
-    SETTINGS_FILE.parent.mkdir(parents=True, exist_ok=True)
-    SETTINGS_FILE.write_text(json.dumps({"appearance": choice}))
+    data = _load()
+    data["appearance"] = choice
+    _save(data)
+
+
+def get_collapsed():
+    """Sidebar sections the user folded (remembered between sessions)."""
+    return set(_load().get("collapsed_sections", []))
+
+
+def set_collapsed(sections):
+    data = _load()
+    data["collapsed_sections"] = sorted(sections)
+    _save(data)
