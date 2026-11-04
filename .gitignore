@@ -1,0 +1,4 @@
+__pycache__/
+*.pyc
+# personal data: database, settings and imported PDFs
+data/
