@@ -153,6 +153,11 @@ def set_course_category(course_id, category):
     _exec("UPDATE courses SET category=? WHERE id=?", (category, course_id))
 
 
+def update_course_fields(course_id, code, name, semester, school, category):
+    _exec("UPDATE courses SET code=?, name=?, semester=?, school=?, category=? WHERE id=?",
+          (code, name, semester or "", school or None, category, course_id))
+
+
 def set_course_color(course_id, color):
     """color=None goes back to the default palette color."""
     _exec("UPDATE courses SET color=? WHERE id=?", (color, course_id))

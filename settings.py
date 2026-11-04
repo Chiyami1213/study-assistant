@@ -55,6 +55,9 @@ OVERRIDE = """
 [data-testid="stSelectboxVirtualDropdown"] [role="option"] {color: var(--text) !important;}
 [data-testid="stSelectboxVirtualDropdown"] [role="option"]:hover,
 [data-testid="stSelectboxVirtualDropdown"] [role="option"][aria-selected="true"] {background: var(--hover) !important;}
+/* only one highlighted row: while the mouse is on another option, the selected one loses its highlight */
+[data-testid="stSelectboxVirtualDropdown"]:has([role="option"]:hover) [role="option"][aria-selected="true"]:not(:hover) {
+    background: transparent !important;}
 /* the selected Light/Dark/Device card is a primary button on a light tint: keep its text dark */
 .stApp .st-key-appearance button[data-testid^="stBaseButton-primary"] p {color: var(--active-text) !important;}
 /* dialogs render outside .stApp, so they need their own filter-pill rules */

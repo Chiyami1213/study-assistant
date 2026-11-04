@@ -70,7 +70,7 @@ def _category_picker(key, label="Category (Optional)", current=None):
 @st.dialog("Add Course", width="large")
 def _add_course_dialog():
     c1, c2 = st.columns(2)
-    status = c1.selectbox("Type", list(crud.STATUSES))
+    status = c1.selectbox("Status", list(crud.STATUSES))
     name = c2.text_input("Name")
     code = c1.text_input("Course Number (Optional for Self-Study)", placeholder="PHYS 6105")
     sem = c2.text_input("Semester", value="Fall 2026")
@@ -89,7 +89,55 @@ def _add_course_dialog():
         st.rerun()
 
 
-SORTS = ["Default", "Course Number", "Name", "Category", "Semester", "School", "Type"]
+@st.dialog("Edit Course", width="large")
+def _edit_course_dialog(course):
+    cid = course["id"]
+    c1, c2 = st.columns(2)
+    cur = crud.course_status(course)
+    status = c1.selectbox("Status", list(crud.STATUSES), index=crud.STATUSES.index(cur), key=f"ec_type_{cid}")
+    name = c2.text_input("Name", value=course["name"] if course["name"] != course["code"] else "", key=f"ec_name_{cid}")
+    code = c1.text_input("Course Number (Optional for Self-Study)", value=course["code"] or "", key=f"ec_code_{cid}")
+    sem = c2.text_input("Semester", value=course["semester"] or "", key=f"ec_sem_{cid}")
+    school = c1.text_input("School", value=course.get("school") or "", key=f"ec_school_{cid}")
+    with c2:
+        color = st.color_picker("Tile Color", value=crud.course_color(course), key=f"ec_color_{cid}")
+    with c1:
+        category = _category_picker(f"ec_cat_{cid}", "Category (Optional)", course.get("category"))
+    with c2:
+        with st.container(key=f"photo_box_edit_{cid}"):
+            photo = st.file_uploader("Photo (Optional)", type=photos.PHOTO_TYPES, key=f"ec_photo_{cid}")
+
+    ready = bool((name.strip() or code.strip()) and (code.strip() or status == "Self-Study"))
+    a, b, c, _ = st.columns([1, 1.6, 1.4, 4])
+    if a.button("Save", type="primary", key=f"ec_save_{cid}", disabled=not ready):
+        crud.update_course_fields(cid, code.strip(), name.strip() or code.strip(), sem.strip(), school.strip(), category)
+        if status != cur:
+            crud.set_course_status(cid, status)
+            st.session_state["courses_filter"] = status
+        crud.set_course_color(cid, color if color != crud.course_color({**course, "color": None}) else None)
+        if photo and not photos.save_photo(cid, photo.getvalue()):
+            st.toast("That photo could not be read.")
+        st.rerun()
+    if photos.photo_path(cid) and b.button("Remove Photo", key=f"ec_rmphoto_{cid}"):
+        photos.remove_photo(cid)
+        st.rerun()
+
+    st.divider()
+    confirm = f"confirm_delete_course_{cid}"
+    if st.button("Delete Course", key=f"ec_del_{cid}"):
+        st.session_state[confirm] = True
+    if st.session_state.get(confirm):
+        st.warning("This also deletes the course's notes, homework, flashcards and errata. It cannot be undone.")
+        if st.button("Yes, Delete It", type="primary", key=f"ec_del_yes_{cid}"):
+            crud.delete_course(cid)
+            photos.remove_photo(cid)
+            if st.session_state.get("open_course") == cid:
+                st.session_state["open_course"] = None
+            st.session_state[confirm] = False
+            st.rerun()
+
+
+SORTS = ["Default", "Course Number", "Name", "Category", "Semester", "School", "Status"]
 TERM_RANK = {"winter": 0, "spring": 1, "summer": 2, "fall": 3}
 
 
@@ -117,7 +165,7 @@ def _sorted_groups(courses, sort_by):
     elif sort_by == "School":
         key = lambda c: (not c.get("school"), (c.get("school") or "").lower(), crud._natural_key(c["code"] or c["name"]))
         label = lambda c: c.get("school") or "No school"
-    else:  # Type
+    else:  # Status
         key = lambda c: (crud.STATUSES.index(crud.course_status(c)), crud._natural_key(c["code"] or c["name"]))
         label = crud.course_status
     groups = {}
@@ -177,6 +225,8 @@ def _tile_grid(courses):
                         st.session_state["course_id"] = c["id"]
                         st.session_state["open_course"] = c["id"]
                         st.rerun()
+                    if st.button("...", key=f"tilemenu_{c['id']}", type="tertiary"):  # bottom-right edit menu
+                        _edit_course_dialog(c)
 
 
 def _manage(course):
@@ -254,7 +304,7 @@ def _syllabus(course):
                 st.rerun()
 
         cur = crud.course_status(course)
-        status = st.radio("Type", list(crud.STATUSES), index=crud.STATUSES.index(cur), horizontal=True,
+        status = st.radio("Status", list(crud.STATUSES), index=crud.STATUSES.index(cur), horizontal=True,
                           key=f"status_{cid}")
         if status != cur:
             crud.set_course_status(cid, status)

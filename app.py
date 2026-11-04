@@ -203,6 +203,14 @@ section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-h
 [class*="st-key-coursetile_"]:hover .course-tile {{filter: brightness(1.1);}}
 [class*="st-key-tile_"] {{position: absolute !important; top: 0; left: 0; width: 100%; aspect-ratio: 1 / 1; z-index: 2;}}
 [class*="st-key-tile_"] button {{width: 100%; height: 100% !important; opacity: 0; cursor: pointer; min-height: 0;}}
+[class*="st-key-tilemenu_"] {{position: absolute !important; right: 8px; bottom: 6px; z-index: 3; width: auto !important;}}
+[class*="st-key-tilemenu_"] button {{min-height: 0; padding: 0 8px; background: transparent !important; border: none !important;}}
+[class*="st-key-tilemenu_"] button p {{color: #fff !important; font-size: 1.5rem; font-weight: 700; line-height: 0.8;
+    letter-spacing: 1px; text-shadow: 0 1px 3px #0008;}}
+[class*="st-key-tilemenu_"] button:hover p {{opacity: 0.8;}}
+
+.st-key-nav_back_hidden {{position: absolute !important; width: 1px; height: 1px; overflow: hidden; opacity: 0;
+    pointer-events: none;}}
 
 /* Calendar */
 .cal-head {{text-align: center; font-weight: 600; font-size: 0.85rem; opacity: 0.7; padding-bottom: 4px;}}
@@ -252,6 +260,18 @@ if (!window.parent.__navHooked) {
   doc.addEventListener('mouseover', e => {
     const sb = doc.querySelector('section[data-testid="stSidebar"]');
     if (sb && !sb.contains(e.target)) sb.classList.remove('nav-collapsed');
+  });
+}
+// Mouse "back" button (and the browser's back) go to the previous page inside the app.
+if (!window.parent.__navBackHooked) {
+  window.parent.__navBackHooked = true;
+  const goBack = () => { const b = doc.querySelector('.st-key-nav_back_hidden button'); if (b) b.click(); };
+  doc.addEventListener('mouseup', e => { if (e.button === 3) { e.preventDefault(); e.stopPropagation(); goBack(); } }, true);
+  doc.addEventListener('mousedown', e => { if (e.button === 3 || e.button === 4) e.preventDefault(); }, true);
+  window.parent.history.pushState({app: true}, '', window.parent.location.href);
+  window.parent.addEventListener('popstate', () => {
+    window.parent.history.pushState({app: true}, '', window.parent.location.href);  // stay inside the app
+    goBack();
   });
 }
 </script>""", height=0)
@@ -318,6 +338,21 @@ if (!win.__navDragV2) {
 st.session_state.setdefault("page", "Home")
 st.session_state.setdefault("mode", "Detailed")
 st.session_state.setdefault("pdf_page", 1)
+
+# ---- Back navigation: the app keeps its own history of (page, open course, open file) ----
+st.session_state.setdefault("nav_history", [])
+if st.button("Back", key="nav_back_hidden"):  # clicked by the mouse back button (hidden by CSS)
+    hist = st.session_state["nav_history"]
+    if len(hist) > 1:
+        hist.pop()
+        page, open_course, open_book = hist[-1]
+        st.session_state["page"] = page
+        st.session_state["open_course"] = open_course
+        st.session_state["open_book"] = open_book
+        if open_course:
+            st.session_state["course_id"] = open_course
+        st.session_state["_going_back"] = True
+        st.rerun()
 
 
 def nav_button(label, icon):
@@ -386,5 +421,13 @@ with st.sidebar:
 if not crud.get_course(st.session_state.get("course_id")):
     first = crud.courses_by_status("Active")
     st.session_state["course_id"] = first[0]["id"] if first else None
+
+# Record where we are (skipped right after a Back, which already restored the stored view).
+_view = (st.session_state["page"], st.session_state.get("open_course"), st.session_state.get("open_book"))
+if not st.session_state.pop("_going_back", False):
+    _hist = st.session_state["nav_history"]
+    if not _hist or _hist[-1] != _view:
+        _hist.append(_view)
+        del _hist[:-50]
 
 PAGES[st.session_state["page"]][1]()

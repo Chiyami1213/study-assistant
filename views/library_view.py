@@ -13,7 +13,7 @@ import pdfmeta
 from database import BASE_DIR, PDF_DIR
 
 COLUMNS = 6
-KINDS = ["Textbook", "Notes"]
+KINDS = ["Textbook", "Lecture Notes", "Notes"]
 PLURAL = {"Textbook": "Textbooks"}
 
 
@@ -63,19 +63,22 @@ def detect_course(filename, title=""):
     return None
 
 
-NOTES_WORDS = re.compile(r"(?<![a-z])(notes?|lectures?|lec|slides?|handouts?|cheat[\s_\-]*sheets?|study[\s_\-]*guides?|"
+LECTURE_WORDS = re.compile(r"(?<![a-z])(lectures?|lec|slides?)(?![a-z])", re.I)
+NOTES_WORDS = re.compile(r"(?<![a-z])(notes?|handouts?|cheat[\s_\-]*sheets?|study[\s_\-]*guides?|"
                          r"summary|summaries|review|annotated|worksheet|recitation)(?![a-z])", re.I)
 BOOK_WORDS = re.compile(r"(?<![a-z])(textbook|text[\s_\-]*book|edition|ed\.?\s*\d+|\d+(st|nd|rd|th)[\s_\-]*ed)(?![a-z])", re.I)
 
 
 def detect_kind(filename, title=""):
-    """'Notes' or 'Textbook' when the file name (then title) says so, else None."""
+    """'Textbook', 'Lecture Notes' or 'Notes' when the file name (then title) says so, else None."""
     for text in (filename, title):
         if not text:
             continue
         text = text.replace("_", " ")
         if BOOK_WORDS.search(text):
             return "Textbook"
+        if LECTURE_WORDS.search(text):
+            return "Lecture Notes"
         if NOTES_WORDS.search(text):
             return "Notes"
     return None
@@ -221,6 +224,46 @@ def _book_card(book):
         st.caption(sub)
 
 
+SORTS = ["Default", "Course", "Title", "Type", "Date Added"]
+
+
+def _sorted_groups(books, sort_by):
+    """[(heading, books)] - one unlabeled group for flat sorts, headed groups for Course and Type."""
+    if sort_by == "Title":
+        return [("", sorted(books, key=lambda b: b["title"].lower()))]
+    if sort_by == "Date Added":
+        return [("", sorted(books, key=lambda b: (b["added_at"] or "", b["id"]), reverse=True))]
+    if sort_by == "Type":
+        groups = {}
+        for b in sorted(books, key=lambda b: (KINDS.index(b["kind"]) if b["kind"] in KINDS else 99, b["title"].lower())):
+            groups.setdefault(PLURAL.get(b["kind"], b["kind"]), []).append(b)
+        return list(groups.items())
+    if sort_by == "Course":
+        # Courses in menu order (Active, Self-Study, Completed); files without a course go last.
+        courses = [c for s in crud.STATUSES for c in crud.courses_by_status(s)]
+        rank = {c["id"]: i for i, c in enumerate(courses)}
+        names = {c["id"]: crud.label(c) for c in courses}
+        groups = {}
+        for b in sorted(books, key=lambda b: (rank.get(b["course_id"], len(rank)), b["title"].lower())):
+            groups.setdefault(names.get(b["course_id"], "No Course"), []).append(b)
+        return list(groups.items())
+    return [("", books)]
+
+
+def _tile_grid(tiles, has_books):
+    for row in range(0, len(tiles), COLUMNS):
+        cols = st.columns(COLUMNS)
+        for col, tile in zip(cols, tiles[row:row + COLUMNS]):
+            with col:
+                if tile == "add":
+                    with st.container(key="add_book_tile"):
+                        if st.button(" ", icon=":material/add:", key="add_book", width="stretch",
+                                     help=None if has_books else "click to add pdf"):
+                            _add_dialog()
+                else:
+                    _book_card(tile)
+
+
 def render():
     st.session_state.setdefault("open_book", None)
     open_book = crud.get_book(st.session_state["open_book"]) if st.session_state["open_book"] else None
@@ -232,21 +275,19 @@ def render():
     st.session_state.setdefault("library_filter", "All")
     options = ["All"] + KINDS
     counts = {"All": len(all_books), **{k: sum(b["kind"] == k for b in all_books) for k in KINDS}}
-    choice = st.segmented_control("Show", options, key="library_filter", label_visibility="collapsed",
-                                  format_func=lambda o: f"{PLURAL.get(o, o)} ({counts[o]})") or "All"
+    f1, f2 = st.columns([4, 1.4], vertical_alignment="center")
+    with f1:
+        choice = st.segmented_control("Show", options, key="library_filter", label_visibility="collapsed",
+                                      format_func=lambda o: f"{PLURAL.get(o, o)} ({counts[o]})") or "All"
+    with f2:
+        sort_by = st.selectbox("Sort by", SORTS, key="library_sort", label_visibility="collapsed",
+                               format_func=lambda s: f"Sort: {s}")
     books = all_books if choice == "All" else [b for b in all_books if b["kind"] == choice]
     st.caption(f"{len(books)} {'Title' if len(books) == 1 else 'Titles'}")
 
-    # Books fill rows of six; the dashed "+" add tile follows the last book.
-    tiles = list(books) + ["add"]
-    for row in range(0, len(tiles), COLUMNS):
-        cols = st.columns(COLUMNS)
-        for col, tile in zip(cols, tiles[row:row + COLUMNS]):
-            with col:
-                if tile == "add":
-                    with st.container(key="add_book_tile"):
-                        if st.button(" ", icon=":material/add:", key="add_book", width="stretch",
-                                     help=None if all_books else "click to add pdf"):
-                            _add_dialog()
-                else:
-                    _book_card(tile)
+    # Books fill rows of six; the dashed "+" add tile follows the last book (of the last group).
+    groups = _sorted_groups(books, sort_by) or [("", [])]
+    for i, (title, items) in enumerate(groups):
+        if title:
+            st.markdown(f"#### {title} ({len(items)})")
+        _tile_grid(list(items) + (["add"] if i == len(groups) - 1 else []), bool(all_books))
