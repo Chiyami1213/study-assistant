@@ -36,6 +36,20 @@ OVERRIDE = """
 .stApp button[data-variant="segmented_control"][aria-checked="false"] {background: var(--bg) !important; border-color: var(--border) !important;}
 .stApp button[data-variant="segmented_control"][aria-checked="false"] p {color: var(--text) !important;}
 .stApp button[data-testid^="stBaseButton-primary"] p {color: #fff !important;}
+/* the whole select box (including the arrow part) follows the theme */
+/* text, number, date and select frames: the whole frame (not just the inner field) follows the theme,
+   in the page and in pop-up windows */
+:is(.stApp, [role="dialog"]) :is([data-testid="stTextInputRootElement"], [data-testid="stNumberInputContainer"],
+    [data-testid="stSelectbox"] [role="group"], [data-testid="stTextAreaRootElement"], [data-testid="stDateInputField"], [data-testid="stFileUploaderDropzone"]) {
+    background: var(--input) !important; border-color: var(--border) !important;}
+:is(.stApp, [role="dialog"]) [data-testid="stSelectbox"] :is(button, button svg) {color: var(--text) !important;}
+/* placeholder text and the pop-up close button stay readable on the themed surface */
+:is(.stApp, [role="dialog"]) :is(input, textarea)::placeholder {color: #8b90a0 !important; opacity: 1 !important;}
+[role="dialog"] button[aria-label="Close"], [role="dialog"] button[aria-label="Close"] svg {color: var(--text) !important;}
+/* disabled buttons keep a visible gray edge */
+:is(.stApp, [role="dialog"]) button:disabled {border: 1px solid var(--border) !important; background: transparent !important;
+    opacity: 0.7;}
+:is(.stApp, [role="dialog"]) button:disabled p {color: var(--text) !important;}
 /* select dropdown lists render outside .stApp in their own virtual list */
 [data-testid="stSelectboxVirtualDropdown"] {background: var(--bg2) !important;}
 [data-testid="stSelectboxVirtualDropdown"] [role="option"] {color: var(--text) !important;}
