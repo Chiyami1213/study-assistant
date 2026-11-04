@@ -31,5 +31,3 @@ def render():
     if choice != current_tier:
         settings.set_photo_quality(choice)
         st.rerun()
-    st.caption("Each photo is saved in all four resolutions when you add it (smaller photos are scaled up), "
-               "so changing this setting is instant.")
