@@ -1,0 +1,47 @@
+"""Render PDF pages to images (covers and the in-app preview) with PyMuPDF."""
+import warnings
+
+from database import BASE_DIR
+
+warnings.filterwarnings("ignore", category=FutureWarning)
+try:
+    import pymupdf
+except ImportError:  # older PyMuPDF versions expose it as fitz
+    import fitz as pymupdf
+
+COVER_DIR = BASE_DIR / "data" / "covers"
+
+
+def page_count(pdf_path):
+    with pymupdf.open(pdf_path) as doc:
+        return doc.page_count
+
+
+def render_page(pdf_path, page_index=0, width=900):
+    """PNG bytes of one page scaled to the given pixel width."""
+    with pymupdf.open(pdf_path) as doc:
+        page = doc[page_index]
+        zoom = width / page.rect.width
+        return page.get_pixmap(matrix=pymupdf.Matrix(zoom, zoom), alpha=False).tobytes("png")
+
+
+def cover_path(book_id):
+    return COVER_DIR / f"book_{book_id}.png"
+
+
+def ensure_cover(book_id, pdf_path):
+    """Path of the book's cover image (page 1), created on first use; None if it can't be rendered."""
+    out = cover_path(book_id)
+    if not out.exists():
+        try:
+            COVER_DIR.mkdir(parents=True, exist_ok=True)
+            out.write_bytes(render_page(pdf_path, 0, 420))
+        except Exception:
+            return None
+    return out
+
+
+def remove_cover(book_id):
+    p = cover_path(book_id)
+    if p.exists():
+        p.unlink()

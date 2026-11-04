@@ -1,4 +1,5 @@
 """Best-effort detection of a PDF's title, author, edition/year and page count."""
+import html as _html
 import io
 import re
 from datetime import datetime
@@ -73,6 +74,29 @@ def extract_info(data, filename=""):
     if year:
         info["edition"] = f"{info['edition']} ({year})" if info["edition"] else year
 
+    if not info["title"]:
+        info["title"] = _clean_title(filename.rsplit(".", 1)[0] if filename else "")
+    return info
+
+
+def extract_html_info(data, filename=""):
+    """Title / author / edition / year from an HTML file (title tag, meta tags, visible text)."""
+    text = data.decode("utf-8", errors="replace")
+    info = {"title": "", "author": "", "edition": "", "pages": None, "source": "filename"}
+    m = re.search(r"<title[^>]*>(.*?)</title>", text, re.I | re.S)
+    if m and m.group(1).strip():
+        info["title"], info["source"] = _clean_title(re.sub(r"\s+", " ", _html.unescape(m.group(1))).strip()), "HTML title"
+    a = re.search(r"<meta[^>]+name=[\"']author[\"'][^>]*content=[\"']([^\"']*)", text, re.I) or         re.search(r"<meta[^>]+content=[\"']([^\"']*)[\"'][^>]*name=[\"']author[\"']", text, re.I)
+    if a and a.group(1).strip():
+        info["author"] = _html.unescape(a.group(1)).strip()
+    visible = re.sub(r"<script.*?</script>|<style.*?</style>|<[^>]+>", " ", text[:200000], flags=re.I | re.S)
+    visible = _html.unescape(visible)
+    ed = EDITION_RE.search(visible)
+    if ed:
+        info["edition"] = f"{_ordinal(int(ed.group(1) or ed.group(2)))} Edition"
+    y = YEAR_RE.search(visible)
+    if y:
+        info["edition"] = f"{info['edition']} ({y.group(1)})" if info["edition"] else y.group(1)
     if not info["title"]:
         info["title"] = _clean_title(filename.rsplit(".", 1)[0] if filename else "")
     return info

@@ -22,7 +22,7 @@ def render():
         with cols[i % 2]:
             with st.container(border=True):
                 st.subheader(crud.label(c))
-                st.caption(" · ".join(x for x in (c["semester"], choice) if x))
+                st.caption(" · ".join(x for x in (crud.term_label(c), choice) if x))
                 st.progress(s["pct"], text=f"Syllabus {s['done']}/{s['topics']} topics")
                 tgt = c["target_hours"] or 0
                 st.progress(min(s["hours"] / tgt, 1.0) if tgt else 0.0,
@@ -43,15 +43,18 @@ def render():
             name = b.text_input("Name")
             code = a.text_input("Course number (optional for self-study)", placeholder="PHYS 6105")
             sem = b.text_input("Semester", value="Fall 2026")
-            hrs = a.number_input("Target study hours", 0.0, 1000.0, 60.0)
+            school = a.text_input("School", placeholder="Georgia Tech")
+            hrs = b.number_input("Target study hours", 0.0, 1000.0, 60.0)
             if st.form_submit_button("Create") and name and (code or status == "Self-Study"):
-                crud.add_course(code, name, sem, hrs, status)
+                crud.add_course(code, name, sem, hrs, status, school)
                 st.rerun()
 
 
 def _manage(course):
     cid = course["id"]
     st.header(crud.label(course))
+    if crud.term_label(course):
+        st.caption(crud.term_label(course))
     t_syl, t_notes, t_hw, t_exam, t_rec = st.tabs(["Syllabus", "Notes", "Homework", "Exam Hub", "Recall"])
     with t_notes:
         notes_view.render()
@@ -94,6 +97,13 @@ def _syllabus(course):
                 st.rerun()
         for l in crud.recent_logs(cid):
             st.caption(f"{l['logged_on']} · {l['hours']}h · {l['note'] or ''}")
+
+        with st.expander("Semester and school"):
+            sem = st.text_input("Semester", value=course["semester"] or "", key=f"sem_{cid}")
+            sch = st.text_input("School", value=course.get("school") or "", key=f"sch_{cid}")
+            if st.button("Save", key=f"save_term_{cid}"):
+                crud.update_course_info(cid, sem.strip(), sch.strip())
+                st.rerun()
 
         cur = crud.course_status(course)
         status = st.radio("Type", list(crud.STATUSES), index=crud.STATUSES.index(cur), horizontal=True,

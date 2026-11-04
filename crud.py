@@ -83,9 +83,18 @@ def set_course_status(course_id, status):
           (section, 0 if status == "Completed" else 1, course_id))
 
 
-def add_course(code, name, semester, target_hours, status="Active"):
-    cid = _exec("INSERT INTO courses(code,name,semester,target_hours) VALUES (?,?,?,?)",
-                (code, name, semester, target_hours))
+def term_label(course):
+    """'Fall 2026, Georgia Tech' - semester and school, whichever are set."""
+    return ", ".join(x for x in (course.get("semester"), course.get("school")) if x)
+
+
+def update_course_info(course_id, semester, school):
+    _exec("UPDATE courses SET semester=?, school=? WHERE id=?", (semester or "", school or None, course_id))
+
+
+def add_course(code, name, semester, target_hours, status="Active", school=None):
+    cid = _exec("INSERT INTO courses(code,name,semester,school,target_hours) VALUES (?,?,?,?,?)",
+                (code, name, semester, school or None, target_hours))
     set_course_status(cid, status)
     return cid
 
@@ -249,14 +258,14 @@ def get_book(book_id):
     return _one("SELECT * FROM books WHERE id=?", (book_id,))
 
 
-def add_book(title, author, edition, pdf_path, total_pages, course_id=None):
-    return _exec("INSERT INTO books(title,author,edition,pdf_path,total_pages,course_id) VALUES (?,?,?,?,?,?)",
-                 (title, author or None, edition or None, pdf_path, total_pages, course_id))
+def add_book(title, author, edition, pdf_path, total_pages, course_id=None, kind="Textbook"):
+    return _exec("INSERT INTO books(title,author,edition,pdf_path,total_pages,course_id,kind) VALUES (?,?,?,?,?,?,?)",
+                 (title, author or None, edition or None, pdf_path, total_pages, course_id, kind))
 
 
-def update_book(book_id, title, author, edition):
-    _exec("UPDATE books SET title=?, author=?, edition=? WHERE id=?",
-          (title, author or None, edition or None, book_id))
+def update_book(book_id, title, author, edition, kind="Textbook", course_id=None):
+    _exec("UPDATE books SET title=?, author=?, edition=?, kind=?, course_id=? WHERE id=?",
+          (title, author or None, edition or None, kind, course_id, book_id))
 
 
 def delete_book(book_id):

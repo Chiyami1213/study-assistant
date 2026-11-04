@@ -9,7 +9,7 @@ import sys
 import icons
 
 # The dev server caches imported modules between reruns; reload ours so edits apply without a restart.
-for _m in ("database", "crud", "settings", "icons", "views.notes_view", "views.courses_view", "views.home_view",
+for _m in ("database", "crud", "settings", "icons", "pdfmeta", "covers", "views.notes_view", "views.courses_view", "views.home_view",
            "views.homework_view", "views.exam_mode_view", "views.recall_view", "views.library_view",
            "views.settings_view"):
     if _m in sys.modules:
@@ -143,13 +143,31 @@ section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-h
 /* No upload size hint ("200MB per file") in file pickers */
 [data-testid="stFileUploaderDropzoneInstructions"] {{display: none;}}
 
+/* Library card menu: plain "..." with no box edge or chevron */
+.stApp [data-testid="stPopover"] button {{border: none !important; background: transparent !important;
+    box-shadow: none !important; padding: 0 4px; min-height: 0; justify-content: flex-end;}}
+[data-testid="stPopover"] button span[data-testid="stIconMaterial"] {{display: none;}}
+[data-testid="stPopover"] button p {{font-size: 1.5rem; font-weight: 700; line-height: 0.8; letter-spacing: 1px;}}
+[data-testid="stPopover"] button:hover p {{color: var(--accent) !important;}}
+[data-testid="stPopover"] .stMarkdownEllipsis {{overflow: visible !important; text-overflow: clip !important;}}
+[data-testid="stPopover"] button {{min-width: 34px;}}
+
+/* Library covers: clicking the cover opens the preview */
+[class*="st-key-bookcard_"] {{position: relative;}}
+[class*="st-key-bookcard_"]:hover .book-cover {{filter: brightness(1.08);}}
+[class*="st-key-cover_"] {{position: absolute !important; top: 0; left: 0; width: 100%; aspect-ratio: 2 / 3; z-index: 2;}}
+[class*="st-key-cover_"] button {{width: 100%; height: 100% !important; opacity: 0; cursor: pointer; min-height: 0;}}
+.book-cover.has-img {{background-size: cover; background-position: top center; padding: 0;}}
+.book-badge.tag {{border-color: var(--border); color: var(--text);}}
+
 /* Library */
 .lib-title {{font-family: Georgia, "Roboto Slab", serif; font-weight: 700;}}
 .book-cover {{aspect-ratio: 2 / 3; border-radius: 6px; display: flex; align-items: flex-end; padding: 14px;
     box-shadow: 0 2px 8px #0005; margin-bottom: 0.6rem; color: #fff;}}
 .book-cover span {{font-family: Georgia, serif; font-weight: 700; font-size: 1.15rem; line-height: 1.2;}}
+.book-badges {{display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 0 6px;}}
 .book-badge {{display: inline-block; border: 1px solid var(--accent); color: var(--accent); border-radius: 999px;
-    padding: 2px 14px; font-size: 0.85rem;}}
+    padding: 1px 11px; font-size: 0.8rem; white-space: nowrap;}}
 .stApp .st-key-add_book_tile button[data-testid^="stBaseButton"] {{aspect-ratio: 2 / 3; height: auto !important; min-height: 0; width: 100%;
     border-style: dashed !important; border-width: 2px !important; border-color: rgba(140, 146, 160, 0.6) !important; border-radius: 6px; background: transparent !important;}}
 .st-key-add_book_tile button:hover {{border-color: var(--accent) !important;}}

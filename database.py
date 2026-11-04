@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS courses (
     code           TEXT NOT NULL,
     name           TEXT NOT NULL,
     semester       TEXT NOT NULL,
+    school         TEXT,
     is_active      INTEGER NOT NULL DEFAULT 1,
     target_hours   REAL NOT NULL DEFAULT 0,
     icon           TEXT,
@@ -119,6 +120,7 @@ CREATE TABLE IF NOT EXISTS books (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     title       TEXT NOT NULL,
     author      TEXT,
+    kind        TEXT NOT NULL DEFAULT 'Textbook',  -- 'Textbook' | 'Notes'
     edition     TEXT,
     pdf_path    TEXT NOT NULL,
     total_pages INTEGER,
@@ -148,8 +150,12 @@ def init_db() -> None:
         if "icon" not in cols:  # migrate databases created before icons existed
             conn.execute("ALTER TABLE courses ADD COLUMN icon TEXT")
         book_cols = [r["name"] for r in conn.execute("PRAGMA table_info(books)")]
+        if "kind" not in book_cols:
+            conn.execute("ALTER TABLE books ADD COLUMN kind TEXT NOT NULL DEFAULT 'Textbook'")
         if "author" not in book_cols:
             conn.execute("ALTER TABLE books ADD COLUMN author TEXT")
+        if "school" not in cols:
+            conn.execute("ALTER TABLE courses ADD COLUMN school TEXT")
         if "sort_order" not in cols:
             conn.execute("ALTER TABLE courses ADD COLUMN sort_order INTEGER")
         if "section" not in cols:
