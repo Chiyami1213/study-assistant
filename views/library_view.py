@@ -37,7 +37,7 @@ def _cover_html(book):
     img = covers.ensure_cover(book["id"], BASE_DIR / book["pdf_path"])
     if img:
         b64 = _cover_b64(str(img), img.stat().st_mtime)
-        return f'<div class="book-cover has-img" style="background-image:url(data:image/png;base64,{b64});"></div>'
+        return f'<div class="book-cover has-img" style="background-image:url(data:image/jpeg;base64,{b64});"></div>'
     hue = int(hashlib.md5(book["title"].encode()).hexdigest()[:6], 16) % 360
     title = book["title"].replace("<", "&lt;")
     return (f'<div class="book-cover" style="background: linear-gradient(155deg, hsl({hue},45%,38%), '

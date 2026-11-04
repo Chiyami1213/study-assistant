@@ -25,8 +25,16 @@ def render_page(pdf_path, page_index=0, width=900):
         return page.get_pixmap(matrix=pymupdf.Matrix(zoom, zoom), alpha=False).tobytes("png")
 
 
+def render_cover(pdf_path, width=300):
+    """Small JPEG of page 1: a fraction of the size of a PNG, so many covers stay light."""
+    with pymupdf.open(pdf_path) as doc:
+        page = doc[0]
+        zoom = width / page.rect.width
+        return page.get_pixmap(matrix=pymupdf.Matrix(zoom, zoom), alpha=False).tobytes("jpg", jpg_quality=72)
+
+
 def cover_path(book_id):
-    return COVER_DIR / f"book_{book_id}.png"
+    return COVER_DIR / f"book_{book_id}.jpg"
 
 
 def ensure_cover(book_id, pdf_path):
@@ -35,13 +43,13 @@ def ensure_cover(book_id, pdf_path):
     if not out.exists():
         try:
             COVER_DIR.mkdir(parents=True, exist_ok=True)
-            out.write_bytes(render_page(pdf_path, 0, 420))
+            out.write_bytes(render_cover(pdf_path))
         except Exception:
             return None
     return out
 
 
 def remove_cover(book_id):
-    p = cover_path(book_id)
-    if p.exists():
-        p.unlink()
+    for p in (cover_path(book_id), COVER_DIR / f"book_{book_id}.png"):
+        if p.exists():
+            p.unlink()
