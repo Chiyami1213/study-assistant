@@ -92,7 +92,7 @@ def _course_options():
 
 
 @st.dialog("Add File", width="large")
-def _add_dialog():
+def _add_dialog(default_course=None):
     with st.container(key="library_file_box"):
         up = st.file_uploader("File", type=["pdf", "html", "htm"])
     info = {"title": "", "author": "", "edition": "", "year": "", "pages": None, "source": ""}
@@ -130,7 +130,8 @@ def _add_dialog():
     courses = _course_options()
     guess = detect_course(up.name, info["title"]) if up else None
     ids = list(courses)
-    course_id = st.selectbox("Course (Optional)", ids, index=ids.index(guess) if guess in ids else 0,
+    start = guess if guess in ids else (default_course if default_course in ids else None)
+    course_id = st.selectbox("Course (Optional)", ids, index=ids.index(start) if start in ids else 0,
                              format_func=courses.get, key=f"bk_course_{k}")
     if guess:
         st.caption(f"Course detected from the file name: {crud.label(crud.get_course(guess))}")
@@ -258,16 +259,16 @@ def _course_order(book):
 
 
 def _sorted_groups(books, sort_by):
-    """[(heading, books)] - one unlabeled group for flat sorts, headed groups for Course and Type."""
+    """[(heading, books, course_id)] - one unlabeled group for flat sorts, headed groups for Course and Type."""
     if sort_by == "Title":
-        return [("", sorted(books, key=lambda b: b["title"].lower()))]
+        return [("", sorted(books, key=lambda b: b["title"].lower()), None)]
     if sort_by == "Date Added":
-        return [("", sorted(books, key=lambda b: (b["added_at"] or "", b["id"]), reverse=True))]
+        return [("", sorted(books, key=lambda b: (b["added_at"] or "", b["id"]), reverse=True), None)]
     if sort_by == "Type":
         groups = {}
         for b in sorted(books, key=lambda b: (KINDS.index(b["kind"]) if b["kind"] in KINDS else 99, b["title"].lower())):
             groups.setdefault(PLURAL.get(b["kind"], b["kind"]), []).append(b)
-        return list(groups.items())
+        return [(heading, items, None) for heading, items in groups.items()]
     if sort_by == "Course":
         # Courses in menu order (Active, Self-Study, Completed); files without a course go last.
         courses = [c for s in crud.STATUSES for c in crud.courses_by_status(s)]
@@ -275,21 +276,22 @@ def _sorted_groups(books, sort_by):
         names = {c["id"]: crud.label(c) for c in courses}
         groups = {}
         for b in sorted(books, key=lambda b: (rank.get(b["course_id"], len(rank)), _course_order(b))):
-            groups.setdefault(names.get(b["course_id"], "No Course"), []).append(b)
-        return list(groups.items())
-    return [("", books)]
+            key = (names.get(b["course_id"], "No Course"), b["course_id"] if b["course_id"] in names else None)
+            groups.setdefault(key, []).append(b)
+        return [(heading, items, course_id) for (heading, course_id), items in groups.items()]
+    return [("", books, None)]
 
 
-def _tile_grid(tiles, has_books):
+def _tile_grid(tiles, has_books, default_course=None, suffix="0"):
     for row in range(0, len(tiles), COLUMNS):
         cols = st.columns(COLUMNS)
         for col, tile in zip(cols, tiles[row:row + COLUMNS]):
             with col:
                 if tile == "add":
-                    with st.container(key="add_book_tile"):
-                        if st.button(" ", icon=":material/add:", key="add_book", width="stretch",
+                    with st.container(key=f"add_book_tile_{suffix}"):
+                        if st.button(" ", icon=":material/add:", key=f"add_book_{suffix}", width="stretch",
                                      help=None if has_books else "click to add pdf"):
-                            _add_dialog()
+                            _add_dialog(default_course)
                 else:
                     _book_card(tile)
 
@@ -315,9 +317,12 @@ def render():
     books = all_books if choice == "All" else [b for b in all_books if b["kind"] == choice]
     st.caption(f"{len(books)} {'Title' if len(books) == 1 else 'Titles'}")
 
-    # Books fill rows of six; the dashed "+" add tile follows the last book (of the last group).
-    groups = _sorted_groups(books, sort_by) or [("", [])]
-    for i, (title, items) in enumerate(groups):
+    # Books fill rows of six. The dashed "+" add tile follows the last book; when sorted by course, every
+    # course group ends with its own "+" tile that adds a file straight into that course.
+    groups = _sorted_groups(books, sort_by) or [("", [], None)]
+    for i, (title, items, course_id) in enumerate(groups):
         if title:
             st.markdown(f"#### {title} ({len(items)})")
-        _tile_grid(list(items) + (["add"] if i == len(groups) - 1 else []), bool(all_books))
+        last = i == len(groups) - 1
+        _tile_grid(list(items) + (["add"] if last or sort_by == "Course" else []), bool(all_books),
+                   course_id, str(i))

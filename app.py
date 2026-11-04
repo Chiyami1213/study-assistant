@@ -241,11 +241,11 @@ section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-h
 .book-badges {{display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 0 6px;}}
 .book-badge {{display: inline-block; border: 1px solid var(--accent); color: var(--accent); border-radius: 999px;
     padding: 1px 11px; font-size: 0.8rem; white-space: nowrap;}}
-.stApp .st-key-add_book_tile button[data-testid^="stBaseButton"] {{aspect-ratio: 2 / 3; height: auto !important; min-height: 0; width: 100%;
+.stApp [class*="st-key-add_book_tile"] button[data-testid^="stBaseButton"] {{aspect-ratio: 2 / 3; height: auto !important; min-height: 0; width: 100%;
     border-style: dashed !important; border-width: 2px !important; border-color: rgba(140, 146, 160, 0.6) !important; border-radius: 6px; background: transparent !important;}}
-.st-key-add_book_tile button:hover {{border-color: var(--accent) !important;}}
-.st-key-add_book_tile button span[data-testid="stIconMaterial"] {{font-size: 2.2rem; color: var(--text);}}
-.st-key-add_book_tile button p {{display: none;}}
+[class*="st-key-add_book_tile"] button:hover {{border-color: var(--accent) !important;}}
+[class*="st-key-add_book_tile"] button span[data-testid="stIconMaterial"] {{font-size: 2.2rem; color: var(--text);}}
+[class*="st-key-add_book_tile"] button p {{display: none;}}
 
 /* Appearance cards */
 .st-key-appearance button {{height: 130px; border-radius: 12px; border: 1px solid var(--border); background: transparent;}}
