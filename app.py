@@ -175,6 +175,7 @@ section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-h
 [class*="st-key-cover_"] button {{width: 100%; height: 100% !important; opacity: 0; cursor: pointer; min-height: 0;}}
 .book-cover.has-img {{background-size: cover; background-position: top center; padding: 0;}}
 .book-badge.tag {{color: #fff !important;}}
+.book-badge.meta {{border-color: var(--border); color: var(--text); opacity: 0.85;}}
 .book-badge.status {{border-color: var(--border); color: var(--text); opacity: 0.85;}}
 .book-badge.status.active {{border-color: #2f9e5f; color: #2f9e5f; background: rgba(47, 158, 95, 0.12); opacity: 1;}}
 .book-badge.status.completed {{border-color: #6a77dd; color: #6a77dd; background: rgba(106, 119, 221, 0.12); opacity: 1;}}
@@ -186,6 +187,14 @@ section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-h
 /* Course summary tiles */
 .course-tile {{aspect-ratio: 1 / 1; border-radius: 14px; padding: 16px; display: flex; flex-direction: column;
     color: #fff; box-shadow: 0 2px 8px #0004; overflow: hidden; margin-bottom: 0.6rem;}}
+/* Course banner: sits between the "All Courses" button row and the tab row, title and labels on the photo */
+.course-hero {{margin: 4px 0 18px; min-height: 230px; border-radius: 16px; display: flex; align-items: flex-end;
+    padding: 26px 32px; color: #fff; box-shadow: 0 3px 12px #0003;}}
+.ch-title {{font-size: 2.2rem; font-weight: 800; line-height: 1.15; margin: 8px 0 6px; text-shadow: 0 2px 8px #000a;}}
+.ch-meta {{font-size: 1.05rem; opacity: 0.95; text-shadow: 0 1px 4px #000a;}}
+.ch-pills {{display: flex; gap: 8px; flex-wrap: wrap;}}
+.ch-pills .ct-cat {{margin-bottom: 0; font-size: 0.78rem; background: rgba(255,255,255,0.25); text-shadow: none;}}
+
 .course-banner {{height: 150px; border-radius: 12px; background-size: cover; background-position: center;
     margin: 4px 0 12px; box-shadow: 0 2px 8px #0003;}}
 .course-tile .ct-code, .course-tile .ct-name, .course-tile .ct-meta {{text-shadow: 0 1px 3px #0008;}}

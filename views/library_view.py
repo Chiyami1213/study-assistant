@@ -1,5 +1,7 @@
 """Library: PDF books and notes as a cover grid (first page = cover) with a dashed add tile and a page preview."""
 import base64
+from datetime import date
+import html
 import hashlib
 import re
 import uuid
@@ -10,6 +12,7 @@ import streamlit.components.v1 as components
 import covers
 import crud
 import pdfmeta
+from pdfmeta import split_lecture, strip_notes_prefix
 from database import BASE_DIR, PDF_DIR
 
 COLUMNS = 6
@@ -92,7 +95,7 @@ def _course_options():
 def _add_dialog():
     with st.container(key="library_file_box"):
         up = st.file_uploader("File", type=["pdf", "html", "htm"])
-    info = {"title": "", "author": "", "edition": "", "pages": None, "source": ""}
+    info = {"title": "", "author": "", "edition": "", "year": "", "pages": None, "source": ""}
     if up:
         cache = st.session_state.setdefault("_pdf_info", {})
         if up.file_id not in cache:
@@ -100,7 +103,7 @@ def _add_dialog():
                 cache[up.file_id] = (pdfmeta.extract_info if up.name.lower().endswith('.pdf')
                                           else pdfmeta.extract_html_info)(up.getvalue(), up.name)
         info = cache[up.file_id]
-        found = [n for n in ("title", "author", "edition") if info[n]]
+        found = [n for n in ("title", "author", "edition", "year") if info[n]]
         st.caption("Detected " + (", ".join(found) if found else "nothing") +
                    f" from {info['source']} - edit anything that looks wrong.")
     k = up.file_id if up else "none"  # reset the fields whenever a different file is chosen
@@ -108,11 +111,22 @@ def _add_dialog():
     kind = st.segmented_control("Type", KINDS, default=kind_guess or "Textbook", key=f"bk_kind_{k}") or "Textbook"
     if kind_guess:
         st.caption(f"Type detected from the file name: {kind_guess}")
-    title = st.text_input("Title", value=info["title"], key=f"bk_title_{k}")
-    c1, c2 = st.columns(2)
+    is_notes = kind in ("Lecture Notes", "Notes")
+    # Notes: a leading "Lec 3" in the title or file name becomes the Lecture label, not part of the title.
+    lec_guess, clean_title = split_lecture(info["title"])
+    if not lec_guess and up:
+        lec_guess = split_lecture(up.name.rsplit(".", 1)[0].replace("_", " "))[0]
+    title = st.text_input("Title", value=strip_notes_prefix(clean_title) if is_notes else info["title"],
+                          key=f"bk_title_{k}_{int(is_notes)}")
+    lecture = ""
+    if is_notes:
+        lecture = st.text_input("Lecture", value=lec_guess, key=f"bk_lec_{k}", placeholder="3 or 3-4")
+    c1, c2, c3 = st.columns([3, 2, 1.2])
     author = c1.text_input("Author", value=info["author"], key=f"bk_author_{k}")
-    edition = c2.text_input("Edition / Year", value=info["edition"], key=f"bk_edition_{k}",
-                            placeholder="7th Edition (2019)")
+    edition = c2.text_input("Edition", value=info["edition"], key=f"bk_edition_{k}", placeholder="7th Edition")
+    # Your own notes default to the current year; a textbook keeps the year found in the file (if any).
+    year = c3.text_input("Year", value=str(date.today().year) if is_notes else info["year"],
+                         key=f"bk_year_{k}_{int(is_notes)}", placeholder="2019")
     courses = _course_options()
     guess = detect_course(up.name, info["title"]) if up else None
     ids = list(courses)
@@ -126,7 +140,7 @@ def _add_dialog():
         dest = PDF_DIR / f"book_{uuid.uuid4().hex[:10]}{ext}"
         dest.write_bytes(up.getvalue())
         crud.add_book(title.strip(), author.strip(), edition.strip(), str(dest.relative_to(BASE_DIR)),
-                      info["pages"], course_id or None, kind)
+                      info["pages"], course_id or None, kind, year.strip(), lecture.strip())
         st.rerun()
 
 
@@ -165,9 +179,13 @@ def _edit_dialog(book):
     kind = st.segmented_control("Type", KINDS, default=book["kind"] if book["kind"] in KINDS else "Textbook",
                                 key=f"ek_{book['id']}") or book["kind"]
     title = st.text_input("Title", value=book["title"], key=f"et_{book['id']}")
-    c1, c2 = st.columns(2)
+    lecture = ""
+    if kind in ("Lecture Notes", "Notes"):
+        lecture = st.text_input("Lecture", value=book.get("lecture") or "", key=f"el_{book['id']}", placeholder="3 or 3-4")
+    c1, c2, c3 = st.columns([3, 2, 1.2])
     author = c1.text_input("Author", value=book["author"] or "", key=f"ea_{book['id']}")
-    edition = c2.text_input("Edition / Year", value=book["edition"] or "", key=f"ee_{book['id']}")
+    edition = c2.text_input("Edition", value=book["edition"] or "", key=f"ee_{book['id']}")
+    year = c3.text_input("Year", value=book.get("year") or "", key=f"ey_{book['id']}")
     courses = _course_options()
     ids = list(courses)
     cur = book["course_id"] if book["course_id"] in courses else 0
@@ -177,7 +195,7 @@ def _edit_dialog(book):
     a, b, _ = st.columns([1, 1.4, 8])
     if a.button("Save", type="primary", key=f"save_book_{book['id']}"):
         crud.update_book(book["id"], title.strip() or book["title"], author.strip(), edition.strip(), kind,
-                         course_id or None)
+                         course_id or None, year.strip(), lecture.strip())
         st.rerun()
     if b.button("Preview", key=f"open_book_{book['id']}"):
         st.session_state["open_book"] = book["id"]
@@ -211,20 +229,32 @@ def _book_card(book):
     if course and course["code"]:
         tag = (f'<span class="book-badge tag" style="background:{crud.course_color(course)};'
                f'border-color:{crud.course_color(course)}">{course["code"]}</span>')
+    lec = f'<span class="book-badge meta">Lec {html.escape(book["lecture"])}</span>' if book.get("lecture") else ""
     state = crud.course_status(course) if course else ""
     status = f'<span class="book-badge status {state.lower().replace("-", "")}">{state}</span>' if course else ""
-    st.markdown(f'<div class="book-badges"><span class="book-badge">{book["kind"]}</span>{tag}{status}</div>',
+    st.markdown(f'<div class="book-badges"><span class="book-badge">{book["kind"]}</span>{lec}{tag}{status}</div>',
                 unsafe_allow_html=True)
     t_col, m_col = st.columns([4, 1], vertical_alignment="top")
     t_col.markdown(f"**{book['title']}**")
     if m_col.button("...", key=f"menu_{book['id']}", type="tertiary"):
         _edit_dialog(book)
-    sub = " · ".join(x for x in (book["author"], book["edition"]) if x)
-    if sub:
-        st.caption(sub)
+    chips = "".join(f'<span class="book-badge meta">{html.escape(x)}</span>'
+                    for x in (book["edition"], book.get("year")) if x)   # edition and year as separate labels
+    if chips:
+        st.markdown(f'<div class="book-badges">{chips}</div>', unsafe_allow_html=True)
+    if book["author"]:
+        st.caption(book["author"])
 
 
 SORTS = ["Default", "Course", "Title", "Type", "Date Added"]
+
+
+def _course_order(book):
+    """Order inside a course: notes in lecture-number order, then other notes, then textbooks (each by title)."""
+    numbers = tuple(int(n) for n in re.findall(r"\d+", book.get("lecture") or ""))
+    if book["kind"] in ("Lecture Notes", "Notes"):
+        return (0, numbers, "") if numbers else (1, (), book["title"].lower())
+    return (2, (), book["title"].lower())
 
 
 def _sorted_groups(books, sort_by):
@@ -244,7 +274,7 @@ def _sorted_groups(books, sort_by):
         rank = {c["id"]: i for i, c in enumerate(courses)}
         names = {c["id"]: crud.label(c) for c in courses}
         groups = {}
-        for b in sorted(books, key=lambda b: (rank.get(b["course_id"], len(rank)), b["title"].lower())):
+        for b in sorted(books, key=lambda b: (rank.get(b["course_id"], len(rank)), _course_order(b))):
             groups.setdefault(names.get(b["course_id"], "No Course"), []).append(b)
         return list(groups.items())
     return [("", books)]

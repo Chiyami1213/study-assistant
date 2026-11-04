@@ -333,14 +333,17 @@ def get_book(book_id):
     return _one("SELECT * FROM books WHERE id=?", (book_id,))
 
 
-def add_book(title, author, edition, pdf_path, total_pages, course_id=None, kind="Textbook"):
-    return _exec("INSERT INTO books(title,author,edition,pdf_path,total_pages,course_id,kind) VALUES (?,?,?,?,?,?,?)",
-                 (title, author or None, edition or None, pdf_path, total_pages, course_id, kind))
+def add_book(title, author, edition, pdf_path, total_pages, course_id=None, kind="Textbook", year=None,
+             lecture=None):
+    return _exec("INSERT INTO books(title,author,edition,year,lecture,pdf_path,total_pages,course_id,kind) "
+                 "VALUES (?,?,?,?,?,?,?,?,?)",
+                 (title, author or None, edition or None, year or None, lecture or None, pdf_path, total_pages,
+                  course_id, kind))
 
 
-def update_book(book_id, title, author, edition, kind="Textbook", course_id=None):
-    _exec("UPDATE books SET title=?, author=?, edition=?, kind=?, course_id=? WHERE id=?",
-          (title, author or None, edition or None, kind, course_id, book_id))
+def update_book(book_id, title, author, edition, kind="Textbook", course_id=None, year=None, lecture=None):
+    _exec("UPDATE books SET title=?, author=?, edition=?, year=?, lecture=?, kind=?, course_id=? WHERE id=?",
+          (title, author or None, edition or None, year or None, lecture or None, kind, course_id, book_id))
 
 
 def delete_book(book_id):

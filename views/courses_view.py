@@ -9,9 +9,10 @@ import base64
 import crud
 import icons
 import photos
-from views import exam_mode_view, homework_view, notes_view, recall_view
+from views import library_view
 
 COLUMNS = 5
+RESOURCE_COLUMNS = 6
 
 
 @st.cache_data(show_spinner=False, max_entries=64)
@@ -87,6 +88,22 @@ def _add_course_dialog():
             st.toast("The course was added, but that photo could not be read.")
         st.session_state["courses_filter"] = status
         st.rerun()
+
+
+def _hero_html(course):
+    """Top of a course page: the photo (or the course color) fills the top, with the title and labels on it."""
+    color = crud.course_color(course)
+    photo = _photo_url(course["id"])
+    if photo:
+        bg = f"linear-gradient(to top, rgba(0,0,0,0.72), rgba(0,0,0,0.12)), url({photo}) center/cover"
+    else:
+        bg = f"linear-gradient(150deg, {color}, {crud.darken(color)})"
+    pills = "".join(f'<span class="ct-cat">{html.escape(x)}</span>'
+                    for x in (crud.course_status(course), course.get("category")) if x)
+    meta = html.escape(crud.term_label(course))
+    return (f'<div class="course-hero" style="background: {bg};"><div class="ch-body">'
+            f'<div class="ch-pills">{pills}</div><div class="ch-title">{html.escape(crud.label(course))}</div>'
+            f'{"<div class=ch-meta>" + meta + "</div>" if meta else ""}</div></div>')
 
 
 @st.dialog("Edit Course", width="large")
@@ -179,9 +196,10 @@ def render():
     open_id = st.session_state.get("open_course")
     course = crud.get_course(open_id) if open_id else None
     if course:
-        if st.button("← All Courses"):
+        if st.button("← All Courses", key="course_back"):
             st.session_state["open_course"] = None
             st.rerun()
+        st.markdown(_hero_html(course), unsafe_allow_html=True)  # banner between the button row and the tabs
         _manage(course)
         return
 
@@ -230,84 +248,55 @@ def _tile_grid(courses):
                         _edit_course_dialog(c)
 
 
-def _manage(course):
-    cid = course["id"]
-    st.header(crud.label(course))
-    sub = " · ".join(x for x in (course.get("category"), crud.term_label(course)) if x)
-    if sub:
-        st.caption(sub)
-    banner = _photo_url(cid)
-    if banner:
-        st.markdown(f'<div class="course-banner" style="background-image:url({banner})"></div>', unsafe_allow_html=True)
-    t_syl, t_notes, t_hw, t_exam, t_rec = st.tabs(["Syllabus", "Notes", "Homework", "Exam Hub", "Recall"])
-    with t_notes:
-        notes_view.render()
-    with t_hw:
-        homework_view.render()
-    with t_exam:
-        exam_mode_view.render()
-    with t_rec:
-        recall_view.render()
-    with t_syl:
-        _syllabus(course)
-
-
-def _syllabus(course):
-    cid = course["id"]
-    left, right = st.columns([3, 2])
-
-    with left:
-        for t in crud.list_topics(cid):
-            done = st.checkbox(f"Week {t['week'] or '–'}: {t['title']}", value=bool(t["completed"]),
-                               key=f"topic_{t['id']}")
-            if done != bool(t["completed"]):
-                crud.set_topic_done(t["id"], done)
-                st.rerun()
-        with st.form(f"add_topic_{cid}", clear_on_submit=True):
-            a, b = st.columns([1, 4])
-            week = a.number_input("Week", 1, 52, 1)
-            title = b.text_input("New Topic")
-            if st.form_submit_button("Add Topic") and title:
-                crud.add_topic(cid, week, title)
-                st.rerun()
-
-    with right:
-        st.subheader("Log Study Time")
-        with st.form(f"log_{cid}", clear_on_submit=True):
-            h = st.number_input("Hours", 0.25, 12.0, 1.0, 0.25)
-            note = st.text_input("What Did You Study?")
-            if st.form_submit_button("Log"):
-                crud.log_hours(cid, h, note)
-                st.rerun()
-        for l in crud.recent_logs(cid):
-            st.caption(f"{l['logged_on']} · {l['hours']}h · {l['note'] or ''}")
-
-        with st.expander("Semester, School, and Color"):
-            sem = st.text_input("Semester", value=course["semester"] or "", key=f"sem_{cid}")
-            sch = st.text_input("School", value=course.get("school") or "", key=f"sch_{cid}")
-            cat = _category_picker(f"cat_{cid}", "Category", course.get("category"))
-            color = st.color_picker("Tile Color", value=crud.course_color(course), key=f"color_{cid}")
-            with st.container(key=f"photo_box_{cid}"):
-                up = st.file_uploader("Course Photo", type=photos.PHOTO_TYPES, key=f"photo_{cid}")
-            if photos.photo_path(cid) and st.button("Remove Photo", key=f"rm_photo_{cid}"):
-                photos.remove_photo(cid)
-                st.rerun()
-            a, b, _ = st.columns([1, 2, 3])
-            if a.button("Save", key=f"save_term_{cid}"):
-                if up and not photos.save_photo(cid, up.getvalue()):
-                    st.toast("That photo could not be read.")
-                crud.update_course_info(cid, sem.strip(), sch.strip())
-                crud.set_course_color(cid, color)
-                crud.set_course_category(cid, cat)
-                st.rerun()
-            if b.button("Default Color", key=f"reset_color_{cid}"):
-                crud.set_course_color(cid, None)
-                st.rerun()
-
-        cur = crud.course_status(course)
-        status = st.radio("Status", list(crud.STATUSES), index=crud.STATUSES.index(cur), horizontal=True,
-                          key=f"status_{cid}")
-        if status != cur:
-            crud.set_course_status(cid, status)
-            st.session_state["courses_filter"] = status
+def _resource_card(book):
+    """A library file as a small tile; clicking it opens the file's preview in the Library."""
+    with st.container(key=f"bookcard_res_{book['id']}"):
+        st.markdown(library_view._cover_html(book), unsafe_allow_html=True)
+        if st.button(" ", key=f"cover_res_{book['id']}"):  # invisible button laid over the cover
+            st.session_state["page"] = "Library"
+            st.session_state["open_book"] = book["id"]
             st.rerun()
+    chips = "".join(f'<span class="book-badge meta">{html.escape(x)}</span>'
+                    for x in (book["kind"], f"Lec {book['lecture']}" if book.get("lecture") else "",
+                              book["edition"], book.get("year")) if x)
+    st.markdown(f'<div class="book-badges">{chips}</div>', unsafe_allow_html=True)
+    st.markdown(f"**{book['title']}**")
+    if book["author"]:
+        st.caption(book["author"])
+
+
+def _resource_grid(books):
+    for row in range(0, len(books), RESOURCE_COLUMNS):
+        cols = st.columns(RESOURCE_COLUMNS)
+        for col, book in zip(cols, books[row:row + RESOURCE_COLUMNS]):
+            with col:
+                _resource_card(book)
+
+
+def _resources(course):
+    """Library files linked to this course: course notes first, then textbooks."""
+    files = [b for b in crud.list_books() if b["course_id"] == course["id"]]
+    # Notes with a lecture number come first, in lecture order; then the rest by title.
+    by_title = lambda b: ((0, crud._natural_key(b["lecture"])) if b.get("lecture") else (1, []),
+                          crud._natural_key(b["title"]))
+    notes = sorted((b for b in files if b["kind"] in ("Lecture Notes", "Notes")), key=by_title)
+    textbooks = sorted((b for b in files if b["kind"] == "Textbook"), key=by_title)
+    st.subheader("Course Notes")
+    if notes:
+        _resource_grid(notes)
+    else:
+        st.caption("No course notes yet. Add a file in the Library and choose this course.")
+    st.subheader("Textbooks")
+    if textbooks:
+        _resource_grid(textbooks)
+    else:
+        st.caption("No textbooks yet. Add a file in the Library and choose this course.")
+
+
+def _manage(course):
+    """The course page below the banner: Overview (blank for now) and Resources."""
+    overview, resources = st.tabs(["Overview", "Resources"])
+    with overview:
+        st.empty()
+    with resources:
+        _resources(course)

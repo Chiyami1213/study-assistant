@@ -1,4 +1,5 @@
 """SQLite connection, schema (DDL) and seed data for Study Assistant."""
+import re
 import sqlite3
 from pathlib import Path
 
@@ -134,6 +135,8 @@ CREATE TABLE IF NOT EXISTS books (
     author      TEXT,
     kind        TEXT NOT NULL DEFAULT 'Textbook',  -- 'Textbook' | 'Notes'
     edition     TEXT,
+    year        TEXT,
+    lecture     TEXT,  -- lecture number(s) for notes, e.g. '3' or '3-4'
     pdf_path    TEXT NOT NULL,
     total_pages INTEGER,
     course_id   INTEGER REFERENCES courses(id) ON DELETE SET NULL,
@@ -162,6 +165,21 @@ def init_db() -> None:
         if "icon" not in cols:  # migrate databases created before icons existed
             conn.execute("ALTER TABLE courses ADD COLUMN icon TEXT")
         book_cols = [r["name"] for r in conn.execute("PRAGMA table_info(books)")]
+        if "lecture" not in book_cols:
+            conn.execute("ALTER TABLE books ADD COLUMN lecture TEXT")
+            from pdfmeta import split_lecture
+            for row in conn.execute("SELECT id, title FROM books WHERE kind IN ('Notes', 'Lecture Notes')").fetchall():
+                lecture, title = split_lecture(row["title"])
+                if lecture:    # "Lec 2 Notes Measurement..." -> lecture "2", title "Notes Measurement..."
+                    conn.execute("UPDATE books SET lecture=?, title=? WHERE id=?", (lecture, title, row["id"]))
+        if "year" not in book_cols:
+            conn.execute("ALTER TABLE books ADD COLUMN year TEXT")
+            for row in conn.execute("SELECT id, edition FROM books WHERE edition IS NOT NULL").fetchall():
+                m = re.fullmatch(r"\s*(.*?)\s*\((\d{4})\)\s*", row["edition"])
+                if m:      # "7th Edition (2019)" -> edition "7th Edition", year "2019"
+                    conn.execute("UPDATE books SET edition=?, year=? WHERE id=?", (m.group(1) or None, m.group(2), row["id"]))
+                elif re.fullmatch(r"\d{4}", row["edition"].strip()):   # a bare year
+                    conn.execute("UPDATE books SET edition=NULL, year=? WHERE id=?", (row["edition"].strip(), row["id"]))
         if "kind" not in book_cols:
             conn.execute("ALTER TABLE books ADD COLUMN kind TEXT NOT NULL DEFAULT 'Textbook'")
         if "author" not in book_cols:

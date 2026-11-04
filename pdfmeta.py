@@ -25,7 +25,7 @@ def _clean_title(text):
 
 def extract_info(data, filename=""):
     """Return dict(title, author, edition, pages, source) from raw PDF bytes; fields may be empty."""
-    info = {"title": "", "author": "", "edition": "", "pages": None, "source": "filename"}
+    info = {"title": "", "author": "", "edition": "", "year": "", "pages": None, "source": "filename"}
     try:
         from pypdf import PdfReader
         reader = PdfReader(io.BytesIO(data))
@@ -71,8 +71,7 @@ def extract_info(data, filename=""):
     elif meta and meta.get("/CreationDate"):
         cd = re.search(r"D:(\d{4})", str(meta.get("/CreationDate")))
         year = cd.group(1) if cd and 1900 < int(cd.group(1)) <= datetime.now().year else ""
-    if year:
-        info["edition"] = f"{info['edition']} ({year})" if info["edition"] else year
+    info["year"] = year
 
     if not info["title"]:
         info["title"] = _clean_title(filename.rsplit(".", 1)[0] if filename else "")
@@ -82,7 +81,7 @@ def extract_info(data, filename=""):
 def extract_html_info(data, filename=""):
     """Title / author / edition / year from an HTML file (title tag, meta tags, visible text)."""
     text = data.decode("utf-8", errors="replace")
-    info = {"title": "", "author": "", "edition": "", "pages": None, "source": "filename"}
+    info = {"title": "", "author": "", "edition": "", "year": "", "pages": None, "source": "filename"}
     m = re.search(r"<title[^>]*>(.*?)</title>", text, re.I | re.S)
     if m and m.group(1).strip():
         info["title"], info["source"] = _clean_title(re.sub(r"\s+", " ", _html.unescape(m.group(1))).strip()), "HTML title"
@@ -94,9 +93,32 @@ def extract_html_info(data, filename=""):
     ed = EDITION_RE.search(visible)
     if ed:
         info["edition"] = f"{_ordinal(int(ed.group(1) or ed.group(2)))} Edition"
+    elif WORD_EDITION_RE.search(visible):
+        info["edition"] = f"{_ordinal(WORD_EDITIONS[WORD_EDITION_RE.search(visible).group(1).lower()])} Edition"
     y = YEAR_RE.search(visible)
     if y:
-        info["edition"] = f"{info['edition']} ({y.group(1)})" if info["edition"] else y.group(1)
+        info["year"] = y.group(1)
     if not info["title"]:
         info["title"] = _clean_title(filename.rsplit(".", 1)[0] if filename else "")
     return info
+
+
+LECTURE_RE = re.compile(r"^\s*Lec(?:ture)?s?\.?\s*(\d+)(?:\s*[-\u2013\u2014]\s*(\d+))?\s*[:\-\u2013\u2014.]*\s*", re.I)
+
+
+def split_lecture(title):
+    """('3-4', 'Rest of title') for 'Lec 3-4 Rest of title'; ('', title) when there is no leading lecture number."""
+    m = LECTURE_RE.match(title or "")
+    if not m:
+        return "", (title or "").strip()
+    lecture = m.group(1) + (f"-{m.group(2)}" if m.group(2) else "")
+    return lecture, (title[m.end():].strip() or title.strip())
+
+
+NOTES_PREFIX_RE = re.compile(r"^\s*Notes?\s*[:\-–—]?\s+", re.I)
+
+
+def strip_notes_prefix(title):
+    """'Notes Fundamentals' -> 'Fundamentals'. A title that is only 'Notes' is left as it is."""
+    stripped = NOTES_PREFIX_RE.sub("", title or "", count=1).strip()
+    return stripped or (title or "").strip()
