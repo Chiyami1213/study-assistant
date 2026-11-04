@@ -11,6 +11,7 @@ import streamlit.components.v1 as components
 
 import covers
 import crud
+import navigation
 import pdfmeta
 from pdfmeta import split_lecture, strip_notes_prefix
 from database import BASE_DIR, PDF_DIR
@@ -88,7 +89,7 @@ def detect_kind(filename, title=""):
 
 
 def _course_options():
-    return {0: "None"} | {c["id"]: crud.label(c) for c in crud.list_courses(section=None)}
+    return {c["id"]: crud.label(c) for c in crud.list_courses(section=None)}
 
 
 @st.dialog("Add File", width="large")
@@ -129,10 +130,9 @@ def _add_dialog(default_course=None):
                          key=f"bk_year_{k}_{int(is_notes)}", placeholder="2019")
     courses = _course_options()
     guess = detect_course(up.name, info["title"]) if up else None
-    ids = list(courses)
-    start = guess if guess in ids else (default_course if default_course in ids else None)
-    course_id = st.selectbox("Course (Optional)", ids, index=ids.index(start) if start in ids else 0,
-                             format_func=courses.get, key=f"bk_course_{k}")
+    start = guess if guess in courses else (default_course if default_course in courses else None)
+    course_ids = st.multiselect("Courses (Optional)", list(courses), default=[start] if start else [],
+                                format_func=courses.get, key=f"bk_course_{k}")
     if guess:
         st.caption(f"Course detected from the file name: {crud.label(crud.get_course(guess))}")
     if st.button("Add to Library", type="primary", disabled=not (up and title.strip())):
@@ -141,15 +141,16 @@ def _add_dialog(default_course=None):
         dest = PDF_DIR / f"book_{uuid.uuid4().hex[:10]}{ext}"
         dest.write_bytes(up.getvalue())
         crud.add_book(title.strip(), author.strip(), edition.strip(), str(dest.relative_to(BASE_DIR)),
-                      info["pages"], course_id or None, kind, year.strip(), lecture.strip())
+                      info["pages"], course_ids, kind, year.strip(), lecture.strip())
         st.rerun()
 
 
 def _viewer(book):
     """Preview: pages rendered as images, with prev/next, page jump and zoom."""
-    if st.button("← Back to Library"):
-        st.session_state["open_book"] = None
-        st.rerun()
+    if st.button("← Back"):                      # to the page the file was opened from (course, library ...)
+        if not navigation.go_back():
+            st.session_state["open_book"] = None
+            st.rerun()
     st.header(book["title"])
     path = BASE_DIR / book["pdf_path"]
     if not path.exists():
@@ -188,15 +189,14 @@ def _edit_dialog(book):
     edition = c2.text_input("Edition", value=book["edition"] or "", key=f"ee_{book['id']}")
     year = c3.text_input("Year", value=book.get("year") or "", key=f"ey_{book['id']}")
     courses = _course_options()
-    ids = list(courses)
-    cur = book["course_id"] if book["course_id"] in courses else 0
-    course_id = st.selectbox("Course (Optional)", ids, index=ids.index(cur), format_func=courses.get,
-                             key=f"ec_{book['id']}")
+    course_ids = st.multiselect("Courses (Optional)", list(courses),
+                                default=[i for i in book["course_ids"] if i in courses],
+                                format_func=courses.get, key=f"ec_{book['id']}")
 
     a, b, _ = st.columns([1, 1.4, 8])
     if a.button("Save", type="primary", key=f"save_book_{book['id']}"):
         crud.update_book(book["id"], title.strip() or book["title"], author.strip(), edition.strip(), kind,
-                         course_id or None, year.strip(), lecture.strip())
+                         course_ids, year.strip(), lecture.strip())
         st.rerun()
     if b.button("Preview", key=f"open_book_{book['id']}"):
         st.session_state["open_book"] = book["id"]
@@ -218,26 +218,24 @@ def _edit_dialog(book):
             st.rerun()
 
 
-def _book_card(book):
-    with st.container(key=f"bookcard_{book['id']}"):
+def _book_card(book, suffix="0"):
+    with st.container(key=f"bookcard_{book['id']}_{suffix}"):
         st.markdown(_cover_html(book), unsafe_allow_html=True)
-        if st.button(" ", key=f"cover_{book['id']}"):  # invisible button laid over the cover
+        if st.button(" ", key=f"cover_{book['id']}_{suffix}"):  # invisible button laid over the cover
             st.session_state["open_book"] = book["id"]
             st.rerun()
 
-    course = crud.get_course(book["course_id"]) if book["course_id"] else None
-    tag = ""
-    if course and course["code"]:
-        tag = (f'<span class="book-badge tag" style="background:{crud.course_color(course)};'
-               f'border-color:{crud.course_color(course)}">{course["code"]}</span>')
+    linked = [c for c in (crud.get_course(i) for i in book["course_ids"]) if c]
+    tag = "".join(f'<span class="book-badge tag" style="background:{crud.course_color(c)};'
+                  f'border-color:{crud.course_color(c)}">{html.escape(c["code"])}</span>' for c in linked if c["code"])
+    states = list(dict.fromkeys(crud.course_status(c) for c in linked))     # one label per distinct status
     lec = f'<span class="book-badge meta">Lec {html.escape(book["lecture"])}</span>' if book.get("lecture") else ""
-    state = crud.course_status(course) if course else ""
-    status = f'<span class="book-badge status {state.lower().replace("-", "")}">{state}</span>' if course else ""
+    status = "".join(f'<span class="book-badge status {s.lower().replace("-", "")}">{s}</span>' for s in states)
     st.markdown(f'<div class="book-badges"><span class="book-badge">{book["kind"]}</span>{lec}{tag}{status}</div>',
                 unsafe_allow_html=True)
     t_col, m_col = st.columns([4, 1], vertical_alignment="top")
     t_col.markdown(f"**{book['title']}**")
-    if m_col.button("...", key=f"menu_{book['id']}", type="tertiary"):
+    if m_col.button("...", key=f"menu_{book['id']}_{suffix}", type="tertiary"):
         _edit_dialog(book)
     chips = "".join(f'<span class="book-badge meta">{html.escape(x)}</span>'
                     for x in (book["edition"], book.get("year")) if x)   # edition and year as separate labels
@@ -273,12 +271,15 @@ def _sorted_groups(books, sort_by):
         # Courses in menu order (Active, Self-Study, Completed); files without a course go last.
         courses = [c for s in crud.STATUSES for c in crud.courses_by_status(s)]
         rank = {c["id"]: i for i, c in enumerate(courses)}
-        names = {c["id"]: crud.label(c) for c in courses}
-        groups = {}
-        for b in sorted(books, key=lambda b: (rank.get(b["course_id"], len(rank)), _course_order(b))):
-            key = (names.get(b["course_id"], "No Course"), b["course_id"] if b["course_id"] in names else None)
-            groups.setdefault(key, []).append(b)
-        return [(heading, items, course_id) for (heading, course_id), items in groups.items()]
+        groups = []
+        for c in courses:    # a file linked to several courses shows up under each of them
+            items = sorted((b for b in books if c["id"] in b["course_ids"]), key=_course_order)
+            if items:
+                groups.append((crud.label(c), items, c["id"]))
+        loose = sorted((b for b in books if not any(i in rank for i in b["course_ids"])), key=_course_order)
+        if loose:
+            groups.append(("No Course", loose, None))
+        return groups
     return [("", books, None)]
 
 
@@ -293,7 +294,7 @@ def _tile_grid(tiles, has_books, default_course=None, suffix="0"):
                                      help=None if has_books else "click to add pdf"):
                             _add_dialog(default_course)
                 else:
-                    _book_card(tile)
+                    _book_card(tile, suffix)
 
 
 def render():

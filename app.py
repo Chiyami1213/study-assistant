@@ -10,14 +10,15 @@ import icons
 
 # The dev server caches imported modules between reruns; reload ours so edits apply without a restart.
 for _m in ("database", "crud", "settings", "icons", "pdfmeta", "covers", "photos", "views.notes_view", "views.courses_view", "views.home_view",
-           "views.homework_view", "views.exam_mode_view", "views.recall_view", "views.library_view", "views.calendar_view",
+           "navigation", "views.homework_view", "views.exam_mode_view", "views.recall_view", "views.library_view", "views.calendar_view", "views.file_view",
            "views.settings_view"):
     if _m in sys.modules:
         importlib.reload(sys.modules[_m])
+import navigation
 import photos
 import settings
 from database import init_db
-from views import calendar_view, courses_view, home_view, library_view, settings_view
+from views import calendar_view, courses_view, file_view, home_view, library_view, settings_view
 
 st.set_page_config(page_title="Study Assistant", page_icon=":material/book:", layout="wide",
                    initial_sidebar_state="expanded")
@@ -29,7 +30,8 @@ NAV_TOP = {
     "Home": (":material/home:", home_view.render),
     "Calendar": (":material/calendar_month:", calendar_view.render),
     "Library": (":material/library_books:", library_view.render),
-    "Courses": (":material/folder:", courses_view.render),
+    "Courses": ("svg:course_cap", courses_view.render),
+    "File": (":material/folder:", file_view.render),
 }
 NAV_BOTTOM = {"Settings": (":material/settings:", settings_view.render)}
 PAGES = {**NAV_TOP, **NAV_BOTTOM}
@@ -183,6 +185,7 @@ section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-h
 /* Add Course button: plain outlined button at the top right */
 .st-key-add_course_open {{width: 100% !important;}}
 .st-key-add_course_open [data-testid="stButton"] {{width: 100%; display: flex; justify-content: flex-end;}}
+.st-key-add_course_open button {{min-height: 0; padding: 0.3rem 0.8rem; width: auto !important;}}
 
 /* Course summary tiles */
 .course-tile {{aspect-ratio: 1 / 1; border-radius: 14px; padding: 16px; display: flex; flex-direction: column;
@@ -220,8 +223,104 @@ section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-h
     letter-spacing: 1px; text-shadow: 0 1px 3px #0008;}}
 [class*="st-key-tilemenu_"] button:hover p {{opacity: 0.8;}}
 
-.st-key-nav_back_hidden {{position: absolute !important; width: 1px; height: 1px; overflow: hidden; opacity: 0;
+.st-key-nav_back_hidden, .st-key-nav_forward_hidden {{position: absolute !important; width: 1px; height: 1px; overflow: hidden; opacity: 0;
     pointer-events: none;}}
+
+/* Course outline: hidden box that carries a clicked point to the app */
+.st-key-outline_sink {{position: absolute !important; width: 1px; height: 1px; overflow: hidden; opacity: 0; pointer-events: none;}}
+
+/* Home: term stats */
+.home-stats {{display: flex; gap: 12px; margin: 2px 0 18px;}}
+.home-stat {{border: 1px solid var(--border); border-radius: 12px; padding: 10px 18px; display: flex; flex-direction: column; line-height: 1.25;}}
+.home-stat b {{font-size: 1.5rem;}}
+.home-stat span {{font-size: 0.85rem; opacity: 0.7;}}
+
+/* Course page: outline */
+.ol {{border: 1px solid var(--border); border-radius: 12px; overflow: hidden; padding-bottom: 8px;}}
+.ol-main {{display: flex; align-items: baseline; gap: 10px; font-weight: 700; font-size: 1.05rem; padding: 14px 16px 6px;
+    border-top: 1px solid var(--border);}}
+.ol > .ol-main:first-child {{border-top: none;}}
+.ol-marker {{min-width: 34px; opacity: 0.65;}}
+.ol-hours {{margin-left: auto; font-size: 0.78rem; font-weight: 500; border: 1px solid var(--border); border-radius: 999px;
+    padding: 1px 10px; white-space: nowrap;}}
+.ol-sub {{display: flex; gap: 10px; padding: 3px 16px 3px 44px;}}
+.ol-sub .ol-marker {{min-width: 30px; white-space: nowrap;}}
+.ol-flat {{display: flex; gap: 10px; padding: 5px 16px;}}
+.ol-flat:first-child {{padding-top: 12px;}}
+.ol-wide .ol-main .ol-marker {{min-width: 74px; white-space: nowrap;}}
+.ol-wide .ol-sub .ol-marker {{min-width: 52px;}}
+.ol-wide .ol-flat .ol-marker {{min-width: 64px; opacity: 0.65; white-space: nowrap;}}
+.ol-sub.ol-fold {{display: block;}}
+.ol-fold > summary {{display: flex; gap: 10px; cursor: pointer; list-style: none; position: relative;}}
+.ol-fold > summary::-webkit-details-marker {{display: none;}}
+.ol-fold > summary::before {{content: "›"; position: absolute; left: -22px; top: -3px; font-size: 1.35rem; line-height: 1.25;
+    opacity: 0.7; transition: transform .15s;}}
+.ol-fold[open] > summary::before {{transform: rotate(90deg);}}
+.ol-count {{margin-left: 8px; font-size: 0.72rem; opacity: 0.6; align-self: center;}}
+.ol-kids {{padding: 4px 0 6px 32px;}}
+.ol-leaf {{display: flex; gap: 10px; padding: 2px 0; font-size: 0.95rem;}}
+.ol-leaf .ol-marker {{min-width: 22px; text-align: right;}}
+.ol a {{color: var(--accent) !important; text-decoration: none;}}
+.ol a:hover {{text-decoration: underline;}}
+
+/* Course page: links */
+.res-link {{font-weight: 600; text-decoration: none; color: var(--accent) !important;}}
+.res-link:hover {{text-decoration: underline;}}
+[class*="st-key-link_open_"], [class*="st-key-link_rm_"], [class*="st-key-outline_toggle_"] {{width: 100% !important;}}
+[class*="st-key-link_open_"] [data-testid="stButton"], [class*="st-key-link_rm_"] [data-testid="stButton"],
+[class*="st-key-outline_toggle_"] [data-testid="stButton"] {{width: 100%; display: flex; justify-content: flex-end;}}
+[class*="st-key-link_open_"] button, [class*="st-key-link_rm_"] button, [class*="st-key-outline_toggle_"] button {{
+    min-height: 0; padding: 0.3rem 0.8rem; width: auto !important;}}
+
+/* Course page: deadline lists */
+.dl-list {{border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin-bottom: 1rem;}}
+.dl-row {{display: grid; grid-template-columns: 1fr 190px 90px; gap: 12px; align-items: center; padding: 9px 16px;
+    border-bottom: 1px solid var(--border);}}
+.dl-row:last-child {{border-bottom: none;}}
+.dl-title {{font-weight: 600;}}
+.dl-when {{opacity: 0.8; font-size: 0.92rem;}}
+.dl-pill {{justify-self: end; font-size: 0.78rem; border-radius: 999px; padding: 1px 12px; border: 1px solid var(--border);}}
+.dl-pill.done {{border-color: #2f9e5f; color: #2f9e5f; background: rgba(47, 158, 95, 0.12);}}
+.dl-pill.open {{border-color: var(--accent); color: var(--accent); background: rgba(76, 141, 255, 0.10);}}
+.dl-pill.late {{border-color: #d14343; color: #d14343; background: rgba(209, 67, 67, 0.12);}}
+.dl-pill.none {{opacity: 0.7;}}
+
+/* Calendar: week view */
+.st-key-edit_schedule_open {{width: 100% !important;}}
+.st-key-edit_schedule_open [data-testid="stButton"] {{width: 100%; display: flex; justify-content: flex-end;}}
+.st-key-edit_schedule_open button {{min-height: 0; padding: 0.3rem 0.8rem; width: auto !important;}}
+.wk {{border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin: 6px 0 4px;}}
+.wk-row {{display: grid; grid-template-columns: 56px repeat(7, 1fr);}}
+.wk-top {{border-bottom: 1px solid var(--border);}}
+.wk-head {{text-align: center; padding: 8px 0 6px; line-height: 1.2;}}
+.wk-head span {{display: block; font-size: 0.85rem; opacity: 0.75;}}
+.wk-head b {{font-size: 1.25rem;}}
+.wk-head.today b {{background: var(--accent); color: #fff; border-radius: 999px; padding: 1px 9px;}}
+.wk-strip {{border-bottom: 1px solid var(--border); min-height: 30px;}}
+.wk-allday-label {{font-size: 0.7rem; opacity: 0.6; padding: 6px 4px; text-align: right;}}
+.wk-allday {{padding: 3px 2px; border-left: 1px solid var(--border); min-width: 0;}}
+.wk-pill {{color: #fff; font-size: 0.72rem; border-radius: 999px; padding: 1px 8px; margin-bottom: 2px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}}
+.wk-gutter {{position: relative;}}
+.wk-hour {{position: absolute; right: 6px; transform: translateY(-50%); font-size: 0.72rem; opacity: 0.65;}}
+.wk-col {{position: relative; border-left: 1px solid var(--border); min-width: 0;
+    background-image: repeating-linear-gradient(to bottom, transparent 0, transparent 55px, var(--border) 55px, var(--border) 56px);}}
+.wk-col.today {{background-color: rgba(76, 141, 255, 0.07);}}
+.wk-col.holiday {{background-image: repeating-linear-gradient(135deg, rgba(128,128,128,0.16) 0, rgba(128,128,128,0.16) 6px, transparent 6px, transparent 14px),
+    repeating-linear-gradient(to bottom, transparent 0, transparent 55px, var(--border) 55px, var(--border) 56px);}}
+.wk-block {{position: absolute; border-radius: 8px; padding: 4px 7px; color: #fff; overflow: hidden; line-height: 1.25;
+    box-shadow: 0 1px 4px #0004; box-sizing: border-box;}}
+.wk-time {{font-size: 0.72rem; opacity: 0.92;}}
+.wk-code {{font-weight: 700; font-size: 0.9rem;}}
+.wk-loc {{font-size: 0.76rem; opacity: 0.92; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}}
+.wk-block.wk-exam {{outline: 2px solid #ef4444; outline-offset: -2px; padding-bottom: 22px;}}
+.wk-code {{white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}}
+.wk-block.wk-exam .wk-code {{font-size: 0.8rem;}}
+.wk-block.wk-exam .wk-time {{font-size: 0.68rem;}}
+.wk-exam-tag {{position: absolute; left: 0; right: 0; bottom: 0; background: #e0392b; color: #fff; font-size: 0.72rem;
+    font-weight: 700; padding: 1px 7px;}}
+.wk-now {{position: absolute; left: 0; right: 0; height: 2px; background: #ef4444; z-index: 2;}}
+.wk-now::before {{content: ""; position: absolute; left: -4px; top: -3px; width: 8px; height: 8px; border-radius: 50%; background: #ef4444;}}
 
 /* Calendar */
 .cal-head {{text-align: center; font-weight: 600; font-size: 0.85rem; opacity: 0.7; padding-bottom: 4px;}}
@@ -255,7 +354,9 @@ section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-h
 .st-key-appearance button[data-testid="stBaseButton-primary"] span[data-testid="stIconMaterial"] {{color: var(--active-text) !important;}}
 </style>
 """
-COURSE_ICON_CSS = "".join(icons.css_for_course(c["id"], c["icon"]) for c in crud.list_courses(section=None) if icons.is_custom(c["icon"]))
+NAV_ICON_CSS = "".join(icons.css_for_nav(f"nav_{label}", icon) for label, (icon, _) in NAV_TOP.items()
+                       if icons.is_custom(icon))
+COURSE_ICON_CSS = NAV_ICON_CSS + "".join(icons.css_for_course(c["id"], c["icon"]) for c in crud.list_courses(section=None) if icons.is_custom(c["icon"]))
 st.markdown(CSS + f"<style>{COURSE_ICON_CSS}</style>", unsafe_allow_html=True)
 
 # Collapse the rail after a click; re-arm when the mouse leaves it.
@@ -273,11 +374,34 @@ if (!window.parent.__navHooked) {
     if (sb && !sb.contains(e.target)) sb.classList.remove('nav-collapsed');
   });
 }
-// Mouse "back" button (and the browser's back) go to the previous page inside the app.
+// Mouse "back" and "forward" buttons (and the browser's back) move through the pages visited inside the app.
 if (!window.parent.__navBackHooked) {
   window.parent.__navBackHooked = true;
-  const goBack = () => { const b = doc.querySelector('.st-key-nav_back_hidden button'); if (b) b.click(); };
-  doc.addEventListener('mouseup', e => { if (e.button === 3) { e.preventDefault(); e.stopPropagation(); goBack(); } }, true);
+  // Mouse presses wait until the app has been idle for a moment before clicking the hidden button. Streamlit can lose
+  // a request that lands while it is finishing a page change and then stays "running" until the page is reloaded.
+  let pending = false;
+  const press = sel => {
+    if (pending) return;                       // a press is already waiting
+    pending = true;
+    const t0 = Date.now(); let idleSince = null;
+    const tick = () => {
+      const now = Date.now();
+      if (doc.querySelector('[data-testid="stStatusWidget"]')) idleSince = null;
+      else if (idleSince === null) idleSince = now;
+      if (idleSince !== null && now - idleSince >= 450) {
+        pending = false;
+        const b = doc.querySelector(sel); if (b) b.click();
+      } else if (now - t0 < 5000) setTimeout(tick, 100);
+      else pending = false;
+    };
+    tick();
+  };
+  const goBack = () => press('.st-key-nav_back_hidden button');
+  const goForward = () => press('.st-key-nav_forward_hidden button');
+  doc.addEventListener('mouseup', e => {
+    if (e.button === 3) { e.preventDefault(); e.stopPropagation(); goBack(); }
+    else if (e.button === 4) { e.preventDefault(); e.stopPropagation(); goForward(); }
+  }, true);
   doc.addEventListener('mousedown', e => { if (e.button === 3 || e.button === 4) e.preventDefault(); }, true);
   window.parent.history.pushState({app: true}, '', window.parent.location.href);
   window.parent.addEventListener('popstate', () => {
@@ -344,38 +468,49 @@ if (!win.__navDragV2) {
   });
   doc.addEventListener('dragend', () => { clear(); dragged = null; });
 }
+// Outline points that link to a page of a Library file: pass "book,page" to the hidden box, which opens the preview.
+if (!win.__olNavV1) {
+  win.__olNavV1 = true;
+  doc.addEventListener('click', e => {
+    const a = e.target.closest && e.target.closest('a[data-ol-page]');
+    if (!a) return;
+    e.preventDefault();
+    const inp = doc.querySelector('.st-key-outline_sink input'); if (!inp) return;
+    const set = Object.getOwnPropertyDescriptor(win.HTMLInputElement.prototype, 'value').set;
+    inp.focus(); set.call(inp, a.dataset.olBook + ',' + a.dataset.olPage + '|' + Date.now());
+    inp.dispatchEvent(new win.Event('input', {bubbles: true}));
+    inp.dispatchEvent(new win.KeyboardEvent('keydown', {key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true}));
+    inp.blur();
+  }, true);
+}
 </script>""", height=0)
 
 st.session_state.setdefault("page", "Home")
 st.session_state.setdefault("mode", "Detailed")
 st.session_state.setdefault("pdf_page", 1)
 
-# ---- Back navigation: the app keeps its own history of (page, open course, open file) ----
+# ---- Back / forward navigation: the app keeps its own history of (page, open course, open file) ----
 st.session_state.setdefault("nav_history", [])
-if st.button("Back", key="nav_back_hidden"):  # clicked by the mouse back button (hidden by CSS)
-    hist = st.session_state["nav_history"]
-    if len(hist) > 1:
-        hist.pop()
-        page, open_course, open_book = hist[-1]
-        st.session_state["page"] = page
-        st.session_state["open_course"] = open_course
-        st.session_state["open_book"] = open_book
-        if open_course:
-            st.session_state["course_id"] = open_course
-        st.session_state["_going_back"] = True
-        st.rerun()
+st.session_state.setdefault("nav_forward", [])       # pages left by going back, newest last
+if st.button("Back", key="nav_back_hidden"):          # clicked by the mouse back button (hidden by CSS)
+    navigation.go_back()
+if st.button("Forward", key="nav_forward_hidden"):    # clicked by the mouse forward button (hidden by CSS)
+    navigation.go_forward()
 
 
 def nav_button(label, icon):
     active = st.session_state["page"] == label
-    if st.button(label, icon=icon, key=f"nav_{label}", type="primary" if active else "tertiary"):
+    shown = ":material/circle:" if icons.is_custom(icon) else icon      # custom drawings replace this glyph (see CSS)
+    if st.button(label, icon=shown, key=f"nav_{label}", type="primary" if active else "tertiary"):
         st.session_state["page"] = label
         if label == "Courses":
             st.session_state["open_course"] = None  # top-level Courses shows the summary tiles
+            st.session_state.pop("course_tab", None)
         st.rerun()
 
 
 def _open_course(c):
+    st.session_state.pop("course_tab", None)
     st.session_state["page"] = "Courses"
     st.session_state["course_id"] = c["id"]
     st.session_state["open_course"] = c["id"]
@@ -440,5 +575,6 @@ if not st.session_state.pop("_going_back", False):
     if not _hist or _hist[-1] != _view:
         _hist.append(_view)
         del _hist[:-50]
+        st.session_state["nav_forward"] = []          # going somewhere new clears what "forward" would have reached
 
 PAGES[st.session_state["page"]][1]()

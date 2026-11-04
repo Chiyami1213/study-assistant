@@ -18,7 +18,6 @@ LIBRARY_COURSES = [  # custom subjects without a course number: (name, sidebar i
     ("Anatomy", "svg:anatomy_body"),
     ("Tonal Harmony", ":material/piano:"),
     ("Macroeconomics", "svg:macro_globe"),
-    ("Thermodynamics", "svg:steam_engine"),
     ("Pyrochemistry", "svg:flame"),
 ]
 
@@ -100,6 +99,7 @@ CREATE TABLE IF NOT EXISTS homework_pairs (
     course_id     INTEGER NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
     title         TEXT NOT NULL,
     due_date      TEXT,
+    due_time      TEXT,   -- 'HH:MM' (optional)
     problem_md    TEXT,
     solution_md   TEXT,
     problem_file  TEXT,
@@ -125,7 +125,9 @@ CREATE TABLE IF NOT EXISTS events (
     id        INTEGER PRIMARY KEY AUTOINCREMENT,
     title     TEXT NOT NULL,
     date      TEXT NOT NULL,
-    course_id INTEGER REFERENCES courses(id) ON DELETE SET NULL
+    course_id INTEGER REFERENCES courses(id) ON DELETE SET NULL,
+    time      TEXT,         -- 'HH:MM' (optional)
+    end_time  TEXT          -- 'HH:MM' (optional)
 );
 
 -- Library books / PDFs (stored under data/pdfs). course_id is optional.
@@ -141,6 +143,53 @@ CREATE TABLE IF NOT EXISTS books (
     total_pages INTEGER,
     course_id   INTEGER REFERENCES courses(id) ON DELETE SET NULL,
     added_at    TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- A file can belong to several courses (books.course_id only mirrors the first one for older code).
+CREATE TABLE IF NOT EXISTS book_courses (
+    book_id   INTEGER NOT NULL REFERENCES books(id) ON DELETE CASCADE,
+    course_id INTEGER NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+    PRIMARY KEY (book_id, course_id)
+);
+
+-- Weekly class meetings of a course. days = weekday numbers (Mon=0 ... Sun=6), e.g. "1,3" = Tue and Thu.
+CREATE TABLE IF NOT EXISTS class_meetings (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    course_id  INTEGER NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+    days       TEXT NOT NULL,
+    start_time TEXT NOT NULL,
+    end_time   TEXT NOT NULL,
+    location   TEXT
+);
+
+-- Days off inside the term (no classes). Both dates are inclusive.
+CREATE TABLE IF NOT EXISTS holidays (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    name       TEXT NOT NULL,
+    start_date TEXT NOT NULL,
+    end_date   TEXT NOT NULL
+);
+
+-- Web links of a course (class pages, syllabus, ...).
+CREATE TABLE IF NOT EXISTS course_links (
+    id        INTEGER PRIMARY KEY AUTOINCREMENT,
+    course_id INTEGER NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+    title     TEXT NOT NULL,
+    url       TEXT NOT NULL
+);
+
+-- Course outline: main topics ('I') with sub topics ('A'), in page order.
+CREATE TABLE IF NOT EXISTS course_outline (
+    id        INTEGER PRIMARY KEY AUTOINCREMENT,
+    course_id INTEGER NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+    position  INTEGER NOT NULL,
+    level     TEXT NOT NULL,
+    marker    TEXT NOT NULL,
+    title     TEXT NOT NULL,
+    hours     TEXT,
+    url       TEXT,
+    book_id   INTEGER,   -- Library file the point links to (opens its preview)
+    page      INTEGER    -- page of that file
 );
 
 CREATE INDEX IF NOT EXISTS idx_notes_course  ON notes(course_id);
@@ -160,7 +209,11 @@ def get_conn() -> sqlite3.Connection:
 
 def init_db() -> None:
     with get_conn() as conn:
+        had_links = conn.execute("SELECT 1 FROM sqlite_master WHERE name='book_courses'").fetchone()
         conn.executescript(SCHEMA)
+        if not had_links:    # first run with multi-course files: carry over each file's single course
+            conn.execute("INSERT OR IGNORE INTO book_courses(book_id, course_id) "
+                         "SELECT id, course_id FROM books WHERE course_id IS NOT NULL")
         cols = [r["name"] for r in conn.execute("PRAGMA table_info(courses)")]
         if "icon" not in cols:  # migrate databases created before icons existed
             conn.execute("ALTER TABLE courses ADD COLUMN icon TEXT")
@@ -184,6 +237,15 @@ def init_db() -> None:
             conn.execute("ALTER TABLE books ADD COLUMN kind TEXT NOT NULL DEFAULT 'Textbook'")
         if "author" not in book_cols:
             conn.execute("ALTER TABLE books ADD COLUMN author TEXT")
+        if "time" not in [r["name"] for r in conn.execute("PRAGMA table_info(events)")]:
+            conn.execute("ALTER TABLE events ADD COLUMN time TEXT")
+        if "book_id" not in [r["name"] for r in conn.execute("PRAGMA table_info(course_outline)")]:
+            conn.execute("ALTER TABLE course_outline ADD COLUMN book_id INTEGER")
+            conn.execute("ALTER TABLE course_outline ADD COLUMN page INTEGER")
+        if "end_time" not in [r["name"] for r in conn.execute("PRAGMA table_info(events)")]:
+            conn.execute("ALTER TABLE events ADD COLUMN end_time TEXT")
+        if "due_time" not in [r["name"] for r in conn.execute("PRAGMA table_info(homework_pairs)")]:
+            conn.execute("ALTER TABLE homework_pairs ADD COLUMN due_time TEXT")
         if "photo_file" not in cols:
             conn.execute("ALTER TABLE courses ADD COLUMN photo_file TEXT")
         if "category" not in cols:

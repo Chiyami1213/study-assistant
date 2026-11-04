@@ -148,6 +148,47 @@ _SVG = {
         "stroke-width='1.3' stroke-linecap='round' stroke-linejoin='round'>"
         "<path d='M4 5V20M4 17H9.0M7.3 15.8L9.0 17L7.3 18.2M4 13.5H14.0M12.3 12.3L14.0 13.5L12.3 14.7M4 10H18.0M16.3 8.8L18.0 10L16.3 11.2M4 6.5H20.5M18.8 5.3L20.5 6.5L18.8 7.7'/><path d='M4 20C7.5 19 10 15.5 14 13.5C17 11.8 19.5 9 20.5 6.5' stroke-width='1'/><path d='M2 21.2H22M4 21.2L2.6 22.8M8 21.2L6.6 22.8M12 21.2L10.6 22.8M16 21.2L14.6 22.8M20 21.2L18.6 22.8'/></svg>"
     ),
+    # Mathematics course icons: function graph, series (sigma), vector field, matrix
+    "function_curve": (
+        "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' "
+        "stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'><path d='M3.5 3.5V20.5H21'/><path d='M5.5 16.5C9 16.5 9.5 6.5 13 6.5S17.5 13 20.5 8'/><circle cx='13' cy='6.5' r='1.1' fill='black' stroke='none'/></svg>"
+    ),
+    "sigma_series": (
+        "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' "
+        "stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'><path d='M17.5 4.5H6.5L12.5 12L6.5 19.5H17.5'/></svg>"
+    ),
+    "vector_field": (
+        "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' "
+        "stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'><path d='M3.4 7.6L7.6 3.4M5.6 3.9L7.6 3.4L7.1 5.4M9.0 5.5L15.0 5.5M13.2 4.5L15.0 5.5L13.2 6.5M16.4 3.4L20.6 7.6M20.1 5.6L20.6 7.6L18.6 7.1M5.5 15.0L5.5 9.0M4.5 10.8L5.5 9.0L6.5 10.8M18.5 9.0L18.5 15.0M19.6 13.2L18.5 15.0L17.4 13.2M7.6 20.6L3.4 16.4M3.9 18.4L3.4 16.4L5.4 16.9M15.0 18.5L9.0 18.5M10.8 19.6L9.0 18.5L10.8 17.4M20.6 16.4L16.4 20.6M18.4 20.1L16.4 20.6L16.9 18.6'/></svg>"
+    ),
+    "matrix_brackets": (
+        "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' "
+        "stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'><path d='M8 4H5V20H8M16 4H19V20H16'/><circle cx='9.6' cy='8.5' r='1' fill='black' stroke='none'/><circle cx='12' cy='8.5' r='1' fill='black' stroke='none'/><circle cx='14.4' cy='8.5' r='1' fill='black' stroke='none'/><circle cx='9.6' cy='12' r='1' fill='black' stroke='none'/><circle cx='12' cy='12' r='1' fill='black' stroke='none'/><circle cx='14.4' cy='12' r='1' fill='black' stroke='none'/><circle cx='9.6' cy='15.5' r='1' fill='black' stroke='none'/><circle cx='12' cy='15.5' r='1' fill='black' stroke='none'/><circle cx='14.4' cy='15.5' r='1' fill='black' stroke='none'/></svg>"
+    ),
+    # Ordinary differential equations: slope field with a solution curve
+    "slope_field": (
+        "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' "
+        "stroke-linecap='round' stroke-linejoin='round'>"
+        "<path stroke-width='1.1' d='M4.2 3.5L5.8 6.5M8.6 3.7L10.8 6.3M12.8 4.1L15.8 5.9M17.3 5.0L20.7 5.0M3.9 8.4L6.1 11.0M8.2 8.8L11.2 10.6M12.6 9.7L16.0 9.7M17.5 10.6L20.5 8.8M3.5 13.4L6.5 15.2M8.0 14.3L11.4 14.3M12.8 15.2L15.8 13.4M17.9 15.6L20.1 13.0M3.3 19.0L6.7 19.0M8.2 19.9L11.2 18.1M13.2 20.3L15.4 17.7M18.2 20.5L19.8 17.5'/><path stroke-width='2' d='M3 5C5.5 14 9 16.5 12.5 13.5S19 6.5 21.5 4.5'/></svg>"
+    ),
+    # Partial differential equations: the partial-derivative sign
+    "partial_derivative": (
+        "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' "
+        "stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'><path d='M8 5.5C9.6 3.6 14.2 3.4 15.8 7.6C17.4 11.8 16.4 17.2 12.2 19.7C8.6 21.7 6.4 17.8 8.4 14.8C10 12.4 13.4 12 15.8 13.2'/></svg>"
+    ),
+    # Multivariable calculus: a potato-chip (saddle) surface with a tilted normal vector
+    "surface_normal": (
+        "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' "
+        "stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'>"
+        "<path d='M2.6 14.6Q5 8 12 6.6Q15.2 11.2 21.4 12.2Q20.4 19 12.8 20.2Q8.4 15.2 2.6 14.6Z'/><path stroke-width='1' d='M6.2 11.2Q11.5 15.2 17.2 15.6'/><path d='M12.4 12.8L19.8 3.4M17.1 4.6L19.8 3.4L19.3 6.4'/><circle cx='12.4' cy='12.8' r='1.1' fill='black' stroke='none'/></svg>"
+    ),
+    # Courses menu icon: graduation cap
+    "course_cap": (
+        "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' "
+        "stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'>"
+        "<path d='M12 4L22 9L12 14L2 9Z'/><path d='M6 11.4V16C6 17.8 8.7 19.5 12 19.5S18 17.8 18 16V11.4'/>"
+        "<path d='M22 9V15'/><circle cx='22' cy='16.2' r='1' fill='black' stroke='none'/></svg>"
+    ),
 }
 
 
@@ -170,3 +211,16 @@ def css_for_course(course_id, icon):
             f'color: transparent !important; width: 1.5rem; height: 1.5rem; display: inline-block; flex: none; '
             f'background: #d5d7dd; -webkit-mask: {url} center/contain no-repeat; '
             f'mask: {url} center/contain no-repeat;}}')
+
+
+def css_for_nav(key, icon):
+    """Draw a custom SVG as the icon of the sidebar button whose widget key is `key` (e.g. "nav_Courses")."""
+    svg = _SVG.get(icon[4:])
+    if not svg:
+        return ""
+    url = f"url('data:image/svg+xml,{quote(svg)}')"
+    return (f'.st-key-{key} span[data-testid="stIconMaterial"] {{color: transparent !important; width: 1.5rem; '
+            f'height: 1.5rem; display: inline-block; flex: none; background: #d5d7dd; '
+            f'-webkit-mask: {url} center/contain no-repeat; mask: {url} center/contain no-repeat;}}'
+            f'.st-key-{key} button[data-testid="stBaseButton-primary"] span[data-testid="stIconMaterial"] '
+            f'{{background: #fff;}}')

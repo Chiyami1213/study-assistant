@@ -1,6 +1,7 @@
 """Courses: a summary page of square course tiles, and the per-course hub."""
 import html
 import re
+from datetime import date
 
 import streamlit as st
 
@@ -198,6 +199,7 @@ def render():
     if course:
         if st.button("← All Courses", key="course_back"):
             st.session_state["open_course"] = None
+            st.session_state.pop("course_tab", None)
             st.rerun()
         st.markdown(_hero_html(course), unsafe_allow_html=True)  # banner between the button row and the tabs
         _manage(course)
@@ -243,6 +245,7 @@ def _tile_grid(courses):
                     if st.button(" ", key=f"tile_{c['id']}"):  # invisible button laid over the tile
                         st.session_state["course_id"] = c["id"]
                         st.session_state["open_course"] = c["id"]
+                        st.session_state.pop("course_tab", None)
                         st.rerun()
                     if st.button("...", key=f"tilemenu_{c['id']}", type="tertiary"):  # bottom-right edit menu
                         _edit_course_dialog(c)
@@ -253,6 +256,7 @@ def _resource_card(book):
     with st.container(key=f"bookcard_res_{book['id']}"):
         st.markdown(library_view._cover_html(book), unsafe_allow_html=True)
         if st.button(" ", key=f"cover_res_{book['id']}"):  # invisible button laid over the cover
+            st.session_state["course_tab"] = (st.session_state.get("open_course"), "Resources")
             st.session_state["page"] = "Library"
             st.session_state["open_book"] = book["id"]
             st.rerun()
@@ -274,29 +278,185 @@ def _resource_grid(books):
 
 
 def _resources(course):
-    """Library files linked to this course: course notes first, then textbooks."""
-    files = [b for b in crud.list_books() if b["course_id"] == course["id"]]
+    """Library files linked to this course (Course Notes, Notes, Textbooks), then its web links."""
+    files = [b for b in crud.list_books() if course["id"] in b["course_ids"]]
     # Notes with a lecture number come first, in lecture order; then the rest by title.
-    by_title = lambda b: ((0, crud._natural_key(b["lecture"])) if b.get("lecture") else (1, []),
-                          crud._natural_key(b["title"]))
-    notes = sorted((b for b in files if b["kind"] in ("Lecture Notes", "Notes")), key=by_title)
-    textbooks = sorted((b for b in files if b["kind"] == "Textbook"), key=by_title)
-    st.subheader("Course Notes")
-    if notes:
-        _resource_grid(notes)
-    else:
-        st.caption("No course notes yet. Add a file in the Library and choose this course.")
-    st.subheader("Textbooks")
-    if textbooks:
-        _resource_grid(textbooks)
-    else:
-        st.caption("No textbooks yet. Add a file in the Library and choose this course.")
+    order = lambda b: ((0, crud._natural_key(b["lecture"])) if b.get("lecture") else (1, []),
+                       crud._natural_key(b["title"]))
+    sections = [
+        ("Course Notes", "Lecture Notes", "No course notes yet."),
+        ("Notes", "Notes", "No notes yet."),
+        ("Textbooks", "Textbook", "No textbooks yet."),
+    ]
+    for heading, kind, empty in sections:
+        st.subheader(heading)
+        items = sorted((b for b in files if b["kind"] == kind), key=order)
+        if items:
+            _resource_grid(items)
+        else:
+            st.caption(f"{empty} Add a file in the Library and choose this course.")
+
+    _links(course)
+
+
+@st.dialog("Add Link", width="large")
+def _add_link_dialog(course):
+    url = st.text_input("URL", placeholder="https://")
+    title = st.text_input("Title (Optional)", placeholder="Class Page")
+    bad = bool(url.strip()) and not crud.normalize_url(url)
+    if bad:
+        st.caption("That does not look like a web address.")
+    if st.button("Add Link", type="primary", key=f"link_add_{course['id']}", disabled=not url.strip() or bad):
+        crud.add_link(course["id"], title, url)
+        st.rerun()
+
+
+def _links(course):
+    """Web links of the course (class page, syllabus ...), opened in a new tab."""
+    head, btn = st.columns([6, 1.2], vertical_alignment="center")
+    head.subheader("Links")
+    if btn.button("Add Link", key=f"link_open_{course['id']}"):
+        _add_link_dialog(course)
+    links = crud.list_links(course["id"])
+    if not links:
+        st.caption("No links yet.")
+    for ln in links:
+        a, b = st.columns([8, 1], vertical_alignment="center")
+        a.markdown(f'<a class="res-link" href="{html.escape(ln["url"], quote=True)}" target="_blank" '
+                   f'rel="noopener noreferrer" title="{html.escape(ln["url"], quote=True)}">'
+                   f'{html.escape(ln["title"])}</a>', unsafe_allow_html=True)
+        if b.button("Remove", key=f"link_rm_{ln['id']}"):
+            crud.delete_link(ln["id"]); st.rerun()
+
+
+def _when(day, time):
+    """'Mon, Nov 9 · 22:00' (the year is added only when it is not the current year)."""
+    if not day:
+        return "No date"
+    d = date.fromisoformat(day)
+    text = f"{d.strftime('%a, %b')} {d.day}" + (f", {d.year}" if d.year != date.today().year else "")
+    return text + (f" · {time}" if time else "")
+
+
+def _row_html(title, when, status, css):
+    return (f'<div class="dl-row"><div class="dl-title">{html.escape(title)}</div>'
+            f'<div class="dl-when">{html.escape(when)}</div><span class="dl-pill {css}">{status}</span></div>')
+
+
+def _overview(course):
+    """Homework and midterms/finals of the course, in date order."""
+    today = date.today().isoformat()
+    homework = sorted(crud.list_homework(course["id"]),
+                      key=lambda h: (h["due_date"] or "9999-12-31", crud._natural_key(h["title"])))
+    exams = sorted((e for e in crud.list_events("2000-01-01", "2100-12-31")
+                    if e["course_id"] == course["id"]
+                    and re.search(r"midterm|final|exam", e["title"], re.I)),
+                   key=lambda e: (e["date"], e.get("time") or ""))
+
+    st.subheader(f"Homework ({len(homework)})")
+    if not homework:
+        st.caption("No homework yet.")
+    rows = ""
+    for h in homework:
+        if h["status"] == "verified":
+            status, css = "Done", "done"
+        elif not h["due_date"]:
+            status, css = "No Date", "none"
+        elif h["due_date"] < today:
+            status, css = "Overdue", "late"
+        else:
+            status, css = "Open", "open"
+        rows += _row_html(h["title"], _when(h["due_date"], h.get("due_time")), status, css)
+    st.markdown(f'<div class="dl-list">{rows}</div>', unsafe_allow_html=True)
+
+    st.subheader(f"Midterms and Finals ({len(exams)})")
+    if not exams:
+        st.caption("No midterms or finals yet.")
+    rows = "".join(_row_html(e["title"], _when(e["date"], e.get("time")),
+                             "Done" if e["date"] < today else "Upcoming", "done" if e["date"] < today else "open")
+                   for e in exams)
+    st.markdown(f'<div class="dl-list">{rows}</div>', unsafe_allow_html=True)
+
+
+def _open_pdf_from_outline():
+    """A clicked outline point with a page writes 'book,page|stamp' into a hidden box; open that file at that page."""
+    sink = st.text_input("Outline Navigation", key="outline_sink", label_visibility="collapsed")
+    if sink and sink != st.session_state.get("_outline_sink_done"):
+        st.session_state["_outline_sink_done"] = sink
+        try:
+            book_id, page = (int(x) for x in sink.split("|")[0].split(","))
+        except ValueError:
+            return
+        if crud.get_book(book_id):
+            st.session_state["course_tab"] = (st.session_state.get("open_course"), "Outline")   # reopen here on Back
+            st.session_state["page"] = "Library"
+            st.session_state["open_book"] = book_id
+            st.session_state[f"view_page_{book_id}"] = page
+            st.rerun()
+
+
+def _outline(course):
+    """The course outline: main topics (I., II., ...), their sub topics (A., B., ...), and under each sub topic a
+    folded list of its numbered points (1., 2., ...)."""
+    items = crud.list_outline(course["id"])
+    if not items:
+        st.caption("No outline yet.")
+        return
+
+    _open_pdf_from_outline()
+
+    def label(it):
+        text = html.escape(it["title"])
+        if it.get("book_id") and it.get("page"):     # opens the Library preview of the notes at that page
+            text = (f'<a href="#" data-ol-book="{it["book_id"]}" data-ol-page="{it["page"]}">{text}</a>')
+        elif it["url"]:
+            text = f'<a href="{html.escape(it["url"], quote=True)}" target="_blank" rel="noopener noreferrer">{text}</a>'
+        marker = it["marker"] + ("." if re.fullmatch(r"[IVXLCDM]+|[A-Z]|\d+", it["marker"]) else "")   # I. A. 1. / Part 1 / Lec 2
+        return f'<span class="ol-marker">{html.escape(marker)}</span><span>{text}</span>'
+
+    # One button opens or closes every folded list at once (they start folded).
+    key = f"outline_open_{course['id']}"
+    opened = st.session_state.get(key, False)
+    if any(it["level"] == "1" for it in items):
+        _, btn = st.columns([6, 1.4], vertical_alignment="center")
+        if btn.button("Collapse All" if opened else "Expand All", key=f"outline_toggle_{course['id']}"):
+            st.session_state[key] = not opened
+            st.rerun()
+    open_attr = " open" if opened else ""
+
+    rows, i = "", 0
+    while i < len(items):
+        it = items[i]
+        i += 1
+        if it["level"] == "I":
+            rows += f'<div class="ol-main">{label(it)}</div>'
+            continue
+        if it["level"] == "L":                 # a plain list of lectures (no parts)
+            rows += f'<div class="ol-flat">{label(it)}</div>'
+            continue
+        kids = []
+        if it["level"] == "A":
+            while i < len(items) and items[i]["level"] == "1":
+                kids.append(items[i])
+                i += 1
+        if kids:
+            leaves = "".join(f'<div class="ol-leaf">{label(k)}</div>' for k in kids)
+            rows += (f'<details class="ol-sub ol-fold"{open_attr}><summary>{label(it)}'
+                     f'<span class="ol-count">{len(kids)}</span></summary><div class="ol-kids">{leaves}</div></details>')
+        else:
+            rows += f'<div class="ol-sub">{label(it)}</div>'
+    wide = any(not re.fullmatch(r"[IVXLCDM]+|[A-Z]|\d+|[\d.\u2013]+", it["marker"]) for it in items)   # Part / Lec markers
+    st.markdown(f'<div class="ol{" ol-wide" if wide else ""}">{rows}</div>', unsafe_allow_html=True)
 
 
 def _manage(course):
-    """The course page below the banner: Overview (blank for now) and Resources."""
-    overview, resources = st.tabs(["Overview", "Resources"])
+    """The course page below the banner: Overview (deadlines), Outline (blank for now) and Resources."""
+    remembered = st.session_state.get("course_tab")          # (course id, tab) set when a PDF was opened from here
+    start = remembered[1] if remembered and remembered[0] == course["id"] else None
+    overview, outline, resources = st.tabs(["Overview", "Outline", "Resources"], default=start)
     with overview:
-        st.empty()
+        _overview(course)
+    with outline:
+        _outline(course)
     with resources:
         _resources(course)

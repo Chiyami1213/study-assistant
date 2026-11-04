@@ -2,6 +2,7 @@
 import re
 from datetime import date, timedelta
 
+import settings
 from database import get_conn
 
 
@@ -93,7 +94,7 @@ COURSE_PALETTE = ["#2f6fb5", "#2e8b7a", "#8a5a9e", "#c26a3a", "#b5483f", "#4f7a3
 
 
 CATEGORY_HUES = {"Aerospace": 215, "Biology": 140, "Chemistry": 12, "Economics": 45,
-                 "Engineering": 180, "Music": 330, "Physics": 285}
+                 "Engineering": 180, "Mathematics": 95, "Music": 330, "Physics": 285}
 
 
 def _category_hue(category):
@@ -128,7 +129,7 @@ def darken(hex_color, factor=0.7):
     return "#{:02x}{:02x}{:02x}".format(int(r * factor), int(g * factor), int(b * factor))
 
 
-CATEGORIES = ["Aerospace", "Biology", "Chemistry", "Economics", "Engineering", "Music", "Physics"]
+CATEGORIES = ["Aerospace", "Biology", "Chemistry", "Economics", "Engineering", "Mathematics", "Music", "Physics"]
 
 
 def all_categories():
@@ -279,10 +280,11 @@ def list_homework(course_id):
     return _all("SELECT * FROM homework_pairs WHERE course_id=? ORDER BY due_date", (course_id,))
 
 
-def add_homework(course_id, title, due_date, problem_md, solution_md, problem_file=None, solution_file=None):
-    return _exec("""INSERT INTO homework_pairs(course_id,title,due_date,problem_md,solution_md,
-                    problem_file,solution_file) VALUES (?,?,?,?,?,?,?)""",
-                 (course_id, title, due_date, problem_md, solution_md, problem_file, solution_file))
+def add_homework(course_id, title, due_date, problem_md, solution_md, problem_file=None, solution_file=None,
+                 due_time=None):
+    return _exec("""INSERT INTO homework_pairs(course_id,title,due_date,due_time,problem_md,solution_md,
+                    problem_file,solution_file) VALUES (?,?,?,?,?,?,?,?)""",
+                 (course_id, title, due_date, due_time, problem_md, solution_md, problem_file, solution_file))
 
 
 def set_homework_status(hw_id, status):
@@ -324,26 +326,55 @@ def grade_card(card_id, correct):
 
 
 # ---------- Library books ----------
+def _attach_courses(books):
+    """Add `course_ids` (every course the file belongs to, in the order they were added) to each book."""
+    links = {}
+    for r in _all("SELECT book_id, course_id FROM book_courses ORDER BY rowid"):
+        links.setdefault(r["book_id"], []).append(r["course_id"])
+    for b in books:
+        b["course_ids"] = links.get(b["id"], [])
+    return books
+
+
+def _as_ids(course_ids):
+    if course_ids is None or course_ids == 0:
+        return []
+    if isinstance(course_ids, int):
+        return [course_ids]
+    return [int(i) for i in dict.fromkeys(course_ids) if i]
+
+
+def set_book_courses(book_id, course_ids):
+    ids = _as_ids(course_ids)
+    with get_conn() as conn:
+        conn.execute("DELETE FROM book_courses WHERE book_id=?", (book_id,))
+        conn.executemany("INSERT INTO book_courses(book_id, course_id) VALUES (?,?)", [(book_id, i) for i in ids])
+        conn.execute("UPDATE books SET course_id=? WHERE id=?", (ids[0] if ids else None, book_id))
+        conn.commit()
+
+
 def list_books():
-    return _all("SELECT b.*, c.code AS course_code, c.name AS course_name FROM books b "
-                "LEFT JOIN courses c ON c.id=b.course_id ORDER BY b.title COLLATE NOCASE")
+    return _attach_courses(_all("SELECT b.* FROM books b ORDER BY b.title COLLATE NOCASE"))
 
 
 def get_book(book_id):
-    return _one("SELECT * FROM books WHERE id=?", (book_id,))
+    row = _one("SELECT * FROM books WHERE id=?", (book_id,))
+    return _attach_courses([row])[0] if row else None
 
 
-def add_book(title, author, edition, pdf_path, total_pages, course_id=None, kind="Textbook", year=None,
+def add_book(title, author, edition, pdf_path, total_pages, course_ids=None, kind="Textbook", year=None,
              lecture=None):
-    return _exec("INSERT INTO books(title,author,edition,year,lecture,pdf_path,total_pages,course_id,kind) "
-                 "VALUES (?,?,?,?,?,?,?,?,?)",
-                 (title, author or None, edition or None, year or None, lecture or None, pdf_path, total_pages,
-                  course_id, kind))
+    book_id = _exec("INSERT INTO books(title,author,edition,year,lecture,pdf_path,total_pages,kind) "
+                    "VALUES (?,?,?,?,?,?,?,?)",
+                    (title, author or None, edition or None, year or None, lecture or None, pdf_path, total_pages, kind))
+    set_book_courses(book_id, course_ids)
+    return book_id
 
 
-def update_book(book_id, title, author, edition, kind="Textbook", course_id=None, year=None, lecture=None):
-    _exec("UPDATE books SET title=?, author=?, edition=?, year=?, lecture=?, kind=?, course_id=? WHERE id=?",
-          (title, author or None, edition or None, year or None, lecture or None, kind, course_id, book_id))
+def update_book(book_id, title, author, edition, kind="Textbook", course_ids=None, year=None, lecture=None):
+    _exec("UPDATE books SET title=?, author=?, edition=?, year=?, lecture=?, kind=? WHERE id=?",
+          (title, author or None, edition or None, year or None, lecture or None, kind, book_id))
+    set_book_courses(book_id, course_ids)
 
 
 def delete_book(book_id):
@@ -355,8 +386,13 @@ def list_events(start, end):
     return _all("SELECT * FROM events WHERE date BETWEEN ? AND ? ORDER BY date, id", (start, end))
 
 
-def add_event(title, day, course_id=None):
-    return _exec("INSERT INTO events(title,date,course_id) VALUES (?,?,?)", (title, day, course_id))
+def add_event(title, day, course_id=None, time=None, end_time=None):
+    return _exec("INSERT INTO events(title,date,course_id,time,end_time) VALUES (?,?,?,?,?)",
+                 (title, day, course_id, time or None, end_time or None))
+
+
+def update_event(event_id, title, time, end_time=None):
+    _exec("UPDATE events SET title=?, time=?, end_time=? WHERE id=?", (title, time or None, end_time or None, event_id))
 
 
 def delete_event(event_id):
@@ -366,3 +402,119 @@ def delete_event(event_id):
 def homework_due_between(start, end):
     return _all("SELECT * FROM homework_pairs WHERE due_date BETWEEN ? AND ? AND status != 'verified' "
                 "ORDER BY due_date", (start, end))
+
+
+# ---------- Class meetings (weekly schedule) ----------
+DAY_ABBR = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+
+
+def list_meetings(course_id=None):
+    sql = "SELECT * FROM class_meetings" + (" WHERE course_id=?" if course_id else "") + " ORDER BY start_time, id"
+    return _all(sql, (course_id,) if course_id else ())
+
+
+def add_meeting(course_id, days, start_time, end_time, location=None):
+    """days: iterable of weekday numbers (Mon=0 ... Sun=6)."""
+    days = ",".join(str(d) for d in sorted(set(days)))
+    return _exec("INSERT INTO class_meetings(course_id,days,start_time,end_time,location) VALUES (?,?,?,?,?)",
+                 (course_id, days, start_time, end_time, location or None))
+
+
+def delete_meeting(meeting_id):
+    _exec("DELETE FROM class_meetings WHERE id=?", (meeting_id,))
+
+
+def meeting_days_label(meeting):
+    return ", ".join(DAY_ABBR[int(d)] for d in meeting["days"].split(",") if d != "")
+
+
+def meeting_occurrences(first, last):
+    """{date: [occurrence]} for every class meeting between two dates (inclusive), inside the semester dates.
+
+    occurrence = dict(meeting_id, course_id, start 'HH:MM', end 'HH:MM', location)."""
+    sem = settings.get_semester()
+    lo, hi = max(first, date.fromisoformat(sem["start"])), min(last, date.fromisoformat(sem["end"]))
+    meetings = list_meetings()
+    off = holiday_days(lo, hi)
+    out = {}
+    day = lo
+    while day <= hi:
+        for m in ([] if day in off else meetings):
+            if str(day.weekday()) in m["days"].split(","):
+                out.setdefault(day, []).append({"meeting_id": m["id"], "course_id": m["course_id"],
+                                                "start": m["start_time"], "end": m["end_time"],
+                                                "location": m["location"]})
+        day += timedelta(days=1)
+    for items in out.values():
+        items.sort(key=lambda o: (o["start"], o["end"]))
+    return out
+
+
+# ---------- Holidays ----------
+def list_holidays():
+    return _all("SELECT * FROM holidays ORDER BY start_date, id")
+
+
+def add_holiday(name, start, end):
+    return _exec("INSERT INTO holidays(name,start_date,end_date) VALUES (?,?,?)", (name, start, end))
+
+
+def delete_holiday(holiday_id):
+    _exec("DELETE FROM holidays WHERE id=?", (holiday_id,))
+
+
+def holiday_days(first, last):
+    """{date: holiday name} for every holiday day between two dates (inclusive)."""
+    out = {}
+    for h in list_holidays():
+        day, end = date.fromisoformat(h["start_date"]), date.fromisoformat(h["end_date"])
+        while day <= end:
+            if first <= day <= last:
+                out[day] = h["name"]
+            day += timedelta(days=1)
+    return out
+
+
+# ---------- Course links ----------
+def normalize_url(url):
+    """Add https:// when no scheme is typed; None if it does not look like a web address."""
+    url = (url or "").strip()
+    if not url:
+        return None
+    if "://" not in url:
+        url = "https://" + url
+    return url if url.lower().startswith(("http://", "https://")) and "." in url.split("://", 1)[1] else None
+
+
+def list_links(course_id):
+    return _all("SELECT * FROM course_links WHERE course_id=? ORDER BY id", (course_id,))
+
+
+def add_link(course_id, title, url):
+    url = normalize_url(url)
+    if not url:
+        return None
+    title = (title or "").strip() or url.split("://", 1)[1].rstrip("/")
+    return _exec("INSERT INTO course_links(course_id,title,url) VALUES (?,?,?)", (course_id, title, url))
+
+
+def delete_link(link_id):
+    _exec("DELETE FROM course_links WHERE id=?", (link_id,))
+
+
+# ---------- Course outline ----------
+def list_outline(course_id):
+    return _all("SELECT * FROM course_outline WHERE course_id=? ORDER BY position", (course_id,))
+
+
+def replace_outline(course_id, items):
+    """Replace a course's outline with items = [{level, marker, title, hours, url}] (in order)."""
+    with get_conn() as conn:
+        conn.execute("DELETE FROM course_outline WHERE course_id=?", (course_id,))
+        conn.executemany(
+            "INSERT INTO course_outline(course_id,position,level,marker,title,hours,url,book_id,page) "
+            "VALUES (?,?,?,?,?,?,?,?,?)",
+            [(course_id, i, it["level"], it["marker"], it["title"], it.get("hours") or None, it.get("url") or None,
+              it.get("book_id") or None, it.get("page") or None)
+             for i, it in enumerate(items)])
+        conn.commit()

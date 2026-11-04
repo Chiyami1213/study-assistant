@@ -40,9 +40,15 @@ OVERRIDE = """
 /* text, number, date and select frames: the whole frame (not just the inner field) follows the theme,
    in the page and in pop-up windows */
 :is(.stApp, [role="dialog"]) :is([data-testid="stTextInputRootElement"], [data-testid="stNumberInputContainer"],
-    [data-testid="stSelectbox"] [role="group"], [data-testid="stTextAreaRootElement"], [data-testid="stDateInputField"], [data-testid="stFileUploaderDropzone"]) {
+    [data-testid="stSelectbox"] [role="group"], [data-testid="stMultiSelect"] [role="group"],
+    [data-testid="stMultiSelect"] [data-baseweb="select"] > div, [data-testid="stTextAreaRootElement"], [data-testid="stDateInputField"], [data-testid="stFileUploaderDropzone"]) {
     background: var(--input) !important; border-color: var(--border) !important;}
-:is(.stApp, [role="dialog"]) [data-testid="stSelectbox"] :is(button, button svg) {color: var(--text) !important;}
+:is(.stApp, [role="dialog"]) :is([data-testid="stSelectbox"], [data-testid="stMultiSelect"]) :is(button, button svg) {color: var(--text) !important;}
+/* time pickers and any other inputs inside pop-up windows follow the theme */
+[role="dialog"] [data-baseweb="input"], [role="dialog"] [data-baseweb="base-input"], [role="dialog"] input {
+    background: var(--input) !important; color: var(--text) !important; border-color: var(--border) !important;}
+[role="dialog"] [data-testid="stTimeInput"] svg {color: var(--text) !important;}
+[data-testid="stTimeInputTimeDisplay"] {background: var(--input) !important; color: var(--text) !important;}
 /* placeholder text and the pop-up close button stay readable on the themed surface */
 :is(.stApp, [role="dialog"]) :is(input, textarea)::placeholder {color: #8b90a0 !important; opacity: 1 !important;}
 [role="dialog"] button[aria-label="Close"], [role="dialog"] button[aria-label="Close"] svg {color: var(--text) !important;}
@@ -98,6 +104,21 @@ def get_appearance():
 def set_appearance(choice):
     data = _load()
     data["appearance"] = choice
+    _save(data)
+
+
+DEFAULT_SEMESTER = {"start": "2026-08-24", "end": "2026-12-08", "exam_end": "2026-12-18"}
+
+
+def get_semester():
+    """Term dates (ISO): classes start, classes end, end of the exam period."""
+    sem = _load().get("semester", {})
+    return {k: sem.get(k, v) for k, v in DEFAULT_SEMESTER.items()}
+
+
+def set_semester(start, end, exam_end):
+    data = _load()
+    data["semester"] = {"start": start, "end": end, "exam_end": exam_end}
     _save(data)
 
 
