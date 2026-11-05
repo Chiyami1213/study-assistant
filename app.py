@@ -332,6 +332,25 @@ section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-h
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}}
 .cal-more {{font-size: 0.72rem; opacity: 0.7; margin-top: 3px;}}
 
+/* Study Mode pill and the 20-20-20 eye rest prompt (built by the script below) */
+#sa-study {{position: fixed; right: 18px; bottom: 16px; z-index: 99990; display: flex; align-items: center; gap: 8px;
+    background: var(--card); color: var(--text); border: 1px solid var(--border); border-radius: 999px;
+    padding: 7px 14px; font-size: 0.85rem; cursor: pointer; user-select: none; box-shadow: 0 2px 10px #0004;}}
+#sa-study:hover {{border-color: var(--accent);}}
+#sa-study .dot {{width: 9px; height: 9px; border-radius: 50%; background: #8c92a0;}}
+#sa-study.on .dot {{background: #2f9e5f; box-shadow: 0 0 6px #2f9e5f;}}
+#sa-rest {{position: fixed; top: 22px; left: 50%; transform: translateX(-50%); z-index: 99995; width: min(440px, 92vw);
+    background: var(--card); color: var(--text); border: 1px solid var(--accent); border-radius: 12px;
+    padding: 18px 22px; box-shadow: 0 8px 30px #0007; text-align: center;}}
+#sa-rest h3 {{margin: 0 0 6px; font-size: 1.15rem; color: var(--text);}}
+#sa-rest p {{margin: 0 0 10px; opacity: 0.85; font-size: 0.95rem;}}
+#sa-rest .count {{font-size: 2.6rem; font-weight: 700; line-height: 1.1; color: var(--accent);}}
+#sa-rest .bar {{height: 5px; background: var(--border); border-radius: 3px; margin: 10px 0 14px; overflow: hidden;}}
+#sa-rest .bar i {{display: block; height: 100%; width: 0; background: var(--accent); transition: width 1s linear;}}
+#sa-rest button {{background: var(--input); color: var(--text); border: 1px solid var(--border); border-radius: 8px;
+    padding: 6px 18px; cursor: pointer; font-size: 0.9rem;}}
+#sa-rest button:hover {{border-color: var(--accent);}}
+
 /* Library */
 /* Library grid: one HTML block, cards are clickable through data-lib-act */
 .lib-grid {{display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 1.2rem 1rem; align-items: start; margin-bottom: 1rem;}}
@@ -494,6 +513,58 @@ if (!win.__olNavV1) {
     inp.dispatchEvent(new win.KeyboardEvent('keydown', {key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true}));
     inp.blur();
   }, true);
+}
+// Study Mode: a pill that starts a session; every 20 minutes of it asks for a 20-second look 20 feet away (20-20-20 rule).
+if (!win.__studyV1) {
+  win.__studyV1 = true;
+  const KEY = 'sa_study', fmt = n => String(Math.floor(n / 60)).padStart(2, '0') + ':' + String(n % 60).padStart(2, '0');
+  const load = () => { try { return JSON.parse(localStorage.getItem(KEY)) || null; } catch (e) { return null; } };
+  const save = v => { try { v ? localStorage.setItem(KEY, JSON.stringify(v)) : localStorage.removeItem(KEY); } catch (e) {} };
+  const interval = () => (+localStorage.getItem('sa_study_interval') || 1200) * 1000;     // 20 minutes
+  const restLen = () => (+localStorage.getItem('sa_rest_seconds') || 20);                // 20 seconds
+  const pill = doc.createElement('div'); pill.id = 'sa-study';
+  doc.body.appendChild(pill);
+  let rest = null;
+  const beep = () => { try { const c = new (win.AudioContext || win.webkitAudioContext)(), o = c.createOscillator(), g = c.createGain();
+    o.connect(g); g.connect(c.destination); o.frequency.value = 660; g.gain.value = 0.08; o.start(); o.stop(c.currentTime + 0.25); } catch (e) {} };
+  function closeRest(takenBreak) {
+    if (rest) { rest.el.remove(); rest = null; }
+    const st = load(); if (st) { st.next = Date.now() + interval(); save(st); }
+  }
+  function showRest() {
+    if (rest) return;
+    const el = doc.createElement('div'); el.id = 'sa-rest';
+    el.innerHTML = '<h3>Eye Rest</h3><p>Look at something 20 feet (6 meters) away for ' + restLen() + ' seconds.</p>' +
+      '<div class="count"></div><div class="bar"><i></i></div><button type="button">Skip</button>';
+    doc.body.appendChild(el);
+    rest = {el, end: Date.now() + restLen() * 1000, done: false};
+    el.querySelector('button').onclick = () => closeRest();
+    beep();
+  }
+  function tick() {
+    const st = load();
+    pill.className = st ? 'on' : '';
+    if (!st) { pill.innerHTML = '<span class="dot"></span>Study Mode'; pill.title = 'start study mode; reminds you to rest your eyes every 20 minutes (20-20-20 rule)'; if (rest) closeRest(); return; }
+    const now = Date.now();
+    pill.innerHTML = '<span class="dot"></span>Study Mode · ' + fmt(Math.floor((now - st.start) / 1000));
+    pill.title = 'click to end study mode; next eye rest in ' + fmt(Math.max(0, Math.ceil((st.next - now) / 1000)));
+    if (!rest && now >= st.next) showRest();
+    if (rest) {
+      const left = Math.max(0, Math.ceil((rest.end - now) / 1000)), total = restLen();
+      rest.el.querySelector('.count').textContent = rest.done ? 'Done' : left;
+      rest.el.querySelector('.bar i').style.width = (rest.done ? 100 : (total - left) / total * 100) + '%';
+      if (!rest.done && left === 0) {
+        rest.done = true; beep();
+        rest.el.querySelector('p').textContent = 'Nice work. Your eyes are rested.';
+        rest.el.querySelector('button').textContent = 'Back to Studying';
+      }
+    }
+  }
+  pill.addEventListener('click', () => {
+    if (load()) { save(null); } else { const n = Date.now(); save({start: n, next: n + interval()}); }
+    tick();
+  });
+  setInterval(tick, 1000); tick();
 }
 // Library cards: pass "action:id" to the hidden box (open the file, its Edit window, or the add window).
 if (!win.__libNavV1) {
