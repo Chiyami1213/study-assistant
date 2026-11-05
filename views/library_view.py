@@ -218,31 +218,22 @@ def _edit_dialog(book):
             st.rerun()
 
 
-def _book_card(book, suffix="0"):
-    with st.container(key=f"bookcard_{book['id']}_{suffix}"):
-        st.markdown(_cover_html(book), unsafe_allow_html=True)
-        if st.button(" ", key=f"cover_{book['id']}_{suffix}"):  # invisible button laid over the cover
-            st.session_state["open_book"] = book["id"]
-            st.rerun()
-
-    linked = [c for c in (crud.get_course(i) for i in book["course_ids"]) if c]
+def _book_card(book, courses):
+    """One card as plain HTML (a grid of these is a single element, so the page stays light with many files)."""
+    linked = [courses[i] for i in book["course_ids"] if i in courses]
     tag = "".join(f'<span class="book-badge tag" style="background:{crud.course_color(c)};'
                   f'border-color:{crud.course_color(c)}">{html.escape(c["code"])}</span>' for c in linked if c["code"])
     states = list(dict.fromkeys(crud.course_status(c) for c in linked))     # one label per distinct status
     lec = f'<span class="book-badge meta">Lec {html.escape(book["lecture"])}</span>' if book.get("lecture") else ""
     status = "".join(f'<span class="book-badge status {s.lower().replace("-", "")}">{s}</span>' for s in states)
-    st.markdown(f'<div class="book-badges"><span class="book-badge">{book["kind"]}</span>{lec}{tag}{status}</div>',
-                unsafe_allow_html=True)
-    t_col, m_col = st.columns([4, 1], vertical_alignment="top")
-    t_col.markdown(f"**{book['title']}**")
-    if m_col.button("...", key=f"menu_{book['id']}_{suffix}", type="tertiary"):
-        _edit_dialog(book)
     chips = "".join(f'<span class="book-badge meta">{html.escape(x)}</span>'
                     for x in (book["edition"], book.get("year")) if x)   # edition and year as separate labels
-    if chips:
-        st.markdown(f'<div class="book-badges">{chips}</div>', unsafe_allow_html=True)
-    if book["author"]:
-        st.caption(book["author"])
+    author = f'<div class="lib-author">{html.escape(book["author"])}</div>' if book["author"] else ""
+    return (f'<div class="lib-card"><div class="lib-cover" data-lib-act="open:{book["id"]}">{_cover_html(book)}</div>'
+            f'<div class="book-badges"><span class="book-badge">{html.escape(book["kind"])}</span>{lec}{tag}{status}</div>'
+            f'<div class="lib-name-row"><strong>{html.escape(book["title"])}</strong>'
+            f'<span class="lib-menu" data-lib-act="edit:{book["id"]}">...</span></div>'
+            f'{"<div class=book-badges>" + chips + "</div>" if chips else ""}{author}</div>')
 
 
 SORTS = ["Default", "Course", "Title", "Type", "Date Added"]
@@ -283,18 +274,35 @@ def _sorted_groups(books, sort_by):
     return [("", books, None)]
 
 
-def _tile_grid(tiles, has_books, default_course=None, suffix="0"):
-    for row in range(0, len(tiles), COLUMNS):
-        cols = st.columns(COLUMNS)
-        for col, tile in zip(cols, tiles[row:row + COLUMNS]):
-            with col:
-                if tile == "add":
-                    with st.container(key=f"add_book_tile_{suffix}"):
-                        if st.button(" ", icon=":material/add:", key=f"add_book_{suffix}", width="stretch",
-                                     help=None if has_books else "click to add pdf"):
-                            _add_dialog(default_course)
-                else:
-                    _book_card(tile, suffix)
+def _tile_grid(tiles, has_books, courses, default_course=None):
+    cells = []
+    for tile in tiles:
+        if tile == "add":
+            tip = "" if has_books else ' title="click to add pdf"'
+            cells.append(f'<div class="lib-card"><div class="lib-add" data-lib-act="add:{default_course or 0}"{tip}>+</div></div>')
+        else:
+            cells.append(_book_card(tile, courses))
+    st.markdown(f'<div class="lib-grid">{"".join(cells)}</div>', unsafe_allow_html=True)
+
+
+def _handle_click():
+    """A click on a card writes 'action:id|stamp' into a hidden box (see the script in app.py); act on it once."""
+    sink = st.text_input("Library Click", key="lib_sink", label_visibility="collapsed")
+    if not sink or sink == st.session_state.get("_lib_sink_done"):
+        return
+    st.session_state["_lib_sink_done"] = sink
+    action, _, rest = sink.split("|")[0].partition(":")
+    try:
+        ident = int(rest)
+    except ValueError:
+        return
+    if action == "open" and crud.get_book(ident):
+        st.session_state["open_book"] = ident
+        st.rerun()
+    elif action == "edit" and crud.get_book(ident):
+        _edit_dialog(crud.get_book(ident))
+    elif action == "add":
+        _add_dialog(ident or None)
 
 
 def render():
@@ -304,6 +312,8 @@ def render():
         _viewer(open_book); return
 
     all_books = crud.list_books()
+    courses = {c["id"]: c for c in crud.list_courses(section=None)}
+    _handle_click()
     st.markdown("<h1 class='lib-title'>Library</h1>", unsafe_allow_html=True)
     st.session_state.setdefault("library_filter", "All")
     options = ["All"] + KINDS
@@ -326,4 +336,4 @@ def render():
             st.markdown(f"#### {title} ({len(items)})")
         last = i == len(groups) - 1
         _tile_grid(list(items) + (["add"] if last or sort_by == "Course" else []), bool(all_books),
-                   course_id, str(i))
+                   courses, course_id)

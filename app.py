@@ -227,7 +227,7 @@ section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-h
     pointer-events: none;}}
 
 /* Course outline: hidden box that carries a clicked point to the app */
-.st-key-outline_sink {{position: absolute !important; width: 1px; height: 1px; overflow: hidden; opacity: 0; pointer-events: none;}}
+.st-key-outline_sink, .st-key-lib_sink {{position: absolute !important; width: 1px; height: 1px; overflow: hidden; opacity: 0; pointer-events: none;}}
 
 /* Home: term stats */
 .home-stats {{display: flex; gap: 12px; margin: 2px 0 18px;}}
@@ -333,6 +333,18 @@ section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-h
 .cal-more {{font-size: 0.72rem; opacity: 0.7; margin-top: 3px;}}
 
 /* Library */
+/* Library grid: one HTML block, cards are clickable through data-lib-act */
+.lib-grid {{display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 1.2rem 1rem; align-items: start; margin-bottom: 1rem;}}
+.lib-cover {{cursor: pointer;}}
+.lib-cover:hover .book-cover {{filter: brightness(1.08);}}
+.lib-name-row {{display: flex; justify-content: space-between; align-items: flex-start; gap: 4px; margin: 2px 0 6px; line-height: 1.35;}}
+.lib-menu {{cursor: pointer; font-size: 1.5rem; font-weight: 700; line-height: 0.8; letter-spacing: 1px; padding: 0 4px; user-select: none;}}
+.lib-menu:hover {{color: var(--accent);}}
+.lib-author {{font-size: 0.875rem; opacity: 0.6;}}
+.lib-add {{aspect-ratio: 2 / 3; border: 2px dashed rgba(140, 146, 160, 0.6); border-radius: 6px; display: flex;
+    align-items: center; justify-content: center; font-size: 2.2rem; cursor: pointer;}}
+.lib-add:hover {{border-color: var(--accent);}}
+@media (max-width: 1100px) {{.lib-grid {{grid-template-columns: repeat(4, minmax(0, 1fr));}}}}
 .lib-title {{font-family: Georgia, "Roboto Slab", serif; font-weight: 700;}}
 .book-cover {{aspect-ratio: 2 / 3; border-radius: 6px; display: flex; align-items: flex-end; padding: 14px;
     box-shadow: 0 2px 8px #0005; margin-bottom: 0.6rem; color: #fff;}}
@@ -478,6 +490,20 @@ if (!win.__olNavV1) {
     const inp = doc.querySelector('.st-key-outline_sink input'); if (!inp) return;
     const set = Object.getOwnPropertyDescriptor(win.HTMLInputElement.prototype, 'value').set;
     inp.focus(); set.call(inp, a.dataset.olBook + ',' + a.dataset.olPage + '|' + Date.now());
+    inp.dispatchEvent(new win.Event('input', {bubbles: true}));
+    inp.dispatchEvent(new win.KeyboardEvent('keydown', {key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true}));
+    inp.blur();
+  }, true);
+}
+// Library cards: pass "action:id" to the hidden box (open the file, its Edit window, or the add window).
+if (!win.__libNavV1) {
+  win.__libNavV1 = true;
+  doc.addEventListener('click', e => {
+    const a = e.target.closest && e.target.closest('[data-lib-act]');
+    if (!a) return;
+    const inp = doc.querySelector('.st-key-lib_sink input'); if (!inp) return;
+    const set = Object.getOwnPropertyDescriptor(win.HTMLInputElement.prototype, 'value').set;
+    inp.focus(); set.call(inp, a.dataset.libAct + '|' + Date.now());
     inp.dispatchEvent(new win.Event('input', {bubbles: true}));
     inp.dispatchEvent(new win.KeyboardEvent('keydown', {key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true}));
     inp.blur();
