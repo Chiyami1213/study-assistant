@@ -351,7 +351,7 @@ def _homework_book(course_id, hw_title, kind="Homework"):
     return None
 
 
-def _exam_book(course_id, event_title):
+def _exam_book(course_id, event_title, kind="Exam"):
     """The Library exam file of this course for an event like "Midterm 2" or "Final Exam" (same kind of exam, same number)."""
     def key(text):
         t = (text or "").lower()
@@ -361,7 +361,7 @@ def _exam_book(course_id, event_title):
 
     want = key(event_title)
     for b in crud.list_books():
-        if b["kind"] == "Exam" and course_id in b["course_ids"] and key(b["title"]) == want:
+        if b["kind"] == kind and course_id in b["course_ids"] and key(b["title"]) == want:
             return b
     return None
 
@@ -378,54 +378,93 @@ def _grade_html(item):
     return out
 
 
-def _row_html(title, when, status, css, detail=None, book=None, solution=None, extra=""):
+def _row_html(title, when, status, css, detail=None, book=None, solution=None, extra="", graded=None, tab="Overview"):
     sub = (f'<div class="dl-sub">{html.escape(detail)}</div>' if detail else "") + extra
     name = html.escape(title)
     if book:                                              # opens the homework PDF, and Back returns to the Overview
-        name = f'<a href="#" data-ol-book="{book["id"]}" data-ol-page="1" data-ol-tab="Overview" title="open the homework pdf">{name}</a>'
+        name = f'<a href="#" data-ol-book="{book["id"]}" data-ol-page="1" data-ol-tab="{tab}" title="open the pdf">{name}</a>'
     if solution:                                          # a second link when the solution file is in the Library
-        name += (f' <a class="dl-solution" href="#" data-ol-book="{solution["id"]}" data-ol-page="1" data-ol-tab="Overview" '
+        name += (f' <a class="dl-solution" href="#" data-ol-book="{solution["id"]}" data-ol-page="1" data-ol-tab="{tab}" '
                  f'title="open the solution">Solution</a>')
+    if graded:                                            # my own submission with the grading marked on it
+        name += (f' <a class="dl-solution" href="#" data-ol-book="{graded["id"]}" data-ol-page="1" data-ol-tab="{tab}" '
+                 f'title="open my graded submission">Graded</a>')
     return (f'<div class="dl-row"><div><div class="dl-title">{name}</div>{sub}</div>'
             f'<div class="dl-when">{html.escape(when)}</div><span class="dl-pill {css}">{status}</span></div>')
 
 
-def _overview(course):
-    """How well the materials are understood (quiz scores), then homework and midterms/finals in date order."""
-    quiz_view.understanding(course)
-    today = date.today().isoformat()
-    homework = sorted(crud.list_homework(course["id"]),
-                      key=lambda h: (h["due_date"] or "9999-12-31", crud._natural_key(h["title"])))
-    exams = sorted((e for e in crud.list_events("2000-01-01", "2100-12-31")
-                    if e["course_id"] == course["id"]
-                    and re.search(r"midterm|final|exam", e["title"], re.I)),
-                   key=lambda e: (e["date"], e.get("time") or ""))
+def _percent(items):
+    """Average percentage of the graded items (score/points), or None when none is graded."""
+    marks = [i["score"] / i["points"] for i in items if i.get("score") is not None and i.get("points")]
+    return sum(marks) / len(marks) if marks else None
 
+
+def _homework_status(h, today):
+    if h["status"] == "verified":
+        return "Done", "done"
+    if not h["due_date"]:
+        return "No Date", "none"
+    if h["due_date"] < today:
+        return "Overdue", "late"
+    return "Open", "open"
+
+
+def _homework_items(course):
+    return sorted(crud.list_homework(course["id"]),
+                  key=lambda h: (h["due_date"] or "9999-12-31", crud._natural_key(h["title"])))
+
+
+def _exam_items(course):
+    return sorted((e for e in crud.list_events("2000-01-01", "2100-12-31")
+                   if e["course_id"] == course["id"] and re.search(r"midterm|final|exam", e["title"], re.I)),
+                  key=lambda e: (e["date"], e.get("time") or ""))
+
+
+def _overview(course):
+    """How well the materials are understood (quiz scores), then the grades so far."""
+    quiz_view.understanding(course)
+    st.subheader("Grades")
+    homework, exams = _homework_items(course), _exam_items(course)
+    hw_avg, ex_avg = _percent(homework), _percent(exams)
+    if hw_avg is None and ex_avg is None:
+        st.caption("No grades yet. Homework and exam grades appear here.")
+        return
+    cols = st.columns(2)
+    cols[0].metric("Homework Average", f"{hw_avg:.0%}" if hw_avg is not None else "None",
+                   help=f"{sum(1 for h in homework if h.get('score') is not None)} of {len(homework)} graded")
+    cols[1].metric("Exam Average", f"{ex_avg:.0%}" if ex_avg is not None else "None",
+                   help=f"{sum(1 for e in exams if e.get('score') is not None)} of {len(exams)} graded")
+
+
+def _homework(course):
+    """Homework in date order: the problem file, its solution, my graded submission and the grade with comments."""
+    today = date.today().isoformat()
+    homework = _homework_items(course)
     st.subheader(f"Homework ({len(homework)})")
     if not homework:
         st.caption("No homework yet.")
     rows = ""
     for h in homework:
-        if h["status"] == "verified":
-            status, css = "Done", "done"
-        elif not h["due_date"]:
-            status, css = "No Date", "none"
-        elif h["due_date"] < today:
-            status, css = "Overdue", "late"
-        else:
-            status, css = "Open", "open"
+        status, css = _homework_status(h, today)
         rows += _row_html(h["title"], _when(h["due_date"], h.get("due_time")), status, css,
                           book=_homework_book(course["id"], h["title"]),
-                          solution=_homework_book(course["id"], h["title"], "Homework Solution"), extra=_grade_html(h))
+                          solution=_homework_book(course["id"], h["title"], "Homework Solution"),
+                          graded=_homework_book(course["id"], h["title"], "Graded Homework"),
+                          extra=_grade_html(h), tab="Homework")
     st.markdown(f'<div class="dl-list">{rows}</div>', unsafe_allow_html=True)
 
-    st.subheader(f"Midterms and Finals ({len(exams)})")
+
+def _exams(course):
+    """Midterms and finals in date order with what they cover, the exam file, my graded paper and the score."""
+    today = date.today().isoformat()
+    exams = _exam_items(course)
+    st.subheader(f"Exams ({len(exams)})")
     if not exams:
         st.caption("No midterms or finals yet.")
     rows = "".join(_row_html(e["title"], _when(e["date"], e.get("time")),
                              "Done" if e["date"] < today else "Upcoming", "done" if e["date"] < today else "open",
                              f"Covers {e['covers']}" if e.get("covers") else None, book=_exam_book(course["id"], e["title"]),
-                             extra=_grade_html(e))
+                             graded=_exam_book(course["id"], e["title"], "Graded Exam"), extra=_grade_html(e), tab="Exams")
                    for e in exams)
     st.markdown(f'<div class="dl-list">{rows}</div>', unsafe_allow_html=True)
 
@@ -441,7 +480,7 @@ def _open_pdf_from_outline():
         except (ValueError, IndexError):
             return
         if crud.get_book(book_id):
-            tab = fields[2] if len(fields) > 2 and fields[2] in ("Overview", "Outline", "Resources", "Quiz") else "Outline"
+            tab = fields[2] if len(fields) > 2 and fields[2] in ("Overview", "Homework", "Exams", "Outline", "Resources", "Quiz") else "Outline"
             st.session_state["course_tab"] = (st.session_state.get("open_course"), tab)   # reopen here on Back
             st.session_state["page"] = "Library"
             st.session_state["open_book"] = book_id
@@ -509,9 +548,14 @@ def _manage(course):
     """The course page below the banner: Overview (deadlines), Outline (blank for now) and Resources."""
     remembered = st.session_state.get("course_tab")          # (course id, tab) set when a PDF was opened from here
     start = remembered[1] if remembered and remembered[0] == course["id"] else None
-    overview, outline, resources, quiz = st.tabs(["Overview", "Outline", "Resources", "Quiz"], default=start)
+    overview, homework, exams, outline, resources, quiz = st.tabs(
+        ["Overview", "Homework", "Exams", "Outline", "Resources", "Quiz"], default=start)
     with overview:
         _overview(course)
+    with homework:
+        _homework(course)
+    with exams:
+        _exams(course)
     with outline:
         _outline(course)
     with resources:

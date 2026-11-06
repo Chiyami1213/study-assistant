@@ -20,7 +20,8 @@ from pdfmeta import split_lecture, strip_notes_prefix
 from database import BASE_DIR, PDF_DIR
 
 COLUMNS = 6
-KINDS = ["Textbook", "Lecture Notes", "Notes", "Homework", "Homework Solution", "Exam"]
+KINDS = ["Textbook", "Lecture Notes", "Notes", "Homework", "Homework Solution", "Exam", "Graded Homework", "Graded Exam"]
+HW_KINDS = ("Homework", "Homework Solution", "Graded Homework")          # kinds that carry a homework number
 PLURAL = {"Textbook": "Textbooks", "Homework Solution": "Homework Solutions", "Exam": "Exams"}
 
 
@@ -122,7 +123,7 @@ def _add_dialog(default_course=None):
     kind = st.segmented_control("Type", KINDS, default=kind_guess or "Textbook", key=f"bk_kind_{k}") or "Textbook"
     if kind_guess:
         st.caption(f"Type detected from the file name: {kind_guess}")
-    is_hw = kind in ("Homework", "Homework Solution")
+    is_hw = kind in HW_KINDS
     is_notes = kind in ("Lecture Notes", "Notes")
     # Notes: a leading "Lec 3" in the title or file name becomes the Lecture label, not part of the title.
     lec_guess, clean_title = split_lecture(info["title"])
@@ -135,7 +136,7 @@ def _add_dialog(default_course=None):
         num = (re.search(r"\d+", up.name) or re.search(r"\d+", info["title"] or "")) if up else None
         lecture = st.text_input("Homework Number", value=num.group() if num else "", key=f"bk_hw_{k}", placeholder="4")
         if lecture.strip() and not title.strip().lower().startswith("hw"):
-            title = f"HW {lecture.strip()}" + (" Solution" if kind == "Homework Solution" else "")
+            title = f"HW {lecture.strip()}" + {"Homework Solution": " Solution", "Graded Homework": " Graded"}.get(kind, "")
     elif is_notes:
         lecture = st.text_input("Lecture", value=lec_guess, key=f"bk_lec_{k}", placeholder="3 or 3-4")
     c1, c2, c3 = st.columns([3, 2, 1.2])
@@ -255,8 +256,8 @@ def _edit_dialog(book):
                                 key=f"ek_{book['id']}") or book["kind"]
     title = st.text_input("Title", value=book["title"], key=f"et_{book['id']}")
     lecture = ""
-    if kind in ("Lecture Notes", "Notes", "Homework", "Homework Solution"):
-        hw = kind.startswith("Homework")
+    if kind in ("Lecture Notes", "Notes") + HW_KINDS:
+        hw = kind in HW_KINDS
         lecture = st.text_input("Homework Number" if hw else "Lecture", value=book.get("lecture") or "",
                                 key=f"el_{book['id']}", placeholder="4" if hw else "3 or 3-4")
     c1, c2, c3 = st.columns([3, 2, 1.2])
@@ -299,7 +300,7 @@ def _book_card(book, courses):
     tag = "".join(f'<span class="book-badge tag" style="background:{crud.course_color(c)};'
                   f'border-color:{crud.course_color(c)}">{html.escape(c["code"])}</span>' for c in linked if c["code"])
     states = list(dict.fromkeys(crud.course_status(c) for c in linked))     # one label per distinct status
-    lec = (f'<span class="book-badge meta">{"HW" if book["kind"].startswith("Homework") else "Lec"} {html.escape(book["lecture"])}</span>'
+    lec = (f'<span class="book-badge meta">{"HW" if book["kind"] in HW_KINDS else "Lec"} {html.escape(book["lecture"])}</span>'
            if book.get("lecture") else "")
     status = "".join(f'<span class="book-badge status {s.lower().replace("-", "")}">{s}</span>' for s in states)
     chips = "".join(f'<span class="book-badge meta">{html.escape(x)}</span>'
@@ -322,6 +323,10 @@ def _course_order(book):
         return (1.5, numbers, book["title"].lower())
     if book["kind"] == "Homework Solution":
         return (1.6, numbers, book["title"].lower())
+    if book["kind"] == "Graded Homework":
+        return (1.65, numbers, book["title"].lower())
+    if book["kind"] == "Graded Exam":
+        return (1.75, tuple(int(n) for n in re.findall(r"\d+", book["title"])), book["title"].lower())
     if book["kind"] == "Exam":
         return (1.7, tuple(int(n) for n in re.findall(r"\d+", book["title"])), book["title"].lower())
     if book["kind"] in ("Lecture Notes", "Notes"):
