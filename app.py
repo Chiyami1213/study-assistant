@@ -377,6 +377,8 @@ section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-h
 [class*="st-key-reader_"] [data-testid="stNumberInput"] [data-baseweb="input"] {{height: 1.9rem; align-items: center;}}
 .rd-scroll {{overflow: auto; background: #3a3d45; border-radius: 8px; padding: 12px; text-align: center;}}
 .rd-scroll img {{display: block; margin: 0 auto; max-width: none; box-shadow: 0 2px 10px #0008; background: #fff;}}
+.rd-spread {{display: flex; justify-content: center; align-items: flex-start; gap: 6px;}}
+.rd-spread img {{margin: 0;}}
 
 /* Note Builder and File page */
 [class*="st-key-lab_refname_"] [data-testid="stPopover"] button {{border: none !important; background: transparent !important; justify-content: flex-start;
@@ -404,12 +406,12 @@ section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-h
 [class*="st-key-lab_pane_"] [data-testid="stPopover"] button p {{font-size: 0.95rem; font-weight: 400; letter-spacing: 0; line-height: 1.4;}}
 .lab-tab.dragging {{opacity: 0.45;}}
 .lab-tab.drop-target {{box-shadow: inset 0 -3px 0 var(--accent);}}
-[class*="st-key-lab_pane_"] {{height: calc(100vh - 62px); overflow-y: auto; overflow-x: hidden; padding: 0 12px; background: var(--bg);}}
+[class*="st-key-lab_pane_"] {{flex: none; height: calc(100vh - 62px); overflow-y: auto; overflow-x: hidden; padding: 0 12px; background: var(--bg);}}
 [data-testid="stHorizontalBlock"]:has([class*="st-key-lab_pane_"]) > div:not(:last-child) {{border-right: 1px solid var(--border);}}
 .lab-detached-title {{font-weight: 600; padding: 8px 4px; opacity: 0.9;}}
 .lab-heading {{font-size: 1.45rem; margin: 6px 0 6px; padding: 0;}}
-[class*="st-key-lab_html_"] {{flex: 1 1 auto; min-height: 0; height: auto !important; width: 100%;}}
-[class*="st-key-lab_html_"] [data-testid="stElementContainer"], [class*="st-key-lab_html_"] iframe {{height: 100% !important; width: 100% !important; min-height: 300px;}}
+[class*="st-key-lab_html_"], [class*="st-key-lab_html_"] [data-testid="stElementContainer"], [class*="st-key-lab_html_"] iframe {{
+    height: calc(100vh - 180px) !important; width: 100% !important; min-height: 300px; flex: none !important;}}
 [class*="st-key-lab_view_scroll"] h1 {{font-size: 1.6rem;}}
 [class*="st-key-lab_view_scroll"] h2 {{font-size: 1.3rem;}}
 [class*="st-key-lab_view_scroll"] h3 {{font-size: 1.1rem;}}

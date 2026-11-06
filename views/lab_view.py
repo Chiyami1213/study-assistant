@@ -69,6 +69,7 @@ def _reference(win):
     book_id = st.session_state[sel_key] if st.session_state[sel_key] in by_id else ids[0]
     if win.get("book") != book_id:                      # remember which file each window shows
         _save_windows([{**w, "book": book_id} if w["id"] == wid else w for w in _windows()])
+        st.rerun()                                      # so the tab title shows the new file
     book = by_id[book_id]
     saved = lab.get("pages", {}).get(str(book_id), 1)
     is_html = book["pdf_path"].lower().endswith((".html", ".htm"))

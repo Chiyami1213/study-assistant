@@ -106,12 +106,23 @@ def _bump(key):
 
 
 def _step_page(page_key, delta, total):
-    st.session_state[page_key] = min(total, max(1, st.session_state[page_key] + delta))
+    double = st.session_state.get(f"{page_key[:-5]}_view") == "double"      # a spread turns two pages at a time
+    st.session_state[page_key] = min(total, max(1, st.session_state[page_key] + delta * (2 if double else 1)))
     _bump(page_key[:-5])
 
 
+MODES = {"page": ("single page", ":material/crop_portrait:"), "double": ("double page", ":material/auto_stories:"),
+         "scroll": ("continuous scrolling", ":material/view_day:")}
+
+
+def _modes():
+    return ["page", "double", "scroll"] if scroll_available() else ["page", "double"]
+
+
 def _toggle_mode(mode_key):
-    st.session_state[mode_key] = "scroll" if st.session_state.get(mode_key, "page") == "page" else "page"
+    modes = _modes()
+    cur = st.session_state.get(mode_key, "page")
+    st.session_state[mode_key] = modes[(modes.index(cur) + 1) % len(modes)] if cur in modes else "page"
 
 
 def _set_zoom(zoom_key, value):
@@ -152,27 +163,33 @@ def pdf_reader(path, key, height=640, start=1, title=None, on_page=None):
         cols[7].markdown(f'<div class="rd-zoom">{st.session_state[zoom_key]}%</div>', unsafe_allow_html=True)
         cols[8].button("+", key=f"{key}_zin", width="stretch", on_click=_step_zoom, args=(zoom_key, 1), help="zoom in")
         cols[9].button("−", key=f"{key}_zout", width="stretch", on_click=_step_zoom, args=(zoom_key, -1), help="zoom out")
-        scrolling = st.session_state.get(mode_key, "page") == "scroll" and scroll_available()
-        cols[10].button("", key=f"{key}_mode", icon=":material/view_day:" if not scrolling else ":material/crop_portrait:",
-                        width="stretch", on_click=_toggle_mode, args=(mode_key,), disabled=not scroll_available(),
-                        help=("single page view" if scrolling else "continuous scrolling view") if scroll_available()
-                        else "restart the app to turn on the scrolling view")
+        modes = _modes()
+        cur = st.session_state.get(mode_key, "page")
+        cur = cur if cur in modes else "page"
+        nxt = modes[(modes.index(cur) + 1) % len(modes)]
+        cols[10].button("", key=f"{key}_mode", icon=MODES[cur][1], width="stretch", on_click=_toggle_mode,
+                        args=(mode_key,), help=f"{MODES[cur][0]} view. click for {MODES[nxt][0]} view")
 
     page, zoom = st.session_state[page_key], st.session_state[zoom_key]
     if title:
         heading.markdown(f"<h3 class='lab-heading'>{html.escape(title)} · Page {page}</h3>", unsafe_allow_html=True)
     mtime = path.stat().st_mtime
-    if st.session_state.get(mode_key, "page") == "scroll" and scroll_available():
+    mode = st.session_state.get(mode_key, "page")
+    if mode == "scroll" and scroll_available():
         _scrolling_view(path, key, page, zoom, total, height, mtime)
         if on_page:
             on_page(page)
         return
-    width = min(3000, int(1400 * zoom / 100 + 200))
-    b64 = base64.b64encode(page_image(path, mtime, page - 1, width)).decode()
+    shown = [page, page + 1] if mode == "double" and page < total else [page]
+    width = min(3000, int(1400 * zoom / 100 / len(shown) + 200))
+    imgs = "".join(
+        f'<img src="data:image/jpeg;base64,{base64.b64encode(page_image(path, mtime, n - 1, width)).decode()}" '
+        f'style="width:{zoom / len(shown):g}%" alt="Page {n}">' for n in shown)
     box = f' style="height:{height}px"' if height else ""
-    st.markdown(f'<div class="rd-scroll{"" if height else " rd-fill"}"{box}><img src="data:image/jpeg;base64,{b64}" '
-                f'style="width:{zoom}%" alt="Page {page}"></div>', unsafe_allow_html=True)
-    neighbours = [i for i in (page, page - 2, page + 1, page + 2) if 0 <= i < total]    # next first, then back
+    st.markdown(f'<div class="rd-scroll{"" if height else " rd-fill"}"{box}><div class="rd-spread">{imgs}</div></div>',
+                unsafe_allow_html=True)
+    step = len(shown)
+    neighbours = [i for i in (page - 1 + step, page - 1 + 2 * step, page - 1 - step) if 0 <= i < total]   # next spread, then back
     _prefetch(path, mtime, neighbours, width)
     if on_page:
         on_page(page)
