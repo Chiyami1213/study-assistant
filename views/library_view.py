@@ -22,9 +22,20 @@ from pdfmeta import split_lecture, strip_notes_prefix
 from database import BASE_DIR, PDF_DIR
 
 COLUMNS = 6
-KINDS = ["Textbook", "Lecture Notes", "Notes", "Homework", "Homework Solution", "Exam", "Graded Homework", "Graded Exam", "Syllabus", "Equation Sheet"]
+KINDS = ["Textbook", "Lecture Notes", "Notes", "Homework", "Homework Solution", "Graded Homework", "Practice Exam", "Exam", "Graded Exam",
+         "Syllabus", "Equation Sheet"]
+# One tab for each family; inside a tab the files order (and, with Sort: Type, group) by these categories.
+HW_GROUP = ("Homework", "Homework Solution", "Graded Homework")
+EXAM_GROUP = ("Practice Exam", "Exam", "Graded Exam")
+FILTERS = ["Textbook", "Lecture Notes", "Notes", "Homework", "Exam", "Syllabus", "Equation Sheet"]       # the pills after "All"
+FILTER_KINDS = {"Homework": HW_GROUP, "Exam": EXAM_GROUP}
+
+
+def filter_for(kind):
+    """The pill a file of this kind appears under (and what an older remembered filter means now)."""
+    return "Homework" if kind in HW_GROUP else "Exam" if kind in EXAM_GROUP else kind
 HW_KINDS = ("Homework", "Homework Solution", "Graded Homework")          # kinds that carry a homework number
-PLURAL = {"Textbook": "Textbooks", "Homework Solution": "Homework Solutions", "Exam": "Exams", "Syllabus": "Syllabi", "Equation Sheet": "Equation Sheets"}
+PLURAL = {"Textbook": "Textbooks", "Homework Solution": "Homework Solutions", "Exam": "Exams", "Practice Exam": "Practice Exams", "Syllabus": "Syllabi", "Equation Sheet": "Equation Sheets"}
 
 
 @st.cache_data(show_spinner=False, max_entries=256)
@@ -78,6 +89,7 @@ NOTES_WORDS = re.compile(r"(?<![a-z])(notes?|handouts?|cheat[\s_\-]*sheets?|stud
                          r"summary|summaries|review|annotated|worksheet|recitation)(?![a-z])", re.I)
 SHEET_WORDS = re.compile(r"(?<![a-z])(equation|formula)[\s_\-]*sheets?(?![a-z])", re.I)
 SYLLABUS_WORDS = re.compile(r"(?<![a-z])(syllab(?:us|i)|course[\s_\-]*(?:information|policies|outline))(?![a-z])", re.I)
+PRACTICE_WORDS = re.compile(r"(?<![a-z])(practice|sample|mock|past|old|review)(?![a-z])", re.I)
 EXAM_WORDS = re.compile(r"(?<![a-z])(exams?|mid[\s_\-]*terms?|final[\s_\-]*exams?)(?![a-z])", re.I)
 SOLUTION_WORDS = re.compile(r"(?<![a-z])(solutions?|soln?s?)(?![a-z])", re.I)
 HOMEWORK_WORDS = re.compile(r"(?<![a-z])(homework|hw|problem[\s_\-]*sets?|psets?|assignment)(?![a-z])", re.I)
@@ -95,7 +107,7 @@ def detect_kind(filename, title=""):
         if SYLLABUS_WORDS.search(text):
             return "Syllabus"
         if EXAM_WORDS.search(text) and not HOMEWORK_WORDS.search(text):
-            return "Exam"
+            return "Practice Exam" if PRACTICE_WORDS.search(text) else "Exam"
         if HOMEWORK_WORDS.search(text):                       # "hw4 solution.pdf" is the solution, "hw4.pdf" the homework
             return "Homework Solution" if SOLUTION_WORDS.search(text) else "Homework"
         if BOOK_WORDS.search(text):
@@ -521,20 +533,17 @@ SORTS = ["Default", "Course", "Title", "Type", "Date Added"]
 
 
 def _course_order(book):
-    """Order inside a course: notes in lecture-number order, then other notes, then textbooks (each by title)."""
+    """Order inside a course: notes in lecture-number order, then other notes, then textbooks (each by title); homework and exam files
+    by category (homework, solution, graded; practice exam, exam, graded exam) and then by number."""
     numbers = tuple(int(n) for n in re.findall(r"\d+", book.get("lecture") or ""))
-    if book["kind"] == "Homework":
-        return (1.5, numbers, book["title"].lower())
-    if book["kind"] == "Homework Solution":
-        return (1.6, numbers, book["title"].lower())
+    by_title = tuple(int(n) for n in re.findall(r"\d+", book["title"]))
+    rank = {"Homework": 1.50, "Homework Solution": 1.55, "Graded Homework": 1.60, "Practice Exam": 1.70, "Exam": 1.75, "Graded Exam": 1.80}
+    if book["kind"] in ("Homework", "Homework Solution", "Graded Homework"):
+        return (rank[book["kind"]], numbers, book["title"].lower())
+    if book["kind"] in ("Practice Exam", "Exam", "Graded Exam"):
+        return (rank[book["kind"]], by_title, book["title"].lower())
     if book["kind"] == "Syllabus":
         return (-1, (), book["title"].lower())
-    if book["kind"] == "Graded Homework":
-        return (1.65, numbers, book["title"].lower())
-    if book["kind"] == "Graded Exam":
-        return (1.75, tuple(int(n) for n in re.findall(r"\d+", book["title"])), book["title"].lower())
-    if book["kind"] == "Exam":
-        return (1.7, tuple(int(n) for n in re.findall(r"\d+", book["title"])), book["title"].lower())
     if book["kind"] in ("Lecture Notes", "Notes"):
         return (0, numbers, "") if numbers else (1, (), book["title"].lower())
     return (2, (), book["title"].lower())
@@ -610,9 +619,13 @@ def render():
     st.markdown("<h1 class='lib-title'>Library</h1>", unsafe_allow_html=True)
     # The filter and the sort are remembered apart from their widgets (a widget's value is dropped while a file is open), so
     # Back from a homework or a note returns to the same list, for example the Homework filter.
-    st.session_state.setdefault("library_filter", st.session_state.get("_library_filter_kept", "All"))
-    options = ["All"] + KINDS
-    counts = {"All": len(all_books), **{k: sum(b["kind"] == k for b in all_books) for k in KINDS}}
+    options = ["All"] + FILTERS
+    kept = st.session_state.get("_library_filter_kept", "All")
+    kept = kept if kept in options else filter_for(kept) if filter_for(kept) in options else "All"       # an older single-kind filter
+    st.session_state.setdefault("library_filter", kept)
+    if st.session_state.get("library_filter") not in options:
+        st.session_state["library_filter"] = kept
+    counts = {"All": len(all_books), **{f: sum(b["kind"] in FILTER_KINDS.get(f, (f,)) for b in all_books) for f in FILTERS}}
     f1, f2 = st.columns([6, 1], vertical_alignment="center")
     with f1:
         choice = st.segmented_control("Show", options, key="library_filter", label_visibility="collapsed",
@@ -623,7 +636,7 @@ def render():
         sort_by = st.selectbox("Sort by", SORTS, key="library_sort", label_visibility="collapsed",
                                format_func=lambda s: f"Sort: {s}")
     st.session_state["_library_sort_kept"] = sort_by
-    books = all_books if choice == "All" else [b for b in all_books if b["kind"] == choice]
+    books = all_books if choice == "All" else [b for b in all_books if b["kind"] in FILTER_KINDS.get(choice, (choice,))]
     st.caption(f"{len(books)} {'Title' if len(books) == 1 else 'Titles'}")
 
     # Books fill rows of six. The dashed "+" add tile follows the last book; when sorted by course, every

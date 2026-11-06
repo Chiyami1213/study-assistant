@@ -590,6 +590,18 @@ def _homework(course):
     st.markdown(f'<div class="dl-list">{rows}</div>', unsafe_allow_html=True)
 
 
+def _practice_exams(course):
+    """Practice exams of the course in the Library, as links (the file opens, and Back returns to this tab)."""
+    files = [b for b in crud.list_books() if b["kind"] == "Practice Exam" and course["id"] in b["course_ids"]]
+    if not files:
+        return
+    st.subheader(f"Practice Exams ({len(files)})")
+    rows = "".join(f'<div class="dl-row"><div><div class="dl-title"><a href="#" data-ol-book="{b["id"]}" data-ol-page="1" data-ol-tab="Exams" '
+                   f'title="open the practice exam">{html.escape(b["title"])}</a></div></div><div class="dl-when"></div></div>'
+                   for b in sorted(files, key=lambda b: crud._natural_key(b["title"])))
+    st.markdown(f'<div class="dl-list">{rows}</div>', unsafe_allow_html=True)
+
+
 def _build_sheet(course, event, key):
     st.session_state[f"eqs_done_{event['id']}"] = eqsheet.make(course, event, st.session_state.get(key) or [])
 
@@ -634,6 +646,7 @@ def _exams(course):
                              graded=_exam_book(course["id"], e["title"], "Graded Exam"), extra=_grade_html(e), tab="Exams")
                    for e in exams)
     st.markdown(f'<div class="dl-list">{rows}</div>', unsafe_allow_html=True)
+    _practice_exams(course)
     _equation_sheets(course, exams)
 
 
