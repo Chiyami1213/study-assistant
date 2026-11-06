@@ -9,7 +9,7 @@ import sys
 import icons
 
 # The dev server caches imported modules between reruns; reload ours so edits apply without a restart.
-for _m in ("database", "notesfs", "crud", "settings", "icons", "pdfmeta", "covers", "reader", "macros", "unitex", "outline", "htmlnotes", "quizzes", "quizgen", "quizhtml", "hwassist", "photos", "views.notes_view", "views.courses_view", "views.home_view",
+for _m in ("database", "notesfs", "crud", "settings", "icons", "pdfmeta", "covers", "reader", "macros", "unitex", "outline", "htmlnotes", "quizzes", "quizgen", "quizhtml", "hwassist", "gradereport", "syllabus", "photos", "views.notes_view", "views.courses_view", "views.home_view",
            "navigation", "views.homework_view", "views.exam_mode_view", "views.recall_view", "views.library_view", "views.quiz_view", "views.calendar_view", "views.file_view", "views.lab_view",
            "views.settings_view"):
     if _m in sys.modules:
@@ -312,6 +312,11 @@ section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-h
 .und-score b {{font-size: 2rem;}} .und-score span:not(.dl-pill) {{font-size: 1.3rem; opacity: 0.8;}}
 .dl-solution {{font-size: 0.78rem; font-weight: 500; margin-left: 8px; opacity: 0.85;}}
 .st-key-lib_sort_box {{width: 150px; max-width: 100%; margin-left: auto;}}
+.syl-open {{font-size: 0.95rem; font-weight: 600;}}
+.syl-table {{border-collapse: collapse; margin: 6px 0 10px; width: 100%; max-width: 640px; font-size: 0.92rem;}}
+.syl-table th, .syl-table td {{border-bottom: 1px solid var(--border); padding: 6px 10px; text-align: left;}}
+.syl-table th {{font-weight: 600; opacity: 0.8; font-size: 0.82rem;}}
+.syl-table .n {{text-align: right;}} .syl-table .none {{opacity: 0.6;}}
 .dl-grade {{font-size: 0.85rem; margin-top: 3px;}} .dl-grade b {{color: #2f9e5f;}} .dl-grade.none {{opacity: 0.6;}}
 .dl-sub {{opacity: 0.75; font-size: 0.85rem; margin-top: 3px;}}
 .dl-pill {{justify-self: end; font-size: 0.78rem; border-radius: 999px; padding: 1px 12px; border: 1px solid var(--border);}}

@@ -11,6 +11,7 @@ import streamlit.components.v1 as components
 
 import covers
 import htmlnotes
+import gradereport
 import hwassist
 import reader
 import crud
@@ -20,9 +21,9 @@ from pdfmeta import split_lecture, strip_notes_prefix
 from database import BASE_DIR, PDF_DIR
 
 COLUMNS = 6
-KINDS = ["Textbook", "Lecture Notes", "Notes", "Homework", "Homework Solution", "Exam", "Graded Homework", "Graded Exam"]
+KINDS = ["Textbook", "Lecture Notes", "Notes", "Homework", "Homework Solution", "Exam", "Graded Homework", "Graded Exam", "Syllabus"]
 HW_KINDS = ("Homework", "Homework Solution", "Graded Homework")          # kinds that carry a homework number
-PLURAL = {"Textbook": "Textbooks", "Homework Solution": "Homework Solutions", "Exam": "Exams"}
+PLURAL = {"Textbook": "Textbooks", "Homework Solution": "Homework Solutions", "Exam": "Exams", "Syllabus": "Syllabi"}
 
 
 @st.cache_data(show_spinner=False, max_entries=256)
@@ -74,6 +75,7 @@ def detect_course(filename, title=""):
 LECTURE_WORDS = re.compile(r"(?<![a-z])(lectures?|lec|slides?)(?![a-z])", re.I)
 NOTES_WORDS = re.compile(r"(?<![a-z])(notes?|handouts?|cheat[\s_\-]*sheets?|study[\s_\-]*guides?|"
                          r"summary|summaries|review|annotated|worksheet|recitation)(?![a-z])", re.I)
+SYLLABUS_WORDS = re.compile(r"(?<![a-z])(syllab(?:us|i)|course[\s_\-]*(?:information|policies|outline))(?![a-z])", re.I)
 EXAM_WORDS = re.compile(r"(?<![a-z])(exams?|mid[\s_\-]*terms?|final[\s_\-]*exams?)(?![a-z])", re.I)
 SOLUTION_WORDS = re.compile(r"(?<![a-z])(solutions?|soln?s?)(?![a-z])", re.I)
 HOMEWORK_WORDS = re.compile(r"(?<![a-z])(homework|hw|problem[\s_\-]*sets?|psets?|assignment)(?![a-z])", re.I)
@@ -86,6 +88,8 @@ def detect_kind(filename, title=""):
         if not text:
             continue
         text = text.replace("_", " ")
+        if SYLLABUS_WORDS.search(text):
+            return "Syllabus"
         if EXAM_WORDS.search(text) and not HOMEWORK_WORDS.search(text):
             return "Exam"
         if HOMEWORK_WORDS.search(text):                       # "hw4 solution.pdf" is the solution, "hw4.pdf" the homework
@@ -185,8 +189,92 @@ def _viewer(book):
         with right:
             _homework_helper(book)
         return
+    if book["kind"] in ("Graded Homework", "Graded Exam"):      # the paper on the left, why it got this grade on the right
+        left, right = st.columns([3, 2], gap="medium")
+        with left:
+            reader.pdf_reader(path, f"view_{book['id']}", height=820, start=st.session_state.pop(f"view_page_{book['id']}", 1))
+        with right:
+            _grade_panel(book)
+        return
     reader.pdf_reader(path, f"view_{book['id']}", height=820,
                       start=st.session_state.pop(f"view_page_{book['id']}", 1))
+
+
+def _open_file_at(book_id, page):
+    """Callback: open another file of the course (the problem file, the solution) at a page."""
+    st.session_state["open_book"] = book_id
+    st.session_state[f"view_page_{book_id}"] = page
+    st.session_state[f"view_{book_id}_page"] = page
+
+
+def _sibling(book, kinds):
+    """The file of the same course and number as this graded file: the problem file or the solution."""
+    number = re.search(r"\d+", book.get("lecture") or book["title"])
+    if not number:
+        return None
+    for b in crud.list_books():
+        n = re.search(r"\d+", b.get("lecture") or b["title"])
+        if b["kind"] in kinds and set(b["course_ids"]) & set(book["course_ids"]) and n and n.group() == number.group():
+            return b
+    return None
+
+
+def _grade_panel(book):
+    """Beside a graded file: the grade, the rubric of each problem with the points lost, and the grader's comments (with the page
+    each one belongs to). Canvas-only grades show what Canvas gave."""
+    st.subheader("Grade Explanation")
+    data = gradereport.load(book["id"])
+    exam = book["kind"] == "Graded Exam"
+    problem_file = _sibling(book, ("Exam",) if exam else ("Homework",))
+    solution = None if exam else _sibling(book, ("Homework Solution",))
+    cols = st.columns(2)
+    if problem_file:
+        cols[0].button("Open Homework" if not exam else "Open Exam", key=f"gp{book['id']}_problem", icon=":material/description:",
+                       on_click=_open_file_at, args=(problem_file["id"], 1), help="open the problem file")
+    if solution:
+        cols[1].button("Open Solution", key=f"gp{book['id']}_solution", icon=":material/task_alt:", on_click=_open_file_at,
+                       args=(solution["id"], 1), help="open the solution file")
+    if not data or not data.get("total"):
+        st.caption("Not graded yet.")
+        return
+    got, of = data["total"]
+    st.markdown(f"### {got:g} / {of:g} ({got / of:.0%})")
+    st.caption(f"Source: {data['source']}.")
+    for text in data.get("general") or []:
+        st.markdown(f":red[{text}]")
+    problems = data.get("problems") or []
+    comments = data.get("comments") or []
+    if not problems and not comments and not data.get("general"):
+        st.caption("Full marks." if got >= of else "Canvas shows only the total for this one, with no comments.")
+    for pr in problems:
+        cost = pr["max"] - pr["score"]
+        with st.container(border=True, key=f"gp{book['id']}_p{pr['n']}"):
+            head, page, sol = st.columns([4, 1.4, 1.8], vertical_alignment="center")
+            head.markdown(f"**{pr['title']}**  " + (f":red[**{pr['score']:g} / {pr['max']:g}**]" if cost > 0
+                                                     else f":green[**{pr['score']:g} / {pr['max']:g}**]"))
+            if pr.get("page"):
+                page.button(f"Page {pr['page']}", key=f"gp{book['id']}_p{pr['n']}_page", type="tertiary", on_click=_go_page,
+                            args=(book["id"], pr["page"]), help="show this problem in your paper")
+            if pr.get("solution_page") and solution:
+                sol.button(f"Solution p. {pr['solution_page']}", key=f"gp{book['id']}_p{pr['n']}_sol", type="tertiary",
+                           on_click=_open_file_at, args=(solution["id"], pr["solution_page"]), help="open this problem in the solution")
+            for it in pr["items"]:
+                st.markdown((":red[" + it["text"] + "]") if it["lost"] else it["text"])
+                note = next((c for c in comments if c["id"] == it.get("comment")), None)
+                if note:
+                    t, b = st.columns([5, 1.4], vertical_alignment="center")
+                    t.markdown(f"> **Grader:** {note['text']}")
+                    if note.get("page"):
+                        b.button(f"Page {note['page']}", key=f"gp{book['id']}_c{note['id']}", type="tertiary", on_click=_go_page,
+                                 args=(book["id"], note["page"]), help="show where the grader marked this")
+    for note in comments:                                  # Canvas comments, and report comments not tied to a rubric line
+        if problems and any(it.get("comment") == note["id"] for pr in problems for it in pr["items"]):
+            continue
+        t, b = st.columns([5, 1.4], vertical_alignment="center")
+        t.markdown(f"> **Grader:** {note['text']}")
+        if note.get("page"):
+            b.button(f"Page {note['page']}", key=f"gp{book['id']}_c{note['id']}", type="tertiary", on_click=_go_page,
+                     args=(book["id"], note["page"]), help="show where the grader marked this")
 
 
 def _open_note(note_id, section_id):
@@ -323,6 +411,8 @@ def _course_order(book):
         return (1.5, numbers, book["title"].lower())
     if book["kind"] == "Homework Solution":
         return (1.6, numbers, book["title"].lower())
+    if book["kind"] == "Syllabus":
+        return (-1, (), book["title"].lower())
     if book["kind"] == "Graded Homework":
         return (1.65, numbers, book["title"].lower())
     if book["kind"] == "Graded Exam":

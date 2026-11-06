@@ -167,6 +167,68 @@ def _sentence_marks(doc, item, pages):
     return out
 
 
+_STOP = set("""about above after again against because before being below between cannot could does doing during each from have having
+here into itself just more most must only other over same should some such than that their them then there these they this those
+through under until very were what when where which while with without would your note notes text page pages equation equations
+slide slides handout chapter section should says say said""".split())
+
+
+def _words(text):
+    """Distinctive words of a piece of text (lower case, no math)."""
+    text = re.sub(r"\$[^$]*\$", " ", text)
+    return [w for w in re.findall(r"[a-z][a-z\-]{4,}", text.lower()) if w not in _STOP]
+
+
+def _quoted(item):
+    """Text fragments an erratum quotes or calls out, without math: “...” and the words it flags as typos."""
+    out = [re.sub(r"[$\{}]", "", q).strip() for q in re.findall(r"“([^”]{4,120})”", item["md"] + " " + item["where"])]
+    out += [q.strip() for q in re.findall(r"\"([^\"$]{4,80})\"", item["md"])]
+    return [q for q in dict.fromkeys(out) if len(q) >= 4]
+
+
+def _fuzzy(doc, it):
+    """Last resort for an erratum whose location cannot be read: find the place in this PDF that its text is about.
+    First its quoted words anywhere in the PDF; otherwise the paragraph that shares the most distinctive words with it."""
+    marks = []
+    where = it["where"].lower()
+    for words, index, band in (("first page|start of the pdf|beginning", 0, (0.04, 0.2)), ("end of|last page|last lines", doc.page_count - 1, (0.7, 0.96))):
+        if re.search(words, where) and doc.page_count:
+            page = doc[index]
+            W, H = page.rect.width, page.rect.height
+            return [{"n": it["n"], "label": it["where"], "md": it["md"], "page": index, "size": (W, H),
+                     "rect": (W * 0.08, H * band[0], W * 0.92, H * band[1])}]
+    for q in _quoted(it):
+        for pg in range(doc.page_count):
+            hits = doc[pg].search_for(q)
+            if hits:
+                page = doc[pg]
+                r = hits[0]
+                marks.append({"n": it["n"], "label": f"“{q[:50]}”", "md": it["md"], "page": pg, "sentence": True,
+                              "size": (page.rect.width, page.rect.height), "rect": (r.x0 - 2, r.y0 - 1, r.x1 + 2, r.y1 + 1)})
+                break
+        if marks:
+            return marks
+    want = set(_words(it["md"] + " " + it["where"]))
+    if len(want) < 3:
+        return []
+    best = None
+    for pg in range(doc.page_count):
+        page = doc[pg]
+        for b in page.get_text("blocks"):
+            if b[6] != 0 or len(b[4].strip()) < 40:
+                continue
+            have = set(_words(b[4]))
+            score = len(want & have)
+            if score >= 3 and (best is None or score > best[0]):
+                best = (score, pg, b)
+    if best:
+        _, pg, b = best
+        page = doc[pg]
+        marks.append({"n": it["n"], "label": it["where"], "md": it["md"], "page": pg,
+                      "size": (page.rect.width, page.rect.height), "rect": (b[0] - 3, b[1] - 3, b[2] + 3, b[3] + 3)})
+    return marks
+
+
 def locate(path, mtime, items):
     """Marks for the errata that can be placed in this PDF: {n, label, md, page, rect, size, [sentence]}."""
     path = str(path)
@@ -208,6 +270,10 @@ def locate(path, mtime, items):
                             break
             if not placed and pages:                                             # "p. 22, second paragraph", "p. 25, top"
                 found = _by_position(doc, it, pages)
+                marks += found
+                placed += [m["page"] for m in found]
+            if not placed:                                                       # cannot be read from its label: search the text
+                found = _fuzzy(doc, it)
                 marks += found
                 placed += [m["page"] for m in found]
             if placed:                                                           # and the sentence the erratum quotes

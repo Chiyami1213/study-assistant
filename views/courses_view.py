@@ -8,6 +8,7 @@ import streamlit as st
 import base64
 
 import crud
+import syllabus
 import icons
 import photos
 from views import library_view, quiz_view
@@ -420,6 +421,40 @@ def _exam_items(course):
                   key=lambda e: (e["date"], e.get("time") or ""))
 
 
+def _syllabus(course):
+    """The syllabus file, what each part of the grade is worth, and the letter-grade scale (from the syllabus)."""
+    data = syllabus.load(course["id"])
+    st.subheader("Syllabus")
+    if not data:
+        st.caption("No syllabus yet. Add the syllabus file to the Library as a Syllabus.")
+        return
+    book = crud.get_book(data.get("book") or 0)
+    if book:
+        page = data.get("page") or 1
+        st.markdown(f'<a class="syl-open" href="#" data-ol-book="{book["id"]}" data-ol-page="{page}" data-ol-tab="Overview" '
+                    f'title="open the syllabus at its grading policy">{html.escape(book["title"])}</a>', unsafe_allow_html=True)
+    rows = data.get("rows") or []
+    if rows:
+        homework, events = _homework_items(course), _exam_items(course)
+        body = ""
+        for r in rows:
+            got = syllabus.score(r.get("kind"), homework, events)
+            mine = f"{got:.0%}" if got is not None else ("Not graded" if r.get("kind") else "None")
+            body += (f"<tr><td>{html.escape(r['item'])}</td><td class='n'>{r['percent']:g}%</td>"
+                     f"<td class='n{' none' if got is None else ''}'>{mine}</td></tr>")
+        st.markdown(f"<table class='syl-table'><thead><tr><th>Part of the Grade</th><th class='n'>Weight</th>"
+                    f"<th class='n'>Your Score So Far</th></tr></thead><tbody>{body}</tbody></table>", unsafe_allow_html=True)
+    scale = data.get("scale") or []
+    if scale:
+        body = "".join(f"<tr><td>{html.escape(r['grade'])}</td><td>{html.escape(r['rule'])}</td></tr>" for r in scale)
+        st.markdown(f"<table class='syl-table'><thead><tr><th>Letter Grade</th><th>Score Needed</th></tr></thead>"
+                    f"<tbody>{body}</tbody></table>", unsafe_allow_html=True)
+    elif rows:
+        st.caption("The syllabus lists no letter-grade cutoffs.")
+    if data.get("note"):
+        st.caption(data["note"])
+
+
 def _overview(course):
     """The grades so far, then how well the materials are understood (quiz scores)."""
     st.subheader("Grades")
@@ -433,6 +468,7 @@ def _overview(course):
                        help=f"{sum(1 for h in homework if h.get('score') is not None)} of {len(homework)} graded")
         cols[1].metric("Exam Average", f"{ex_avg:.0%}" if ex_avg is not None else "None",
                        help=f"{sum(1 for e in exams if e.get('score') is not None)} of {len(exams)} graded")
+    _syllabus(course)
     quiz_view.understanding(course)
 
 
