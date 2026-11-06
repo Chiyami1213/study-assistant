@@ -445,6 +445,25 @@ def _pie(rows, center_top, center_bottom):
             f'<text x="90" y="108" text-anchor="middle" class="syl-c2">{html.escape(center_bottom)}</text></svg>')
 
 
+def _weights(course, data):
+    """What each part of the grade is worth: the donut chart and, under it, the table with your score so far."""
+    rows = data.get("rows") or []
+    if not rows:
+        return
+    homework, events = _homework_items(course), _exam_items(course)
+    body = ""
+    for i, r in enumerate(rows):
+        got = syllabus.score(r.get("kind"), homework, events)
+        mine = f"{got:.0%}" if got is not None else ("Not graded" if r.get("kind") else "None")
+        body += (f"<tr><td><span class='syl-sw' style='background:var(--s{min(i, 3) + 1})'></span>{html.escape(r['item'])}</td>"
+                 f"<td class='n'>{r['percent']:g}%</td><td class='n{' none' if got is None else ''}'>{mine}</td></tr>")
+    est = syllabus.standing(data, homework, events)
+    top, bottom = ("100%", "of the grade") if not est else (syllabus.letter(est[0], data)[0], f"{est[0]:.1f}% now")
+    st.markdown(f"<div class='syl-stack'>{_pie(rows, top, bottom)}<table class='syl-table'><thead><tr><th>Part of the Grade</th>"
+                f"<th class='n'>Weight</th><th class='n'>Your Score So Far</th></tr></thead><tbody>{body}</tbody></table></div>",
+                unsafe_allow_html=True)
+
+
 def _syllabus(course):
     """The syllabus file, what each part of the grade is worth, and the letter-grade scale (from the syllabus)."""
     data = syllabus.load(course["id"])
@@ -474,19 +493,6 @@ def _syllabus(course):
         st.markdown(f'<a class="syl-open" href="#" data-ol-book="{book["id"]}" data-ol-page="{page}" data-ol-tab="Overview" '
                     f'title="open the syllabus at its grading policy">{html.escape(book["title"])}</a>', unsafe_allow_html=True)
     rows = data.get("rows") or []
-    if rows:
-        homework, events = _homework_items(course), _exam_items(course)
-        body = ""
-        for i, r in enumerate(rows):
-            got = syllabus.score(r.get("kind"), homework, events)
-            mine = f"{got:.0%}" if got is not None else ("Not graded" if r.get("kind") else "None")
-            body += (f"<tr><td><span class='syl-sw' style='background:var(--s{min(i, 3) + 1})'></span>{html.escape(r['item'])}</td>"
-                     f"<td class='n'>{r['percent']:g}%</td><td class='n{' none' if got is None else ''}'>{mine}</td></tr>")
-        est = syllabus.standing(data, homework, events)
-        top, bottom = ("100%", "of the grade") if not est else (syllabus.letter(est[0], data)[0], f"{est[0]:.1f}% now")
-        st.markdown(f"<div class='syl-row'>{_pie(rows, top, bottom)}<table class='syl-table'><thead><tr><th>Part of the Grade</th>"
-                    f"<th class='n'>Weight</th><th class='n'>Your Score So Far</th></tr></thead><tbody>{body}</tbody></table></div>",
-                    unsafe_allow_html=True)
     scale = data.get("scale") or []
     if scale:
         body = "".join(f"<tr><td>{html.escape(r['grade'])}</td><td>{html.escape(r['rule'])}</td></tr>" for r in scale)
@@ -534,27 +540,33 @@ def _goals(data, homework, events, assumed):
 
 
 def _overview(course):
-    """The grades so far, then how well the materials are understood (quiz scores)."""
+    """The grades so far (metrics and what is needed for an A or a B on the left, what each part is worth at the right),
+    then the syllabus, then how well the materials are understood (quiz scores)."""
     st.subheader("Grades")
     homework, exams = _homework_items(course), _exam_items(course)
     hw_avg, ex_avg = _percent(homework), _percent(exams)
-    if hw_avg is None and ex_avg is None:
-        st.caption("No grades yet. Homework and exam grades appear here.")
-    else:
-        data = syllabus.load(course["id"])
-        est = syllabus.standing(data, homework, exams) if data else None
-        cols = st.columns(3 if est else 2)
-        cols[0].metric("Homework Average", f"{hw_avg:.0%}" if hw_avg is not None else "None",
-                       help=f"{sum(1 for h in homework if h.get('score') is not None)} of {len(homework)} graded")
-        cols[1].metric("Exam Average", f"{ex_avg:.0%}" if ex_avg is not None else "None",
-                       help=f"{sum(1 for e in exams if e.get('score') is not None)} of {len(exams)} graded")
-        if est:
-            percent, share = est
-            grade, assumed = syllabus.letter(percent, data)
-            cols[2].metric("Estimated Letter Grade", f"{grade}  ({percent:.1f}%)",
-                           help=f"weighted by the syllabus, from the {share:.0%} of the course graded so far"
-                                + ("; the syllabus lists no cutoffs, so 90 / 80 / 70 / 60 is assumed" if assumed else ""))
-            _goals(data, homework, exams, assumed)
+    data = syllabus.load(course["id"])
+    left, right = st.columns([3, 2], gap="large")
+    with right:
+        if data:
+            _weights(course, data)
+    with left:
+        if hw_avg is None and ex_avg is None:
+            st.caption("No grades yet. Homework and exam grades appear here.")
+        else:
+            est = syllabus.standing(data, homework, exams) if data else None
+            cols = st.columns(3 if est else 2)
+            cols[0].metric("Homework Average", f"{hw_avg:.0%}" if hw_avg is not None else "None",
+                           help=f"{sum(1 for h in homework if h.get('score') is not None)} of {len(homework)} graded")
+            cols[1].metric("Exam Average", f"{ex_avg:.0%}" if ex_avg is not None else "None",
+                           help=f"{sum(1 for e in exams if e.get('score') is not None)} of {len(exams)} graded")
+            if est:
+                percent, share = est
+                grade, assumed = syllabus.letter(percent, data)
+                cols[2].metric("Estimated Letter Grade", f"{grade}  ({percent:.1f}%)",
+                               help=f"weighted by the syllabus, from the {share:.0%} of the course graded so far"
+                                    + ("; the syllabus lists no cutoffs, so 90 / 80 / 70 / 60 is assumed" if assumed else ""))
+                _goals(data, homework, exams, assumed)
     _syllabus(course)
     quiz_view.understanding(course)
 

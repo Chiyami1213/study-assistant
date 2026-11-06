@@ -315,6 +315,10 @@ section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-h
 .stApp [class*="st-key-gpi_"] button {{justify-content: flex-start !important; text-align: left !important; height: auto; min-height: 0; padding: 2px 4px;}}
 .stApp [class*="st-key-gpi_"] button p {{text-align: left !important;}}
 .syl-info td:first-child {{font-weight: 600; width: 120px; opacity: 0.85;}} .syl-mail {{opacity: 0.7; font-size: 0.85rem; margin-left: 8px;}}
+/* while the page or a tab is switching, the old content disappears at once instead of squeezing as the new one arrives */
+.stApp.switching [data-testid="stMain"] [data-stale="true"] {{display: none !important;}}
+.stApp.switching [data-testid="stMain"] [data-stale="true"] * {{transition: none !important;}}
+.syl-stack {{display: flex; flex-direction: column; align-items: flex-start; gap: 10px;}} .syl-stack .syl-table {{margin: 0; width: 100%;}}
 .syl-row {{display: flex; align-items: center; gap: 28px; flex-wrap: wrap; margin: 6px 0 10px;}}
 .syl-row .syl-table {{flex: 1 1 340px; margin: 0;}}
 .syl-pie {{flex: none; width: 180px; height: 180px;}} .syl-slice {{transition: opacity 0.12s;}} .syl-pie:hover .syl-slice {{opacity: 0.55;}} .syl-pie .syl-slice:hover {{opacity: 1;}}
@@ -770,6 +774,30 @@ if (!win.__eyeRestV2) {
   setInterval(tick, 1000);
 }
 // Note Builder window tabs: drag a tab to any place in the row; x closes a window; + adds one.
+if (!win.__switchV1) {
+  win.__switchV1 = true;
+  // a click on the sidebar menu or on a tab starts a switch; it ends once nothing is stale any more
+  let timer = null;
+  const app = () => doc.querySelector('.stApp');
+  const end = () => { const a = app(); if (a) a.classList.remove('switching'); timer = null; };
+  const watch = () => {
+    const a = app();
+    if (!a) return;
+    const started = Date.now();
+    const tick = () => {
+      const stale = doc.querySelector('[data-testid="stMain"] [data-stale="true"]');
+      if (!stale && Date.now() - started > 350 || Date.now() - started > 6000) { end(); return; }
+      timer = setTimeout(tick, 120);
+    };
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(tick, 120);
+  };
+  doc.addEventListener('click', e => {
+    const hit = e.target.closest('[class*="st-key-nav_"] button, [role="tab"]');
+    const a = app();
+    if (hit && a) { a.classList.add('switching'); watch(); }
+  }, true);
+}
 if (!win.__labTabsV2) {
   win.__labTabsV2 = true;
   let dragged = null;

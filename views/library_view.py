@@ -222,6 +222,18 @@ def _sibling(book, kinds):
     return None
 
 
+def _toggle_flag(flag):
+    st.session_state[flag] = not st.session_state.get(flag)
+
+
+def _solution_pages(pr, problems, total):
+    """The pages of the solution file that answer one problem: from its start to the page before the next problem's."""
+    start = pr.get("solution_page")
+    later = sorted(p["solution_page"] for p in problems if p.get("solution_page") and p["solution_page"] > (start or 0))
+    end = (later[0] - 1) if later else min(total, (start or 1) + 4)
+    return list(range(start, max(start, end) + 1)) if start else []
+
+
 def _select_grade(book_id, sel, page):
     """Callback: a problem, a rubric line or a comment was clicked: show its page and mark it on the paper."""
     st.session_state[f"gp{book_id}_sel"] = sel
@@ -292,6 +304,12 @@ def _grade_panel(book):
     if not data or not data.get("total"):
         st.caption("Not graded yet.")
         return
+    analysis = {}
+    if problem_file and problem_file["course_ids"]:           # which sections of the course notes each problem draws on
+        try:
+            analysis = {str(a["id"]): a for a in hwassist.analyze(problem_file, crud.get_course(problem_file["course_ids"][0]), crud.list_books())}
+        except Exception:
+            analysis = {}
     got, of = data["total"]
     st.markdown(f"### {got:g} / {of:g} ({got / of:.0%})")
     st.caption(f"Source: {data['source']}. Click a problem, a line or a comment to see it marked on your paper.")
@@ -313,6 +331,9 @@ def _grade_panel(book):
             if pr.get("solution_page") and solution:
                 sol.button(f"Solution p. {pr['solution_page']}", key=f"gp{book['id']}_p{pr['n']}_sol", type="tertiary",
                            on_click=_open_file_at, args=(solution["id"], pr["solution_page"]), help="open this problem in the solution")
+            tagged = analysis.get(str(pr["n"]))
+            if tagged and tagged.get("tags"):                  # the notes sections this problem draws on
+                _tag_buttons(tagged["tags"], f"gp{book['id']}_p{pr['n']}")
             for k, it in enumerate(pr["items"]):
                 note = by_id.get(it.get("comment"))
                 label = (":red[" + it["text"] + "]") if it["lost"] else it["text"]
@@ -324,6 +345,24 @@ def _grade_panel(book):
                           args=(book["id"], target[0], target[1]), help="show this on your paper")
                 if note:
                     st.markdown(f"> **Grader:** {note['text']}")
+                part = re.match(r"(?:[\d.]+ pts? )?([a-e])\)", it["text"])
+                if it["lost"] and part and tagged:             # a lost part: the section of the notes for that part
+                    sub = next((x for x in tagged.get("parts") or [] if x["id"] == part.group(1) and x.get("tags")), None)
+                    if sub and sub["tags"][:1] != (tagged.get("tags") or [])[:1]:
+                        _tag_buttons(sub["tags"][:1], f"gp{book['id']}_p{pr['n']}_{k}")
+            feedback = [c for c in comments if c.get("problem") == pr["n"]]
+            if solution and pr.get("solution_page") and (cost > 0 or feedback):       # the corrected answer, from the solution
+                flag = f"gp{book['id']}_p{pr['n']}_open"
+                opened = st.session_state.get(flag)
+                st.button("Hide Corrected Answer" if opened else "Show Corrected Answer", key=f"{flag}_btn", icon=":material/fact_check:",
+                          on_click=_toggle_flag, args=(flag,), help="the solution's answer to this problem, with the grader's comments")
+                if opened:
+                    for c in feedback:
+                        st.markdown(f"> **Grader:** {c['text']}")
+                    sol_path = BASE_DIR / solution["pdf_path"]
+                    total = solution.get("total_pages") or 1
+                    for pg in _solution_pages(pr, problems, total):
+                        st.image(reader.page_image(sol_path, sol_path.stat().st_mtime, pg - 1, 1100), caption=f"Solution, page {pg}")
     for note in comments:                                  # Canvas comments, and report comments not tied to a rubric line
         if problems and any(it.get("comment") == note["id"] for pr in problems for it in pr["items"]):
             continue

@@ -29,9 +29,27 @@ def _note_card(item):
             st.rerun()
 
 
+def _files_signature():
+    """Changes whenever a note, a quiz file or the database is saved, so cached quiz lists are rebuilt only then."""
+    import os
+    from database import BASE_DIR
+    stamp = []
+    for folder in ("notes", "quizzes"):
+        for root, _dirs, names in os.walk(BASE_DIR / folder):
+            stamp += [os.stat(os.path.join(root, n)).st_mtime_ns for n in names]
+    for path in (BASE_DIR / "data").glob("*.db"):
+        stamp.append(path.stat().st_mtime_ns)
+    return hash(tuple(stamp))
+
+
+@st.cache_data(show_spinner=False, max_entries=16)
+def _chapters_cached(course_id, signature):
+    return quiz_view.course_chapters(crud.get_course(course_id))
+
+
 def _quiz_exports(course):
     """Each chapter's quiz as a standalone HTML page (HTML only), ready to open in any browser."""
-    chapters = quiz_view.course_chapters(course)
+    chapters = _chapters_cached(course["id"], _files_signature())
     if not chapters:
         return
     with st.expander(f"Quizzes ({len(chapters)}) · export as HTML"):
