@@ -421,6 +421,30 @@ def _exam_items(course):
                   key=lambda e: (e["date"], e.get("time") or ""))
 
 
+def _pie(rows, center_top, center_bottom):
+    """A donut of what each part of the grade is worth (the syllabus weights), in the chart colours of the theme.
+    Hovering a slice names it; the table beside it carries the numbers."""
+    import math
+    total = sum(r["percent"] for r in rows) or 1
+    cx = cy = 90
+    outer, inner = 84, 54
+    angle = -math.pi / 2
+    paths = ""
+    for i, r in enumerate(rows[:4]):
+        sweep = r["percent"] / total * 2 * math.pi
+        a0, a1 = angle, angle + sweep - 1e-4
+        angle += sweep
+        pt = lambda rad, a: (cx + rad * math.cos(a), cy + rad * math.sin(a))
+        (x0, y0), (x1, y1), (x2, y2), (x3, y3) = pt(outer, a0), pt(outer, a1), pt(inner, a1), pt(inner, a0)
+        big = 1 if sweep > math.pi else 0
+        paths += (f'<path class="syl-slice" d="M{x0:.2f},{y0:.2f} A{outer},{outer} 0 {big} 1 {x1:.2f},{y1:.2f} '
+                  f'L{x2:.2f},{y2:.2f} A{inner},{inner} 0 {big} 0 {x3:.2f},{y3:.2f} Z" fill="var(--s{i + 1})" stroke="var(--bg)" '
+                  f'stroke-width="2.5"><title>{html.escape(r["item"])}: {r["percent"]:g}% of the grade</title></path>')
+    return (f'<svg class="syl-pie" viewBox="0 0 180 180" role="img" aria-label="What each part of the grade is worth">{paths}'
+            f'<text x="90" y="88" text-anchor="middle" class="syl-c1">{html.escape(center_top)}</text>'
+            f'<text x="90" y="108" text-anchor="middle" class="syl-c2">{html.escape(center_bottom)}</text></svg>')
+
+
 def _syllabus(course):
     """The syllabus file, what each part of the grade is worth, and the letter-grade scale (from the syllabus)."""
     data = syllabus.load(course["id"])
@@ -453,19 +477,22 @@ def _syllabus(course):
     if rows:
         homework, events = _homework_items(course), _exam_items(course)
         body = ""
-        for r in rows:
+        for i, r in enumerate(rows):
             got = syllabus.score(r.get("kind"), homework, events)
             mine = f"{got:.0%}" if got is not None else ("Not graded" if r.get("kind") else "None")
-            body += (f"<tr><td>{html.escape(r['item'])}</td><td class='n'>{r['percent']:g}%</td>"
-                     f"<td class='n{' none' if got is None else ''}'>{mine}</td></tr>")
-        st.markdown(f"<table class='syl-table'><thead><tr><th>Part of the Grade</th><th class='n'>Weight</th>"
-                    f"<th class='n'>Your Score So Far</th></tr></thead><tbody>{body}</tbody></table>", unsafe_allow_html=True)
+            body += (f"<tr><td><span class='syl-sw' style='background:var(--s{min(i, 3) + 1})'></span>{html.escape(r['item'])}</td>"
+                     f"<td class='n'>{r['percent']:g}%</td><td class='n{' none' if got is None else ''}'>{mine}</td></tr>")
+        est = syllabus.standing(data, homework, events)
+        top, bottom = ("100%", "of the grade") if not est else (syllabus.letter(est[0], data)[0], f"{est[0]:.1f}% now")
+        st.markdown(f"<div class='syl-row'>{_pie(rows, top, bottom)}<table class='syl-table'><thead><tr><th>Part of the Grade</th>"
+                    f"<th class='n'>Weight</th><th class='n'>Your Score So Far</th></tr></thead><tbody>{body}</tbody></table></div>",
+                    unsafe_allow_html=True)
     scale = data.get("scale") or []
     if scale:
         body = "".join(f"<tr><td>{html.escape(r['grade'])}</td><td>{html.escape(r['rule'])}</td></tr>" for r in scale)
         st.markdown(f"<table class='syl-table'><thead><tr><th>Letter Grade</th><th>Score Needed</th></tr></thead>"
                     f"<tbody>{body}</tbody></table>", unsafe_allow_html=True)
-    elif rows:
+    elif rows and not data.get("note"):
         st.caption("The syllabus lists no letter-grade cutoffs.")
     if data.get("note"):
         st.caption(data["note"])

@@ -315,6 +315,11 @@ section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-h
 .stApp [class*="st-key-gpi_"] button {{justify-content: flex-start !important; text-align: left !important; height: auto; min-height: 0; padding: 2px 4px;}}
 .stApp [class*="st-key-gpi_"] button p {{text-align: left !important;}}
 .syl-info td:first-child {{font-weight: 600; width: 120px; opacity: 0.85;}} .syl-mail {{opacity: 0.7; font-size: 0.85rem; margin-left: 8px;}}
+.syl-row {{display: flex; align-items: center; gap: 28px; flex-wrap: wrap; margin: 6px 0 10px;}}
+.syl-row .syl-table {{flex: 1 1 340px; margin: 0;}}
+.syl-pie {{flex: none; width: 180px; height: 180px;}} .syl-slice {{transition: opacity 0.12s;}} .syl-pie:hover .syl-slice {{opacity: 0.55;}} .syl-pie .syl-slice:hover {{opacity: 1;}}
+.syl-c1 {{font-size: 26px; font-weight: 700; fill: var(--text);}} .syl-c2 {{font-size: 11px; fill: var(--text); opacity: 0.7;}}
+.syl-sw {{display: inline-block; width: 11px; height: 11px; border-radius: 3px; margin-right: 9px; vertical-align: -1px;}}
 .syl-open {{font-size: 0.95rem; font-weight: 600;}}
 .syl-table {{border-collapse: collapse; margin: 6px 0 10px; width: 100%; max-width: 640px; font-size: 0.92rem;}}
 .syl-table th, .syl-table td {{border-bottom: 1px solid var(--border); padding: 6px 10px; text-align: left;}}
