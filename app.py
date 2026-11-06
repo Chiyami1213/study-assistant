@@ -9,8 +9,8 @@ import sys
 import icons
 
 # The dev server caches imported modules between reruns; reload ours so edits apply without a restart.
-for _m in ("database", "notesfs", "crud", "settings", "icons", "pdfmeta", "covers", "reader", "macros", "unitex", "outline", "htmlnotes", "quizzes", "quizgen", "quizhtml", "hwassist", "gradereport", "solcrop", "syllabus", "eqsheet", "photos", "views.notes_view", "views.courses_view", "views.home_view",
-           "navigation", "views.homework_view", "views.exam_mode_view", "views.recall_view", "views.library_view", "views.quiz_view", "views.calendar_view", "views.file_view", "views.lab_view",
+for _m in ("database", "notesfs", "crud", "settings", "icons", "pdfmeta", "covers", "reader", "macros", "unitex", "outline", "htmlnotes", "quizzes", "quizgen", "hwassist", "gradereport", "solcrop", "syllabus", "eqsheet", "photos", "views.notes_view", "views.courses_view", "views.home_view",
+           "navigation", "views.homework_view", "views.exam_mode_view", "views.recall_view", "views.library_view", "views.quiz_view", "views.calendar_view", "views.lab_view",
            "views.settings_view"):
     if _m in sys.modules:
         importlib.reload(sys.modules[_m])
@@ -18,7 +18,7 @@ import navigation
 import photos
 import settings
 from database import init_db
-from views import calendar_view, courses_view, file_view, home_view, lab_view, library_view, settings_view
+from views import calendar_view, courses_view, home_view, lab_view, library_view, settings_view
 
 st.set_page_config(page_title="Study Assistant", page_icon=":material/book:", layout="wide",
                    initial_sidebar_state="expanded")
@@ -28,7 +28,6 @@ photos.organize_photos()
 # (label, material icon, renderer)
 NAV_TOP = {
     "Home": (":material/home:", home_view.render),
-    "File": (":material/folder:", file_view.render),
     "Calendar": (":material/calendar_month:", calendar_view.render),
     "Library": (":material/library_books:", library_view.render),
     "Note Reader": (":material/auto_stories:", lab_view.render),
@@ -441,7 +440,6 @@ section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-h
     justify-content: center; height: auto !important; min-height: 0 !important; margin: 0 !important; padding: 0 !important; line-height: 1.2 !important;}}
 .st-key-lab_toolbar button {{min-height: 1.9rem !important; padding: 0.1rem 0.5rem !important; font-size: 0.8rem !important;}}
 .st-key-lab_toolbar button p {{font-size: 0.8rem !important;}}
-/* Note Reader and File page */
 [class*="st-key-lab_refname_"] [data-testid="stPopover"] button {{border: none !important; background: transparent !important; justify-content: flex-start;
     padding: 0.2rem 0.4rem; min-height: 0; width: 100%;}}
 [class*="st-key-lab_refname_"] [data-testid="stPopover"] button p {{font-size: 1.45rem; font-weight: 700; line-height: 1.25; letter-spacing: 0;
@@ -509,10 +507,6 @@ section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-h
     border-radius: 999px; background: rgba(20, 22, 28, 0.85); color: #e8e9ec; pointer-events: none;}}
 .rd-scroll.rd-fill {{height: calc(100vh - 175px);}}
 .lab-heading {{font-size: 1.5rem; margin: 0 0 4px; padding: 0;}}
-.file-head {{display: flex; align-items: center; gap: 10px; margin-top: 1.2rem;}}
-.file-head {{display: block !important;}}
-.file-dot {{width: 12px; height: 12px; border-radius: 50%; display: inline-block; margin-right: 12px; vertical-align: middle; position: relative; top: -2px;}}
-.file-count {{font-weight: 400; opacity: 0.6; font-size: 1rem;}}
 
 /* Library */
 /* Library grid: one HTML block, cards are clickable through data-lib-act */
@@ -1034,6 +1028,8 @@ if not crud.get_course(st.session_state.get("course_id")):
     st.session_state["course_id"] = first[0]["id"] if first else None
 
 # Record where we are (skipped right after a Back, which already restored the stored view).
+if st.session_state["page"] not in PAGES:           # a page that no longer exists (an open window on the removed File page)
+    st.session_state["page"] = "Home"
 _view = (st.session_state["page"], st.session_state.get("open_course"), st.session_state.get("open_book"))
 if not st.session_state.pop("_going_back", False):
     _hist = st.session_state["nav_history"]

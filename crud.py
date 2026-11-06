@@ -580,23 +580,6 @@ def delete_chapter(chapter_id):
     _exec("DELETE FROM lab_chapters WHERE id=?", (chapter_id,))
 
 
-def export_chapter(chapter_id):
-    """Copy a chapter to the File page under its course (exporting again replaces the earlier copy)."""
-    ch = get_chapter(chapter_id)
-    if not ch:
-        return None
-    _exec("DELETE FROM exported_notes WHERE source_note_id=?", (chapter_id,))
-    return _exec("INSERT INTO exported_notes(source_note_id,course_id,title,notes,exercises) VALUES (?,?,?,?,?)",
-                 (chapter_id, ch["course_id"], ch["title"], ch["notes"], ""))
-
-
-def list_exported_notes(course_id):
-    return _all("SELECT * FROM exported_notes WHERE course_id=? ORDER BY exported_at DESC, id DESC", (course_id,))
-
-
-def delete_exported_note(export_id):
-    _exec("DELETE FROM exported_notes WHERE id=?", (export_id,))
-
 
 # ---------- Quizzes ----------
 def add_quiz_attempt(course_id, book_id, correct, total, answers=None, assisted=0, notes_used=0, hints_used=0):
