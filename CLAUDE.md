@@ -3,27 +3,23 @@
 Personal Streamlit + SQLite study app (`python run.py`). Code is in `app.py`, `views/`, `crud.py`, `database.py`.
 Personal data (`data/`: database, settings, PDFs) is git-ignored. Never edit files under `data/` by hand.
 
-## Note Reader chapters are plain files: edit these when asked to build or change notes
+## The Note Reader reads notes; it does not build them
 
-    notes/<course code>/<id>-<chapter title>/notes.html    the whole chapter, one page
+Notes are built outside the app and imported into the Library as type Notes (one `.html` file per chapter, stored under
+`data/pdfs/`). The Note Reader (`views/lab_view.py`) shows a course's notes and builds its tabs from the parts each note has.
+The older `notes/<course code>/<id>-<title>/notes.html` chapters are no longer edited.
 
-- A chapter is ONE interactive HTML page; its last section, `<section id="exercises">`, holds the exercises (the
-  app's Exercises tab opens the same page scrolled to that section). The page is self-contained (inline CSS and JavaScript, no build step, no external
-  images). Study guides include interactive animation: step-through derivations, sliders and canvas or SVG animations
-  that show the idea, not decoration.
-- Math: MathJax from the jsdelivr CDN (`https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-svg.js`), `\( ... \)` inline
-  and `\[ ... \]` display. Support light and dark with `prefers-color-scheme`.
-- Start from the standard format: new chapters begin as a page with one `<section>` per topic (`.key` idea box,
-  `.eq` equations, `.deriv` step-through derivation, `.demo` animation canvas, `.example`) and a small script at the
-  end. Keep that structure so pages look alike; replace the grey `.todo` placeholders with real content.
-- Do not link to other pages (the app shows the file in a frame, and in-page `#anchors` are handled by the app).
-- Markdown (`notes.md`, `$...$` math) still works as a fallback, but HTML is the default. If you convert a tab to HTML,
-  delete its `.md` file.
-- The app picks up saved changes within a couple of seconds. Keep the folder name as it is (the number is the chapter id;
-  the app renames the folder if the chapter title changes).
-- Reference files (textbooks, lecture notes) are in the Library; their stored copies are under `data/pdfs/`.
-  Read them there when asked to build notes from a textbook page. Pre-Claude HTML notes (kind "Notes") there show the
-  house style.
+- A note is ONE self-contained interactive HTML page (inline CSS and JavaScript, no build step, no external images, no links
+  to other pages; in-page `#anchors` are fine). Math: MathJax from jsdelivr (`https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-svg.js`),
+  `\( ... \)` inline and `\[ ... \]` display, light and dark through `prefers-color-scheme`.
+- The standard format is a list of `<section id="...">` blocks, each with an `<h2>`. The reader recognizes these parts by id (or
+  heading) and shows a tab for each one the note has, in the order they appear: `mindmap` (Mind Map), the note itself (every other
+  section: `s1`, `s2`, ... , the tab opens at the first), `eqsheet` or `sheet` (Equation Sheet), `assumptions` (Assumptions), `errata`
+  (Errata; older notes use a "Notes check" section), `quiz` (Quiz; older notes use a "Self-check" section). Not every note has every
+  part, and a part that is missing gets no tab.
+- A note with its own quiz script (`id="qBox"`) runs it as it is; older notes get the course's question set injected
+  (`quiz_view.book_questions`).
+- Reference files (textbooks, lecture notes) are in the Library, with stored copies under `data/pdfs/`.
 
 ## Conventions
 - Interface text uses APA title case; hover tooltips are all lower case.

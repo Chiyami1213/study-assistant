@@ -1,6 +1,6 @@
-"""Note Reader: up to three side-by-side windows (Library files to read, and the notes being built). Tabs on top
-can be dragged into any order. Each active course has one notebook made of chapters; Export sends a chapter to
-the File page under its course. What is open is remembered between sessions."""
+"""Note Reader: up to three side-by-side windows, each reading a Library file: a PDF, or one of the course's HTML notes. Tabs on
+top can be dragged into any order. A note shows one tab for each part it has (notes, mind map, equation sheet, assumptions, quiz,
+errata), in the order they appear in the note. What is open is remembered between sessions."""
 import streamlit as st
 import streamlit.components.v1 as components
 
@@ -177,84 +177,18 @@ def _is_html(text):
     return text.lstrip().lower().startswith(HTML_START)
 
 
-def _show(text, field, source_book=None, chapter_id=None):
-    """A chapter body: Markdown, or a full interactive HTML page (as built with Claude). The Exercises and Errata tabs
-    open the same page at its exercises section and at its errata (Notes check) section."""
-    goto = {"exercises": outline.exercises_id, "errata": outline.errata_id}.get(field, lambda _: None)(text)
-    with st.container(key=f"lab_view_scroll_{field}"):          # sized by the page CSS to fill the window
-        if _is_html(text):
-            from views import quiz_view                    # the Self-check shows the same questions as the course Quiz tab
-            book = crud.get_book(source_book) if source_book else None
-            src = f"book:{source_book}" if source_book else f"chapter:{chapter_id}"
-            components.html(htmlnotes.safe_html(text, goto, questions=quiz_view.book_questions(book) if book else None,
-                                                errata_source=src), height=600, scrolling=True)
-        else:
-            st.markdown(text)
+def _show_part(text, book, part):
+    """One tab of a note: the whole page, opened at that part (so links between its parts keep working)."""
+    with st.container(key=f"lab_view_scroll_{part['key']}"):          # sized by the page CSS to fill the window
+        from views import quiz_view                          # the Self-check shows the same questions as the course Quiz tab
+        own_quiz = 'id="qBox"' in text                       # a note with its own quiz script runs it as it is
+        questions = None if own_quiz else quiz_view.book_questions(book)
+        components.html(htmlnotes.safe_html(text, part["section"], questions=questions, errata_source=f"book:{book['id']}"),
+                        height=600, scrolling=True)
 
 
 def _html_notes():
     return [b for b in crud.list_books() if b["pdf_path"].lower().endswith((".html", ".htm")) and b["kind"] != "Textbook"]
-
-
-def _set_chapter(course_id, chapter_id):
-    chapters = {**settings.get_lab().get("chapters", {}), str(course_id): chapter_id}
-    _remember(course=course_id, chapters=chapters)
-    st.session_state["lab_chapter"] = chapter_id
-
-
-def _add_blank(course_id):
-    """Callback: a new chapter in the standard blank page format."""
-    _set_chapter(course_id, crud.add_chapter(course_id, f"Chapter {len(crud.list_chapters(course_id)) + 1}"))
-
-
-def _create_from_library(course_id, book_id, whole=True):
-    """Callback: a new chapter that starts from a Library HTML note. `whole` copies the finished note as it is, to
-    tailor from there; otherwise only its headings are used, in the standard blank format."""
-    book = crud.get_book(book_id)
-    if not book:
-        return
-    source = (BASE_DIR / book["pdf_path"]).read_text(encoding="utf-8", errors="replace")
-    title, outlined = outline.outline_from_html(source)
-    if whole:                                            # the finished note, with an Exercises section added at its end
-        notes = outline.with_exercises(source, [n for n, _ in outline.parse_sections(source)[2]])
-    else:
-        notes = outlined
-    title = book["title"] if whole else title
-    _set_chapter(course_id, crud.add_chapter(course_id, f"Chapter {len(crud.list_chapters(course_id)) + 1}"))
-
-
-def _create_from_library(course_id, book_id, whole=True):
-    """Callback: a new chapter that starts from a Library HTML note. `whole` copies the finished note as it is, to
-    tailor from there; otherwise only its headings are used, in the standard blank format."""
-    book = crud.get_book(book_id)
-    if not book:
-        return
-    source = (BASE_DIR / book["pdf_path"]).read_text(encoding="utf-8", errors="replace")
-    title, notes, exercises = outline.outline_from_html(source)
-    if whole:
-        notes = source
-    title = book["title"] if whole else (title or book["title"])
-    _set_chapter(course_id, crud.add_chapter(course_id, title, notes, source_book=book_id if whole else None))
-    st.session_state["lab_flash"] = ("Copied the note. Ask Claude in VS Code to tailor it (see the Claude tab)." if whole
-                                     else "Outline created. Ask Claude in VS Code to fill it in (see the Claude tab).")
-
-
-def _rename(chapter_id, title):
-    """Callback: change a chapter's title (its folder is renamed with it)."""
-    ch = crud.get_chapter(chapter_id)
-    if ch and title.strip():
-        crud.update_chapter(chapter_id, title.strip(), {"notes": ch["notes"]})
-
-
-def _remove_chapter(course_id, chapter_id):
-    """Callback: remove a chapter (its exported copy stays on the File page until removed there)."""
-    crud.delete_chapter(chapter_id)
-    for f, _ in SECTIONS:
-        st.session_state.pop(f"lab_{f}_{chapter_id}", None)
-    st.session_state.pop(f"lab_title_{chapter_id}", None)
-    st.session_state.pop("lab_confirm_remove", None)
-    left = crud.list_chapters(course_id)
-    _set_chapter(course_id, left[0]["id"] if left else None)
 
 
 def _current_chapter():
@@ -268,94 +202,54 @@ def _current_chapter():
     return courses, st.session_state["lab_course"]
 
 
+def _course_notes(course_id):
+    """The course's HTML notes in the Library (type Notes), in lecture order."""
+    def order(b):
+        nums = [int(n) for n in re.findall(r"\d+", b.get("lecture") or "")]
+        return (nums[0] if nums else 999, nums[1:] or [0], b["title"].lower())
+
+    return sorted((b for b in crud.list_books() if course_id in b["course_ids"] and b["kind"] == "Notes"
+                   and b["pdf_path"].lower().endswith((".html", ".htm"))), key=order)
+
+
 def _notes():
     courses, course_id = _current_chapter()
     if not courses:
-        st.info("Add a course first: every course has its own notebook."); return
+        st.info("Add a course first."); return
     lab = settings.get_lab()
 
-    # Row 1: the course notebook and its chapters (add, remove)
-    c_col, ch_col, add_col, rm_col = st.columns([1.5, 2.4, 1.4, 1.0], vertical_alignment="center", gap="small")
+    c_col, n_col = st.columns([1.5, 4], vertical_alignment="center", gap="small")
     course_id = c_col.selectbox("Course", list(courses), key="lab_course", label_visibility="collapsed",
                                 format_func=lambda i: courses[i]["code"] or courses[i]["name"])
-    chapters = crud.list_chapters(course_id)
-    if not chapters:                                     # a notebook always has a first chapter
-        crud.add_chapter(course_id, "Chapter 1")
-        chapters = crud.list_chapters(course_id)
-    ids = [c["id"] for c in chapters]
-    by_id = {c["id"]: c for c in chapters}
-    wanted = st.session_state.get("lab_chapter")
-    if wanted not in by_id:
-        wanted = lab.get("chapters", {}).get(str(course_id))
-        st.session_state["lab_chapter"] = wanted if wanted in by_id else ids[0]
-    cid = ch_col.selectbox("Chapter", ids, key="lab_chapter", label_visibility="collapsed",
-                           format_func=lambda i: by_id[i]["title"] or "Untitled Chapter")
-    with add_col.popover("Add Chapter", width="stretch"):
-        st.button("Blank Chapter", key="lab_add_blank", width="stretch", on_click=_add_blank, args=(course_id,))
-        sources = _html_notes()
-        if sources:
-            st.caption("Or start from a note already in the Library")
-            src = st.selectbox("Library Note", [b["id"] for b in sources], key="lab_src", label_visibility="collapsed",
-                               format_func=lambda i: next(b["title"] for b in sources if b["id"] == i))
-            st.button("Start From This Note", key="lab_from_lib", type="primary", width="stretch",
-                      on_click=_create_from_library, args=(course_id, src, True),
-                      help="copies the whole note into a new chapter, ready to tailor")
-            st.button("Outline Only", key="lab_from_outline", width="stretch",
-                      on_click=_create_from_library, args=(course_id, src, False),
-                      help="keeps only its headings in a blank standard page")
-    if rm_col.button("Remove", key="lab_remove", width="stretch", disabled=len(ids) < 1,
-                     help="remove this chapter"):
-        st.session_state["lab_confirm_remove"] = cid
-    _remember(course=course_id, chapters={**lab.get("chapters", {}), str(course_id): cid})
-    if st.session_state.get("lab_confirm_remove") == cid:
-        st.warning(f"Remove “{by_id[cid]['title']}” for good?")
-        yes, no, _ = st.columns([1.2, 1, 4])
-        yes.button("Yes, Remove", type="primary", key="lab_remove_yes", on_click=_remove_chapter, args=(course_id, cid))
-        if no.button("Cancel", key="lab_remove_no"):
-            st.session_state.pop("lab_confirm_remove", None)
-            st.rerun()
-    ch = by_id[cid]
-    if st.session_state.get("lab_flash"):
-        st.toast(st.session_state.pop("lab_flash"))
+    notes = _course_notes(course_id)
+    _remember(course=course_id)
+    if not notes:
+        st.info("This course has no HTML notes yet. Add a note to the Library (type Notes) and it can be read here.")
+        return
+    ids = [b["id"] for b in notes]
+    by_id = {b["id"]: b for b in notes}
+    if st.session_state.get("lab_note") not in by_id:
+        saved = lab.get("notes", {}).get(str(course_id))
+        st.session_state["lab_note"] = saved if saved in by_id else ids[0]
+    book_id = n_col.selectbox("Note", ids, key="lab_note", label_visibility="collapsed",
+                              format_func=lambda i: (f"Lec {by_id[i]['lecture']} · " if by_id[i].get("lecture") else "") + by_id[i]["title"])
+    _remember(notes={**lab.get("notes", {}), str(course_id): book_id})
+    book = by_id[book_id]
+    path = BASE_DIR / book["pdf_path"]
+    if not path.exists():
+        st.error("The stored note file is missing."); return
+    text = path.read_text(encoding="utf-8", errors="replace")
+    parts = outline.parts(text)
 
     with st.container(key="lab_toolbar"):
-        head, rename, export = st.columns([7, 1.5, 1.4], vertical_alignment="center", gap="small")
-        head.markdown(f"<h3 class='lab-heading' title=\"{_attr(ch['title'])}\">{_esc(ch['title'])}</h3>", unsafe_allow_html=True)
-        with rename.popover("Rename", width="stretch"):
-            new = st.text_input("Chapter Title", value=ch["title"], key=f"lab_rename_{cid}", label_visibility="collapsed")
-            st.button("Save Title", key=f"lab_rename_save_{cid}", type="primary", width="stretch", on_click=_rename,
-                      args=(cid, new))
-        if export.button("Export", key="lab_export", width="stretch", help="send this chapter to the file page"):
-            crud.export_chapter(cid)
-            st.toast("Exported to the File page.")
-
+        st.markdown(f"<h3 class='lab-heading' title=\"{_attr(book['title'])}\">{_esc(book['title'])}</h3>", unsafe_allow_html=True)
     with st.container(key="lab_tabs_wrap"):
-        tabs = st.tabs([label for _, label in SECTIONS], key="lab_tabs", on_change="rerun")
-        for tab, (field, label) in zip(tabs, SECTIONS):
+        labels = [p["label"] for p in parts]
+        tabs = st.tabs(labels, key=f"lab_tabs_{book_id}", on_change="rerun")
+        for tab, part in zip(tabs, parts):
             with tab:
-                if not tab.open:
-                    continue
-                if field == "errata" and not outline.errata_id(ch["notes"] or ""):
-                    st.caption("This note has no errata section.")
-                elif (ch["notes"] or "").strip():
-                    _show(ch["notes"], field, ch.get("source_book_id"), ch["id"])
-                else:
-                    st.caption("Nothing here yet.")
-    _watch(course_id, cid)
-
-
-@st.fragment(run_every=2)
-def _watch(course_id, chapter_id):
-    """Refresh the page when the chapter's files change outside the app (Claude in VS Code, another editor)."""
-    course, ch = crud.get_course(course_id), crud.get_chapter(chapter_id)
-    if not course or not ch:
-        return
-    sig = notesfs.signature(course, ch)
-    key = f"_lab_sig_{chapter_id}"
-    prev = st.session_state.get(key)
-    st.session_state[key] = sig
-    if prev is not None and prev != sig:
-        st.rerun()
+                if tab.open:
+                    _show_part(text, book, part)
 
 
 def _attr(text):

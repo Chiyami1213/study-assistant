@@ -484,8 +484,8 @@ section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-h
 [class*="st-key-lab_view_scroll"] h1 {{font-size: 1.6rem;}}
 [class*="st-key-lab_view_scroll"] h2 {{font-size: 1.3rem;}}
 [class*="st-key-lab_view_scroll"] h3 {{font-size: 1.1rem;}}
-[class*="st-key-lab_view_scroll"] {{height: calc(100vh - 300px); overflow-y: auto;}}
-[class*="st-key-lab_view_scroll"] iframe {{height: calc(100vh - 310px) !important;}}
+[class*="st-key-lab_view_scroll"] {{height: calc(100vh - 252px); overflow-y: auto;}}
+[class*="st-key-lab_view_scroll"] [data-testid="stElementContainer"], [class*="st-key-lab_view_scroll"] iframe {{height: calc(100vh - 262px) !important;}}
 .st-key-lab_chat_box {{height: calc(100vh - 360px); overflow-y: auto;}}
 [class*="st-key-lab_pane_"] textarea {{height: calc(100vh - 330px) !important; min-height: 280px;}}
 .rd-cont {{position: relative; scroll-behavior: auto;}}
@@ -965,6 +965,9 @@ def nav_button(label, icon):
     shown = ":material/circle:" if icons.is_custom(icon) else icon      # custom drawings replace this glyph (see CSS)
     if st.button(label, icon=shown, key=f"nav_{label}", type="primary" if active else "tertiary"):
         st.session_state["page"] = label
+        if label == "Library":
+            st.session_state["open_book"] = None        # the Library icon always leads to the main page of the Library, not the open file
+            st.session_state.pop("lib_goto", None)
         if label == "Courses":
             st.session_state["open_course"] = None  # top-level Courses shows the summary tiles
             st.session_state.pop("course_tab", None)
