@@ -408,6 +408,14 @@ section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-h
 .lab-tab.drop-target {{box-shadow: inset 0 -3px 0 var(--accent);}}
 [class*="st-key-lab_pane_"] {{flex: none; height: calc(100vh - 62px); overflow-y: auto; overflow-x: hidden; padding: 0 12px; background: var(--bg);}}
 [data-testid="stHorizontalBlock"]:has([class*="st-key-lab_pane_"]) > div:not(:last-child) {{border-right: 1px solid var(--border);}}
+/* draggable dividers between the windows: a double arrow shows when the mouse is over the border */
+[data-testid="stHorizontalBlock"]:has([class*="st-key-lab_pane_"]) > [data-testid="stColumn"] {{position: relative;}}
+[data-testid="stHorizontalBlock"]:has([class*="st-key-lab_pane_"]) > [data-testid="stColumn"]:not(:last-child)::after {{
+    content: ""; position: absolute; top: 0; bottom: 0; right: -17px; width: 21px; cursor: col-resize; z-index: 6;}}
+[data-testid="stHorizontalBlock"]:has([class*="st-key-lab_pane_"]) > [data-testid="stColumn"]:not(:last-child):hover::after {{
+    background: linear-gradient(to right, transparent 8px, var(--accent) 8px, var(--accent) 10px, transparent 10px); opacity: 0.55;}}
+.lab-resizing, .lab-resizing * {{cursor: col-resize !important; user-select: none !important;}}
+.lab-resizing iframe {{pointer-events: none !important;}}
 .lab-detached-title {{font-weight: 600; padding: 8px 4px; opacity: 0.9;}}
 .lab-heading {{font-size: 1.45rem; margin: 6px 0 6px; padding: 0;}}
 [class*="st-key-lab_html_"], [class*="st-key-lab_html_"] [data-testid="stElementContainer"], [class*="st-key-lab_html_"] iframe {{
@@ -773,6 +781,47 @@ if (!win.__rdScrollV1) {
       }
     });
   }, 250);
+}
+// Note Builder: drag the border between two windows to change their widths (remembered).
+if (!win.__labResizeV1) {
+  win.__labResizeV1 = true;
+  const columns = () => {
+    const b = doc.querySelector('[data-testid="stHorizontalBlock"]:has([class*="st-key-lab_pane_"])');
+    return b ? [...b.children].filter(c => c.matches('[data-testid="stColumn"]')) : [];
+  };
+  const idOf = col => { const m = (col.querySelector('[class*="st-key-lab_pane_"]') || {className: ''}).className.match(/st-key-lab_pane_([A-Za-z0-9_]+)/); return m ? m[1] : null; };
+  let drag = null;
+  doc.addEventListener('mousedown', e => {
+    const cs = columns();
+    for (let i = 0; i < cs.length - 1; i++) {
+      const r = cs[i].getBoundingClientRect(), n = cs[i + 1].getBoundingClientRect();
+      if (e.clientX >= r.right - 4 && e.clientX <= n.left + 4 && e.clientY >= r.top && e.clientY <= r.bottom) {
+        drag = {i, x: e.clientX, wl: r.width, wr: n.width, cs};
+        doc.documentElement.classList.add('lab-resizing'); e.preventDefault(); return;
+      }
+    }
+  }, true);
+  doc.addEventListener('mousemove', e => {
+    if (!drag) return;
+    const total = drag.wl + drag.wr, min = total * 0.12;
+    const nl = Math.min(total - min, Math.max(min, drag.wl + e.clientX - drag.x)), nr = total - nl;
+    const set = (el, w) => { el.style.flex = '0 0 ' + w + 'px'; el.style.width = w + 'px'; el.style.minWidth = '0'; };
+    set(drag.cs[drag.i], nl); set(drag.cs[drag.i + 1], nr);
+    const strip = doc.querySelector('.lab-tabs');                      // the tabs above follow the windows
+    if (strip) strip.style.gridTemplateColumns = drag.cs.map(c => 'minmax(0,' + c.getBoundingClientRect().width + 'fr)').join(' ');
+  }, true);
+  doc.addEventListener('mouseup', () => {
+    if (!drag) return;
+    const d = drag; drag = null; doc.documentElement.classList.remove('lab-resizing');
+    const sink = doc.querySelector('.st-key-lab_tab_sink input'); if (!sink) return;
+    const total = d.cs.reduce((t, c) => t + c.getBoundingClientRect().width, 0) / d.cs.length;       // average width = weight 1
+    const parts = d.cs.map(c => idOf(c) + '=' + (c.getBoundingClientRect().width / total).toFixed(3)).filter(x => !x.startsWith('null'));
+    const set = Object.getOwnPropertyDescriptor(win.HTMLInputElement.prototype, 'value').set;
+    sink.focus(); set.call(sink, 'widths:' + parts.join(',') + '|' + Date.now());
+    sink.dispatchEvent(new win.Event('input', {bubbles: true}));
+    sink.dispatchEvent(new win.KeyboardEvent('keydown', {key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true}));
+    sink.blur();
+  }, true);
 }
 // Library cards: pass "action:id" to the hidden box (open the file, its Edit window, or the add window).
 if (!win.__libNavV1) {

@@ -24,6 +24,12 @@ PLACEHOLDER = "Write in Markdown. Use $...$ for math, for example $E = mc^2$."
 MAX_WINDOWS = 3
 
 
+def _weights(wins):
+    """Relative widths of the windows (dragged by the user; equal by default), by window id."""
+    saved = settings.get_lab().get("widths", {})
+    return [max(0.1, float(saved.get(w["id"], 1.0))) for w in wins]
+
+
 def _windows():
     """Open windows in left-to-right order: [{'id', 'type': 'notes' | 'reference', 'book'}]."""
     wins = settings.get_lab().get("windows")
@@ -132,16 +138,21 @@ def _add_blank(course_id):
     st.session_state["lab_editing"] = True
 
 
-def _create_from_library(course_id, book_id):
-    """Callback: a new chapter that starts as the outline of a Library HTML note."""
+def _create_from_library(course_id, book_id, whole=True):
+    """Callback: a new chapter that starts from a Library HTML note. `whole` copies the finished note as it is, to
+    tailor from there; otherwise only its headings are used, in the standard blank format."""
     book = crud.get_book(book_id)
     if not book:
         return
-    title, notes, exercises = outline.outline_from_html(
-        (BASE_DIR / book["pdf_path"]).read_text(encoding="utf-8", errors="replace"))
-    _set_chapter(course_id, crud.add_chapter(course_id, title or book["title"], notes, exercises))
+    source = (BASE_DIR / book["pdf_path"]).read_text(encoding="utf-8", errors="replace")
+    title, notes, exercises = outline.outline_from_html(source)
+    if whole:
+        notes = source
+    title = book["title"] if whole else (title or book["title"])
+    _set_chapter(course_id, crud.add_chapter(course_id, title, notes, exercises))
     st.session_state["lab_editing"] = False
-    st.session_state["lab_flash"] = "Outline created. Press Edit to start tailoring it."
+    st.session_state["lab_flash"] = ("Copied the note. Edit it here or ask Claude in VS Code to tailor it." if whole
+                                     else "Outline created. Press Edit to start tailoring it.")
 
 
 def _remove_chapter(course_id, chapter_id):
@@ -196,11 +207,15 @@ def _notes():
         st.button("Blank Chapter", key="lab_add_blank", width="stretch", on_click=_add_blank, args=(course_id,))
         sources = _html_notes()
         if sources:
-            st.caption("Or start from the outline of a Library note")
+            st.caption("Or start from a note already in the Library")
             src = st.selectbox("Library Note", [b["id"] for b in sources], key="lab_src", label_visibility="collapsed",
                                format_func=lambda i: next(b["title"] for b in sources if b["id"] == i))
-            st.button("Create Outline", key="lab_from_lib", type="primary", width="stretch",
-                      on_click=_create_from_library, args=(course_id, src))
+            st.button("Start From This Note", key="lab_from_lib", type="primary", width="stretch",
+                      on_click=_create_from_library, args=(course_id, src, True),
+                      help="copies the whole note into a new chapter, ready to tailor")
+            st.button("Outline Only", key="lab_from_outline", width="stretch",
+                      on_click=_create_from_library, args=(course_id, src, False),
+                      help="keeps only its headings in a blank standard page")
     if rm_col.button("Remove", key="lab_remove", width="stretch", disabled=len(ids) < 1,
                      help="remove this chapter"):
         st.session_state["lab_confirm_remove"] = cid
@@ -346,6 +361,15 @@ def _handle_tab_action(wins):
         popouts = {**lab.get("popouts", {}), rest: next(w for w in wins if w["id"] == rest)}
         settings.set_lab({**lab, "popouts": popouts, "windows": [w for w in wins if w["id"] != rest]})
         st.rerun()
+    elif action == "widths":                                         # a divider was dragged: "id=0.4,id=0.6"
+        try:
+            pairs = [item.split("=") for item in rest.split(",")]
+            widths = {k: min(5.0, max(0.1, float(v))) for k, v in pairs if k in ids}
+        except ValueError:
+            return
+        if widths:
+            _remember(widths={**settings.get_lab().get("widths", {}), **widths})
+            st.rerun()
     elif action == "close" and rest in ids and len(wins) > 1:
         _save_windows([w for w in wins if w["id"] != rest])
         st.rerun()
@@ -372,14 +396,14 @@ def _tab_strip(wins):
     st.markdown(f'<style>.stMainBlockContainer {{padding: 0.5rem 2.8rem 0 0.8rem !important; max-width: none !important;}}'
                 f'.stMainBlockContainer > [data-testid="stVerticalBlock"] {{gap: 0.25rem;}}'
                 f'[data-testid="stHeader"] {{height: 0; min-height: 0; visibility: hidden;}}</style>'
-                f'<div class="lab-tabs" style="grid-template-columns: repeat({len(wins)}, minmax(0, 1fr))">{tabs}{plus}</div>',
+                f'<div class="lab-tabs" style="grid-template-columns: {" ".join(f"minmax(0, {w:g}fr)" for w in _weights(wins))}">{tabs}{plus}</div>',
                 unsafe_allow_html=True)
 
 
 def render():
     wins = _windows()
     _tab_strip(wins)
-    for col, win in zip(st.columns(len(wins), gap="small"), wins):
+    for col, win in zip(st.columns(_weights(wins), gap="small"), wins):
         with col, st.container(key=f"lab_pane_{win['id']}"):
             if win["type"] == "notes":
                 _notes()
@@ -397,10 +421,16 @@ def _dock(win):
 
 def render_detached(wid):
     """A window that was dragged out of the Note Builder tabs: just that window, full size."""
-    st.markdown("<style>.stMainBlockContainer {padding: 0.5rem 0.8rem 0 !important; max-width: none !important;}"
+    st.markdown("<style>.stMainBlockContainer {padding: 0.4rem 0.8rem 0 !important; max-width: none !important;}"
+                ".stMainBlockContainer > [data-testid='stVerticalBlock'] {gap: 0 !important;}"
                 "[data-testid='stHeader'] {height: 0; min-height: 0; visibility: hidden;}"
-                "[data-testid='stSidebar'], [data-testid='stSidebarCollapsedControl'] {display: none !important;}</style>",
-                unsafe_allow_html=True)
+                "[data-testid='stSidebar'], [data-testid='stSidebarCollapsedControl'] {display: none !important;}"
+                "[class*='st-key-lab_pane_'] {height: calc(100vh - 56px) !important;}"
+                "[class*='st-key-lab_html_'], [class*='st-key-lab_html_'] [data-testid='stElementContainer'], "
+                "[class*='st-key-lab_html_'] iframe {height: calc(100vh - 130px) !important;}"
+                ".rd-scroll.rd-fill {height: calc(100vh - 150px) !important;}"
+                "[class*='st-key-lab_view_scroll'], [class*='st-key-lab_view_scroll'] iframe {height: calc(100vh - 270px) !important;}"
+                "</style>", unsafe_allow_html=True)
     win = settings.get_lab().get("popouts", {}).get(wid)
     if not win:
         st.info("This window was moved back to the main window. You can close it."); return
