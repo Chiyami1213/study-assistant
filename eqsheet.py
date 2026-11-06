@@ -36,11 +36,20 @@ def _sections(text):
 
 
 def sheet_of(text):
-    """The formula-sheet section of a note as html (without its heading), or None when the note has none."""
+    """The formula-sheet section of a note as html, or None when the note has none. Two layouts: a list of rows (name, equation, a
+    link to its derivation) or a table of concept, statement and reference."""
     for title, inner in _sections(text):
-        if SHEET_TITLE.search(title):
-            table = re.search(r"<table.*?</table>", inner, re.S)         # the formulas; pitfalls and video lists around it are left out
-            return table.group(0) if table else None
+        if not SHEET_TITLE.search(title):
+            continue
+        body = re.sub(r"<h2[^>]*>.*?</h2>", "", inner, count=1, flags=re.S)
+        grid = re.search(r'<div class="sumgrid">.*', body, re.S)
+        if grid:
+            rows = grid.group(0)
+            rows = re.sub(r'<a class="eqn"[^>]*>(.*?)</a>', r'<span class="eqn"></span>', rows, flags=re.S)       # links go nowhere here
+            rows = re.sub(r"<a [^>]*>(.*?)</a>", r"", rows, flags=re.S)
+            return rows
+        table = re.search(r"<table.*?</table>", body, re.S)         # the formulas; pitfalls and video lists around it are left out
+        return table.group(0) if table else None
     return None
 
 
@@ -70,6 +79,9 @@ _STYLE = """
 h1{font-size:19px;margin:0 0 2px}.sub{color:var(--muted);margin:0 0 14px;font-size:12px}
 .cols{column-count:2;column-gap:26px}.note{break-inside:avoid-column;margin:0 0 14px}
 .note h2{font-size:13px;margin:0 0 5px;padding:3px 7px;background:var(--head);border-radius:5px}
+.sumgrid{display:flex;flex-direction:column}.sumrow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;align-items:center;border-bottom:1px solid var(--line);padding:4px 2px}
+.sumname{font-weight:600;font-size:12px;grid-column:1 / -1}.eqb{display:flex;justify-content:space-between;align-items:center;gap:8px;grid-column:1 / -1}
+.eqm{overflow-x:auto;min-width:0}.eqn{color:var(--muted);font-size:11px;white-space:nowrap}mjx-container[display="true"]{margin:2px 0 !important}
 table{border-collapse:collapse;width:100%;font-size:12.5px}th,td{border-bottom:1px solid var(--line);padding:3px 5px;text-align:left;vertical-align:top}
 th{color:var(--muted);font-weight:600;font-size:11px}p{margin:3px 0}
 @media (max-width:760px){.cols{column-count:1}}
