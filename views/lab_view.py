@@ -147,14 +147,25 @@ def _reference(win):
         with st.container(key=f"lab_html_{wid}"):          # fills the window (page CSS)
             from views import quiz_view                    # the note's Self-check shows the same questions as the course Quiz tab
             components.html(htmlnotes.safe_html(path.read_text(encoding="utf-8", errors="replace"),
-                                                questions=quiz_view.book_questions(book), errata_source=f"book:{book['id']}"),
-                            height=600, scrolling=True)
+                                                questions=quiz_view.book_questions(book), errata_source=f"book:{book['id']}",
+                                                resume="reference"), height=600, scrolling=True)
         return
 
+    pdf_key = f"lab_{wid}_{book_id}"
+    seen = lab.get("view", {}).get(str(book_id), {})
+    if seen.get("zoom"):
+        st.session_state.setdefault(f"{pdf_key}_zoom", seen["zoom"])
+    if seen.get("mode"):
+        st.session_state.setdefault(f"{pdf_key}_view", seen["mode"])
+
     def remember(page):
-        pages = settings.get_lab().get("pages", {})
+        now = settings.get_lab()
+        pages = now.get("pages", {})
         if pages.get(str(book_id)) != page:
             _remember(pages={**pages, str(book_id): page})
+        view = {"zoom": st.session_state.get(f"{pdf_key}_zoom", 100), "mode": st.session_state.get(f"{pdf_key}_view", "page")}
+        if now.get("view", {}).get(str(book_id)) != view:
+            _remember(view={**now.get("view", {}), str(book_id): view})
 
     marks = _errata_marks(book, path)
     active = set()
@@ -183,8 +194,8 @@ def _show_part(text, book, part):
         from views import quiz_view                          # the Self-check shows the same questions as the course Quiz tab
         own_quiz = 'id="qBox"' in text                       # a note with its own quiz script runs it as it is
         questions = None if own_quiz else quiz_view.book_questions(book)
-        components.html(htmlnotes.safe_html(text, part["section"], questions=questions, errata_source=f"book:{book['id']}"),
-                        height=600, scrolling=True)
+        components.html(htmlnotes.safe_html(text, part["section"], questions=questions, errata_source=f"book:{book['id']}",
+                                            resume=f"reader:{part['key']}"), height=600, scrolling=True)
 
 
 def _html_notes():
@@ -245,11 +256,16 @@ def _notes():
         st.markdown(f"<h3 class='lab-heading' title=\"{_attr(book['title'])}\">{_esc(book['title'])}</h3>", unsafe_allow_html=True)
     with st.container(key="lab_tabs_wrap"):
         labels = [p["label"] for p in parts]
-        tabs = st.tabs(labels, key=f"lab_tabs_{book_id}", on_change="rerun")
+        last = lab.get("tabs", {}).get(str(book_id))                       # the tab this note was left on
+        first_run = f"_lab_tabs_seen_{book_id}" not in st.session_state       # the saved tab is applied once, then the user's clicks rule
+        st.session_state[f"_lab_tabs_seen_{book_id}"] = True
+        tabs = st.tabs(labels, key=f"lab_tabs_{book_id}", on_change="rerun", default=last if (first_run and last in labels) else None)
         for tab, part in zip(tabs, parts):
             with tab:
                 if tab.open:
                     _show_part(text, book, part)
+                    if lab.get("tabs", {}).get(str(book_id)) != part["label"]:
+                        _remember(tabs={**lab.get("tabs", {}), str(book_id): part["label"]})
 
 
 def _attr(text):

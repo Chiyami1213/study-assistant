@@ -196,9 +196,10 @@ def _viewer(book):
         st.error("The stored PDF file is missing."); return
     if path.suffix.lower() in (".html", ".htm"):
         from views import quiz_view                        # the note's Self-check shows the same questions as the course Quiz tab
-        components.html(htmlnotes.safe_html(path.read_text(encoding="utf-8", errors="replace"),
-                                            goto=st.session_state.pop("lib_goto", None),
-                                            questions=quiz_view.book_questions(book)), height=900, scrolling=True)
+        jump = st.session_state.pop("lib_goto", None)
+        components.html(htmlnotes.safe_html(path.read_text(encoding="utf-8", errors="replace"), goto=jump,
+                                            questions=quiz_view.book_questions(book), resume=None if jump else "library"),
+                        height=900, scrolling=True)
         return
     if book["kind"] in ("Homework", "Exam", "Practice Exam") and book["course_ids"]:     # the homework or exam and the helper side by side
         left, right = st.columns([3, 2], gap="medium")

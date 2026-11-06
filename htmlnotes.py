@@ -205,7 +205,7 @@ window.addEventListener('message', function (e) { if (e.data && e.data.study ===
 })();</script>"""
 
 
-def safe_html(text, goto=None, questions=None, errata_source=None):
+def safe_html(text, goto=None, questions=None, errata_source=None, resume=None):
     """The note's HTML with the link guard added just before the closing body tag (or at the end). `goto` is the id of
     a section to scroll to once the page has loaded (the Exercises tab opens the page at #exercises). `questions` (the
     app's question dicts) replace the note's own Self-check, so the note and the course Quiz tab agree."""
@@ -219,6 +219,12 @@ def safe_html(text, goto=None, questions=None, errata_source=None):
     if goto:
         script += ("<script>window.addEventListener('load', function () { var go = function () { var t = document.getElementById("
                    + repr(goto) + "); if (t) { var d = t.tagName === 'DETAILS' ? t : t.closest('details'); if (d) d.open = true; t.scrollIntoView({block: 'start'}); } }; go(); setTimeout(go, 400); setTimeout(go, 1200); });</script>")
+    if resume:                                           # reading position: saved while scrolling, restored when the note is opened again
+        script += ("<script>(function () { var K = 'rd-pos:' + (document.title || 'note') + ':' + " + repr(str(resume)) + ", t = null;"
+                   " window.addEventListener('scroll', function () { clearTimeout(t); t = setTimeout(function () {"
+                   " try { localStorage.setItem(K, String(Math.round(window.scrollY))); } catch (e) {} }, 300); });"
+                   " window.addEventListener('load', function () { setTimeout(function () {"
+                   " try { var y = parseFloat(localStorage.getItem(K)); if (y > 0) window.scrollTo(0, y); } catch (e) {} }, 1700); }); })();</script>")
     low = text.lower()
     i = low.rfind("</body>")
     return text + script if i < 0 else text[:i] + script + text[i:]
