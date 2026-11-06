@@ -71,3 +71,53 @@ def letter(percent, data):
         if percent >= low:
             return grade, assumed
     return "F" if assumed else "Below " + min(scale or DEFAULT_SCALE, key=lambda x: x[1])[0], assumed
+
+
+def _parts(data, homework, events):
+    """The graded parts as [(weight fraction, [(score fraction or None, group)])], group "hw", "exam" or "other"; None = not graded."""
+    total = sum(r["percent"] for r in data.get("rows") or []) or 1
+    out = []
+    for r in data.get("rows") or []:
+        kind = r.get("kind") or ""
+        if kind == "homework":
+            items = [(h["score"] / h["points"] if h.get("score") is not None and h.get("points") else None, "hw") for h in homework]
+        else:
+            if kind == "midterms":
+                pool = [e for e in events if "midterm" in e["title"].lower()]
+            elif kind == "final":
+                pool = [e for e in events if "final" in e["title"].lower()]
+            elif kind == "exams":
+                pool = list(events)
+            elif kind.startswith("event:"):
+                pool = [e for e in events if e["title"].lower() == kind[6:].lower()]
+            else:
+                pool = []
+            group = "exam" if kind else "other"
+            items = [(e["score"] / e["points"] if e.get("score") is not None and e.get("points") else None, group) for e in pool]
+        out.append((r["percent"] / total, items or [(None, "exam" if kind else "other")]))
+    return out
+
+
+def needed(data, homework, events, target):
+    """The least average, as a fraction, the work still to come must earn to reach `target` (a fraction of the whole grade).
+    Returns (every_item, exams_only): every remaining item at the same score; or the remaining exams and other parts at one score
+    while the remaining homework stays at your homework average. None when nothing is left to grade, or no homework to compare."""
+    parts = _parts(data, homework, events)
+    base = left = 0.0
+    base_hw = left_other = 0.0
+    graded_hw = [v for w, items in parts for v, g in items if g == "hw" and v is not None]
+    hw_avg = sum(graded_hw) / len(graded_hw) if graded_hw else None
+    for w, items in parts:
+        n = len(items)
+        got = sum(v for v, g in items if v is not None)
+        pending = [g for v, g in items if v is None]
+        base += w * got / n
+        left += w * len(pending) / n
+        pending_hw = sum(1 for g in pending if g == "hw")
+        base_hw += w * (got + (pending_hw * hw_avg if hw_avg is not None else 0)) / n
+        left_other += w * (len(pending) - pending_hw) / n
+    if left <= 0:
+        return None
+    every = (target - base) / left
+    exams = (target - base_hw) / left_other if left_other > 0 and hw_avg is not None else None
+    return every, exams, hw_avg

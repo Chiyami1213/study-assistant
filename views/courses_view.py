@@ -500,6 +500,39 @@ def _syllabus(course):
         st.caption("Curving: " + data["curve"])
 
 
+def _goals(data, homework, events, assumed):
+    """What the work still to come must average to finish with an A or a B (the cutoffs of the syllabus)."""
+    scale = {r["grade"]: r["min"] for r in data.get("scale") or [] if r.get("min") is not None} or dict(syllabus.DEFAULT_SCALE)
+    left_hw = sum(1 for h in homework if h.get("score") is None)
+    left_ex = sum(1 for e in events if e.get("score") is None)
+    rows, hw_avg = "", None
+    for grade in ("A", "B"):
+        if grade not in scale:
+            continue
+        got = syllabus.needed(data, homework, events, scale[grade] / 100)
+        if not got:
+            return
+        every, exams_only, hw_avg = got
+
+        def show(x):
+            if x is None:
+                return "None"
+            if x <= 0:
+                return "Already secured"
+            return f"{x:.0%}" if x <= 1 else f"Not reachable ({x:.0%} needed)"
+
+        rows += (f"<tr><td>{grade} ({scale[grade]:g}% or more)</td><td class='n'>{show(every)}</td>"
+                 f"<td class='n'>{show(exams_only)}</td></tr>")
+    if not rows:
+        return
+    st.markdown(f"<table class='syl-table'><thead><tr><th>To Finish With</th><th class='n'>Least on Every Remaining Item</th>"
+                f"<th class='n'>Least on Remaining Exams{f' if Homework Stays at {hw_avg:.0%}' if hw_avg is not None else ''}</th></tr></thead>"
+                f"<tbody>{rows}</tbody></table>", unsafe_allow_html=True)
+    st.caption(f"Still to come: {left_hw} homework, {left_ex} exam{'' if left_ex == 1 else 's'}, and any other part of the grade not yet graded. "
+               "Each remaining item counts the same within its part."
+               + (" The syllabus lists no cutoffs, so 90 / 80 is assumed." if assumed else ""))
+
+
 def _overview(course):
     """The grades so far, then how well the materials are understood (quiz scores)."""
     st.subheader("Grades")
@@ -521,6 +554,7 @@ def _overview(course):
             cols[2].metric("Estimated Letter Grade", f"{grade}  ({percent:.1f}%)",
                            help=f"weighted by the syllabus, from the {share:.0%} of the course graded so far"
                                 + ("; the syllabus lists no cutoffs, so 90 / 80 / 70 / 60 is assumed" if assumed else ""))
+            _goals(data, homework, exams, assumed)
     _syllabus(course)
     quiz_view.understanding(course)
 
