@@ -131,12 +131,15 @@ def _is_html(text):
     return text.lstrip().lower().startswith(HTML_START)
 
 
-def _show(text, field):
+def _show(text, field, source_book=None):
     goto = outline.exercises_id(text) if field == "exercises" else None
     """A chapter body: Markdown, or a full interactive HTML page (as built with Claude)."""
     with st.container(key=f"lab_view_scroll_{field}"):          # sized by the page CSS to fill the window
         if _is_html(text):
-            components.html(htmlnotes.safe_html(text, goto), height=600, scrolling=True)
+            from views import quiz_view                    # the Self-check shows the same questions as the course Quiz tab
+            book = crud.get_book(source_book) if source_book else None
+            components.html(htmlnotes.safe_html(text, goto, questions=quiz_view.book_questions(book) if book else None),
+                            height=600, scrolling=True)
         else:
             st.markdown(text)
 
@@ -183,7 +186,7 @@ def _create_from_library(course_id, book_id, whole=True):
     if whole:
         notes = source
     title = book["title"] if whole else (title or book["title"])
-    _set_chapter(course_id, crud.add_chapter(course_id, title, notes))
+    _set_chapter(course_id, crud.add_chapter(course_id, title, notes, source_book=book_id if whole else None))
     st.session_state["lab_flash"] = ("Copied the note. Ask Claude in VS Code to tailor it (see the Claude tab)." if whole
                                      else "Outline created. Ask Claude in VS Code to fill it in (see the Claude tab).")
 
@@ -285,7 +288,7 @@ def _notes():
                 if not tab.open:
                     continue
                 if (ch["notes"] or "").strip():
-                    _show(ch["notes"], field)
+                    _show(ch["notes"], field, ch.get("source_book_id"))
                 else:
                     st.caption("Nothing here yet.")
     _watch(course_id, cid)

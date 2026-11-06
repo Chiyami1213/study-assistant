@@ -197,7 +197,8 @@ CREATE TABLE IF NOT EXISTS lab_chapters (
     notes      TEXT NOT NULL DEFAULT '',
     exercises  TEXT NOT NULL DEFAULT '',
     position   INTEGER NOT NULL DEFAULT 0,
-    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    source_book_id INTEGER              -- the Library note the chapter was started from (its quiz questions)
 );
 
 -- Quiz attempts: one row per finished quiz (a chapter or lecture of a course).
@@ -295,6 +296,8 @@ def init_db() -> None:
             conn.execute("ALTER TABLE lab_notes ADD COLUMN course_id INTEGER")
         if "covers" not in [r["name"] for r in conn.execute("PRAGMA table_info(events)")]:
             conn.execute("ALTER TABLE events ADD COLUMN covers TEXT")
+        if "source_book_id" not in [r["name"] for r in conn.execute("PRAGMA table_info(lab_chapters)")]:
+            conn.execute("ALTER TABLE lab_chapters ADD COLUMN source_book_id INTEGER")
         if "assisted" not in [r["name"] for r in conn.execute("PRAGMA table_info(quiz_attempts)")]:
             conn.execute("ALTER TABLE quiz_attempts ADD COLUMN assisted INTEGER NOT NULL DEFAULT 0")
         if "photo_file" not in cols:

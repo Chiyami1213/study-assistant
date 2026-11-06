@@ -143,6 +143,11 @@ def _pick(run_key, qi, oi):
 
 def _use_notes(run_key, qi):
     _entry(run_key, qi)["notes"] = True                 # recorded for the whole attempt
+    st.session_state[run_key]["panel"] = qi             # the note opens on the right half, at this question's section
+
+
+def _close_notes(run_key):
+    st.session_state[run_key]["panel"] = None
 
 
 def _self_grade(run_key, qi, got):
@@ -198,27 +203,20 @@ def _finish(course, chapter, run):
     run.update(phase="done", correct=correct, assisted=assisted, review=review)
 
 
-def _note_panel(chapter, q):
-    """The note, opened at the question's section (or from the top for the note's own Self-check questions)."""
-    text = chapter["path"].read_text(encoding="utf-8", errors="replace")
-    components.html(htmlnotes.safe_html(text, q.get("sec")), height=420, scrolling=True)
+def _note_panel(chapter, q, run_key, qi):
+    """The right half: the note, opened at the section of the question being answered (the top for the rest)."""
+    with st.container(key="quiz_notes_pane"):
+        head, close = st.columns([5, 1.4], vertical_alignment="center")
+        head.markdown(f"**Notes** · {html.escape(q.get('tag') or chapter['name'])}", unsafe_allow_html=True)
+        close.button("Close Notes", key="quiz_notes_close", width="stretch", on_click=_close_notes, args=(run_key,))
+        st.caption("Using the notes is recorded: answers made with them open do not count towards the unaided score.")
+        text = chapter["path"].read_text(encoding="utf-8", errors="replace")
+        components.html(htmlnotes.safe_html(text, q.get("sec")), height=700, scrolling=True)
 
 
-def _run(course, chapter, run, run_key):
-    qs, order, cid = chapter["questions"], run["order"], course["id"]
-    head, back = st.columns([6, 1.6], vertical_alignment="center")
-    head.subheader(chapter["name"])
-    back.button("Back To Quizzes" if run["phase"] == "done" else "Leave Quiz", key=f"quiz_back_{cid}", width="stretch",
-                on_click=_leave, args=(run_key,))
-    if run["phase"] == "done":
-        _done(chapter, run, run_key)
-        return
-
-    res_all, styles = run["res"], ""
-    answered = sum(1 for qi in order if (res_all.get(qi) or {}).get("chosen") is not None or (res_all.get(qi) or {}).get("got") is not None)
-    used = sum(1 for qi in order if (res_all.get(qi) or {}).get("notes"))
-    st.caption(f"{answered} of {len(order)} answered · {used} with notes (recorded). Press an option to choose it; "
-               f"you can change it until you finish. Answers are marked at the end.")
+def _cards(chapter, run, run_key, cid):
+    """The question cards. Returns the CSS that shows each chosen option."""
+    qs, order, res_all, styles = chapter["questions"], run["order"], run["res"], ""
     for pos, qi in enumerate(order, 1):
         q, res = qs[qi], res_all.get(qi) or {}
         prefix = f"qo_{cid}_{run['stamp']}_{qi}"
@@ -234,24 +232,43 @@ def _run(course, chapter, run, run_key):
                     sel = f".stApp .st-key-{prefix}_{res['chosen']} button[data-testid^='stBaseButton']"
                     styles += (f"{sel}, {sel}:hover {{border: 2px solid var(--accent) !important; background: rgba(76, 141, 255, 0.24) !important;}}"
                                f"{sel} p::before {{content: '✓  '; font-weight: 700;}}")
-            else:
-                st.caption("Think of your answer first, then check it against the model answer when you finish.")
-                a, b, _ = st.columns([1.2, 1.2, 5])
-                a.button("Got It", key=f"{prefix}_got", on_click=_self_grade, args=(run_key, qi, True))
-                b.button("Missed It", key=f"{prefix}_miss", on_click=_self_grade, args=(run_key, qi, False))
-                if res.get("got") is not None:
-                    st.caption("Marked as " + ("got it." if res["got"] else "missed."))
             if res.get("notes"):
                 st.markdown(":orange[**Notes used for this question. This is recorded.**]")
-                _note_panel(chapter, q)
-            else:
-                st.button("Check Notes", key=f"{prefix}_notes", type="tertiary", icon=":material/menu_book:",
-                          on_click=_use_notes, args=(run_key, qi), help="opens the note here. it is recorded that you used it")
+            st.button("Show Notes" if res.get("notes") else "Check Notes", key=f"{prefix}_notes", type="tertiary",
+                      icon=":material/menu_book:", on_click=_use_notes, args=(run_key, qi),
+                      help="opens the note on the right. it is recorded that you used it")
+    return styles
+
+
+def _run(course, chapter, run, run_key):
+    qs, order, cid = chapter["questions"], run["order"], course["id"]
+    head, back = st.columns([6, 1.6], vertical_alignment="center")
+    head.subheader(chapter["name"])
+    back.button("Back To Quizzes" if run["phase"] == "done" else "Leave Quiz", key=f"quiz_back_{cid}", width="stretch",
+                on_click=_leave, args=(run_key,))
+    if run["phase"] == "done":
+        _done(chapter, run, run_key)
+        return
+
+    res_all = run["res"]
+    answered = sum(1 for qi in order if (res_all.get(qi) or {}).get("chosen") is not None)
+    used = sum(1 for qi in order if (res_all.get(qi) or {}).get("notes"))
+    st.caption(f"{answered} of {len(order)} answered · {used} with notes (recorded). Press an option to choose it; "
+               f"you can change it until you finish. Answers are marked at the end.")
+    panel = run.get("panel")
+    if panel is not None:                                # notes open: the questions on the left half, the note on the right
+        left, right = st.columns(2, gap="medium")
+        with right:
+            _note_panel(chapter, qs[panel], run_key, panel)
+    else:
+        left = st.container()
+    with left:
+        styles = _cards(chapter, run, run_key, cid)
+        if st.button("Finish And Score", key=f"quiz_finish_{cid}", type="primary"):
+            _finish(course, chapter, run)
+            st.rerun()
     if styles:
         st.markdown(f"<style>{styles}</style>", unsafe_allow_html=True)
-    if st.button("Finish And Score", key=f"quiz_finish_{cid}", type="primary"):
-        _finish(course, chapter, run)
-        st.rerun()
 
 
 def _done(chapter, run, run_key):

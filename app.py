@@ -165,6 +165,9 @@ section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-h
 .stApp [data-testid="stPopover"] button {{border: none !important; background: transparent !important;
     box-shadow: none !important; padding: 0 4px; min-height: 0; justify-content: flex-end;}}
 [data-testid="stPopover"] button span[data-testid="stIconMaterial"] {{display: none;}}
+[data-testid="stPopoverButton"] > div > div[aria-hidden="true"] {{display: none !important;}}   /* no gap left where the arrow was */
+[data-testid="stPopoverButton"] > div {{gap: 0 !important; justify-content: center; width: 100%; margin: 0 !important;}}
+[data-testid="stPopoverButton"] > div > div {{margin: 0 !important; padding: 0 !important;}}
 [data-testid="stPopover"] button p {{font-size: 1.5rem; font-weight: 700; line-height: 0.8; letter-spacing: 1px;}}
 [data-testid="stPopover"] button:hover p {{color: var(--accent) !important;}}
 [data-testid="stPopover"] .stMarkdownEllipsis {{overflow: visible !important; text-overflow: clip !important;}}
@@ -289,6 +292,10 @@ section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-h
     border-radius: 10px !important; min-height: 2.7rem; padding: 0.35rem 1.1rem !important; box-shadow: none !important;}}
 .stApp [class*="st-key-qopts_"] button[data-testid^="stBaseButton"] p {{font-size: 1.02rem; line-height: 1.35;}}
 .stApp [class*="st-key-qopts_"] button[data-testid^="stBaseButton"]:hover {{border-color: var(--accent) !important; background: rgba(76, 141, 255, 0.08) !important;}}
+/* quiz with the notes open: the note stays in view on the right while the questions scroll on the left */
+[data-testid="stColumn"]:has(.st-key-quiz_notes_pane) {{position: sticky; top: 3.8rem; align-self: flex-start; height: fit-content;}}
+.st-key-quiz_notes_pane iframe {{height: calc(100vh - 12rem) !important; min-height: 320px;}}
+.st-key-quiz_notes_pane [data-testid="stElementContainer"]:has(iframe) {{height: calc(100vh - 12rem) !important; min-height: 320px;}}
 .qtag {{font-size: 0.76rem; letter-spacing: 0.04em; text-transform: uppercase; opacity: 0.55; margin-top: -0.3rem;}}
 .und-row {{display: grid; grid-template-columns: minmax(0, 3fr) minmax(80px, 2fr) 3rem 7.8rem; gap: 14px; align-items: center;
     padding: 6px 16px; border-bottom: 1px solid var(--border);}}
