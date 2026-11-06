@@ -210,8 +210,8 @@ PART_IDS = {"mindmap": "mindmap", "mind-map": "mindmap", "eqsheet": "eqsheet", "
 
 
 def parts(page_html):
-    """[{key, label, section}] for the tabs of a note: one for each part the note has, in the order they appear in the page.
-    Everything that is not one of the named parts is the note itself ("Notes"), which opens at its first section.
+    """[{key, label, section}] for the tabs of a note: Notes first, then one for each other part the note has, in the order they appear
+    in the page. Everything that is not one of the named parts is the note itself ("Notes"), which opens at its first section.
     A note with no sections is one "Notes" tab."""
     found, seen = [], set()
     for m in re.finditer(r'<section[^>]*id="([^"]+)"[^>]*>(.*?)</section>', page_html, re.S):
@@ -228,4 +228,5 @@ def parts(page_html):
         if key not in seen:
             seen.add(key)
             found.append({"key": key, "label": "Notes" if key == "notes" else next(l for k, l, _ in PARTS if k == key), "section": sid})
+    found.sort(key=lambda part: part["key"] != "notes")          # Notes is always the first tab; the rest keep the order of the page
     return found or [{"key": "notes", "label": "Notes", "section": None}]

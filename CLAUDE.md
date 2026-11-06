@@ -13,7 +13,7 @@ The older `notes/<course code>/<id>-<title>/notes.html` chapters are no longer e
   to other pages; in-page `#anchors` are fine). Math: MathJax from jsdelivr (`https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-svg.js`),
   `\( ... \)` inline and `\[ ... \]` display, light and dark through `prefers-color-scheme`.
 - The standard format is a list of `<section id="...">` blocks, each with an `<h2>`. The reader recognizes these parts by id (or
-  heading) and shows a tab for each one the note has, in the order they appear: `mindmap` (Mind Map), the note itself (every other
+  heading) and shows a tab for each one the note has: Notes first, then the others in the order they appear: `mindmap` (Mind Map), the note itself (every other
   section: `s1`, `s2`, ... , the tab opens at the first), `eqsheet` or `sheet` (Equation Sheet), `assumptions` (Assumptions), `errata`
   (Errata; older notes use a "Notes check" section), `quiz` (Quiz; older notes use a "Self-check" section). Not every note has every
   part, and a part that is missing gets no tab.
