@@ -12,7 +12,7 @@ STDLIB = ["base64", "calendar", "colorsys", "csv", "datetime", "difflib", "hashl
           "math", "pathlib", "re", "shutil", "sqlite3", "subprocess", "tempfile", "textwrap", "urllib.parse",
           "urllib.request", "uuid", "warnings", "zipfile", "zoneinfo", "collections", "itertools", "functools",
           "dataclasses", "random", "statistics", "time", "string", "mimetypes", "unicodedata", "xml.etree.ElementTree"]
-LIBS = ["pymupdf", "fitz", "pypdf", "PIL", "pillow_heif"]
+LIBS = ["pymupdf", "fitz", "pypdf", "PIL", "pillow_heif", "pagerender"]
 
 
 def make_icon(path):

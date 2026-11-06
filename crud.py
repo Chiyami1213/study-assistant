@@ -395,6 +395,11 @@ def update_event(event_id, title, time, end_time=None):
     _exec("UPDATE events SET title=?, time=?, end_time=? WHERE id=?", (title, time or None, end_time or None, event_id))
 
 
+def set_event_covers(event_id, text):
+    """What an exam covers, e.g. 'HW 4, HW 5; Chapters IV, V, VI'."""
+    _exec("UPDATE events SET covers=? WHERE id=?", ((text or "").strip() or None, event_id))
+
+
 def delete_event(event_id):
     _exec("DELETE FROM events WHERE id=?", (event_id,))
 
@@ -518,3 +523,45 @@ def replace_outline(course_id, items):
               it.get("book_id") or None, it.get("page") or None)
              for i, it in enumerate(items)])
         conn.commit()
+
+
+# ---------- Note Builder: one notebook per course, made of chapters ----------
+def list_chapters(course_id):
+    return _all("SELECT * FROM lab_chapters WHERE course_id=? ORDER BY position, id", (course_id,))
+
+
+def get_chapter(chapter_id):
+    return _one("SELECT * FROM lab_chapters WHERE id=?", (chapter_id,))
+
+
+def add_chapter(course_id, title="Untitled Chapter", notes="", exercises=""):
+    last = _one("SELECT MAX(position) AS p FROM lab_chapters WHERE course_id=?", (course_id,))["p"]
+    return _exec("INSERT INTO lab_chapters(course_id,title,notes,exercises,position) VALUES (?,?,?,?,?)",
+                 (course_id, title, notes, exercises, (last if last is not None else -1) + 1))
+
+
+def update_chapter(chapter_id, title, sections):
+    _exec("UPDATE lab_chapters SET title=?, notes=?, exercises=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
+          (title, sections.get("notes", ""), sections.get("exercises", ""), chapter_id))
+
+
+def delete_chapter(chapter_id):
+    _exec("DELETE FROM lab_chapters WHERE id=?", (chapter_id,))
+
+
+def export_chapter(chapter_id):
+    """Copy a chapter to the File page under its course (exporting again replaces the earlier copy)."""
+    ch = get_chapter(chapter_id)
+    if not ch:
+        return None
+    _exec("DELETE FROM exported_notes WHERE source_note_id=?", (chapter_id,))
+    return _exec("INSERT INTO exported_notes(source_note_id,course_id,title,notes,exercises) VALUES (?,?,?,?,?)",
+                 (chapter_id, ch["course_id"], ch["title"], ch["notes"], ch["exercises"]))
+
+
+def list_exported_notes(course_id):
+    return _all("SELECT * FROM exported_notes WHERE course_id=? ORDER BY exported_at DESC, id DESC", (course_id,))
+
+
+def delete_exported_note(export_id):
+    _exec("DELETE FROM exported_notes WHERE id=?", (export_id,))

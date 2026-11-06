@@ -338,8 +338,9 @@ def _when(day, time):
     return text + (f" · {time}" if time else "")
 
 
-def _row_html(title, when, status, css):
-    return (f'<div class="dl-row"><div class="dl-title">{html.escape(title)}</div>'
+def _row_html(title, when, status, css, detail=None):
+    sub = f'<div class="dl-sub">{html.escape(detail)}</div>' if detail else ""
+    return (f'<div class="dl-row"><div><div class="dl-title">{html.escape(title)}</div>{sub}</div>'
             f'<div class="dl-when">{html.escape(when)}</div><span class="dl-pill {css}">{status}</span></div>')
 
 
@@ -373,7 +374,8 @@ def _overview(course):
     if not exams:
         st.caption("No midterms or finals yet.")
     rows = "".join(_row_html(e["title"], _when(e["date"], e.get("time")),
-                             "Done" if e["date"] < today else "Upcoming", "done" if e["date"] < today else "open")
+                             "Done" if e["date"] < today else "Upcoming", "done" if e["date"] < today else "open",
+                             f"Covers {e['covers']}" if e.get("covers") else None)
                    for e in exams)
     st.markdown(f'<div class="dl-list">{rows}</div>', unsafe_allow_html=True)
 
@@ -392,6 +394,7 @@ def _open_pdf_from_outline():
             st.session_state["page"] = "Library"
             st.session_state["open_book"] = book_id
             st.session_state[f"view_page_{book_id}"] = page
+            st.session_state[f"view_{book_id}_page"] = page
             st.rerun()
 
 
@@ -411,7 +414,7 @@ def _outline(course):
             text = (f'<a href="#" data-ol-book="{it["book_id"]}" data-ol-page="{it["page"]}">{text}</a>')
         elif it["url"]:
             text = f'<a href="{html.escape(it["url"], quote=True)}" target="_blank" rel="noopener noreferrer">{text}</a>'
-        marker = it["marker"] + ("." if re.fullmatch(r"[IVXLCDM]+|[A-Z]|\d+", it["marker"]) else "")   # I. A. 1. / Part 1 / Lec 2
+        marker = it["marker"] + ("." if re.fullmatch(r"[IVXLCDM]+|[A-Z]|\d+|[a-z]", it["marker"]) else "")   # I. A. 1. a. / Part 1 / Lec 2
         return f'<span class="ol-marker">{html.escape(marker)}</span><span>{text}</span>'
 
     # One button opens or closes every folded list at once (they start folded).
@@ -436,13 +439,14 @@ def _outline(course):
             continue
         kids = []
         if it["level"] == "A":
-            while i < len(items) and items[i]["level"] == "1":
+            while i < len(items) and items[i]["level"] in ("1", "a"):     # points, and the a. b. c. details under them
                 kids.append(items[i])
                 i += 1
         if kids:
-            leaves = "".join(f'<div class="ol-leaf">{label(k)}</div>' for k in kids)
+            leaves = "".join(f'<div class="ol-leaf{" ol-l3" if k["level"] == "a" else ""}">{label(k)}</div>' for k in kids)
+            count = sum(k["level"] == "1" for k in kids)
             rows += (f'<details class="ol-sub ol-fold"{open_attr}><summary>{label(it)}'
-                     f'<span class="ol-count">{len(kids)}</span></summary><div class="ol-kids">{leaves}</div></details>')
+                     f'<span class="ol-count">{count}</span></summary><div class="ol-kids">{leaves}</div></details>')
         else:
             rows += f'<div class="ol-sub">{label(it)}</div>'
     wide = any(not re.fullmatch(r"[IVXLCDM]+|[A-Z]|\d+|[\d.\u2013]+", it["marker"]) for it in items)   # Part / Lec markers

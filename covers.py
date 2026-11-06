@@ -17,12 +17,13 @@ def page_count(pdf_path):
         return doc.page_count
 
 
-def render_page(pdf_path, page_index=0, width=900):
-    """PNG bytes of one page scaled to the given pixel width."""
+def render_page(pdf_path, page_index=0, width=900, fmt="png"):
+    """Image bytes (PNG, or JPEG for fmt="jpg") of one page scaled to the given pixel width."""
     with pymupdf.open(pdf_path) as doc:
         page = doc[page_index]
         zoom = width / page.rect.width
-        return page.get_pixmap(matrix=pymupdf.Matrix(zoom, zoom), alpha=False).tobytes("png")
+        pix = page.get_pixmap(matrix=pymupdf.Matrix(zoom, zoom), alpha=False)
+        return pix.tobytes("jpg", jpg_quality=85) if fmt == "jpg" else pix.tobytes("png")
 
 
 def render_cover(pdf_path, width=300):

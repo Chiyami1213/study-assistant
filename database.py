@@ -178,6 +178,39 @@ CREATE TABLE IF NOT EXISTS course_links (
     url       TEXT NOT NULL
 );
 
+-- Lab: notes being built next to a reference file.
+CREATE TABLE IF NOT EXISTS lab_notes (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    title      TEXT NOT NULL DEFAULT 'Untitled Note',
+    notes      TEXT NOT NULL DEFAULT '',
+    exercises  TEXT NOT NULL DEFAULT '',
+    summary    TEXT NOT NULL DEFAULT '',
+    course_id  INTEGER REFERENCES courses(id) ON DELETE SET NULL,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Note Builder: one notebook per course, made of chapters.
+CREATE TABLE IF NOT EXISTS lab_chapters (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    course_id  INTEGER NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+    title      TEXT NOT NULL DEFAULT 'Untitled Chapter',
+    notes      TEXT NOT NULL DEFAULT '',
+    exercises  TEXT NOT NULL DEFAULT '',
+    position   INTEGER NOT NULL DEFAULT 0,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Notes exported from the Note Builder; the File page lists them under their course.
+CREATE TABLE IF NOT EXISTS exported_notes (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    source_note_id INTEGER,
+    course_id      INTEGER NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+    title          TEXT NOT NULL,
+    notes          TEXT NOT NULL DEFAULT '',
+    exercises      TEXT NOT NULL DEFAULT '',
+    exported_at    TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Course outline: main topics ('I') with sub topics ('A'), in page order.
 CREATE TABLE IF NOT EXISTS course_outline (
     id        INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -246,6 +279,10 @@ def init_db() -> None:
             conn.execute("ALTER TABLE events ADD COLUMN end_time TEXT")
         if "due_time" not in [r["name"] for r in conn.execute("PRAGMA table_info(homework_pairs)")]:
             conn.execute("ALTER TABLE homework_pairs ADD COLUMN due_time TEXT")
+        if "course_id" not in [r["name"] for r in conn.execute("PRAGMA table_info(lab_notes)")]:
+            conn.execute("ALTER TABLE lab_notes ADD COLUMN course_id INTEGER")
+        if "covers" not in [r["name"] for r in conn.execute("PRAGMA table_info(events)")]:
+            conn.execute("ALTER TABLE events ADD COLUMN covers TEXT")
         if "photo_file" not in cols:
             conn.execute("ALTER TABLE courses ADD COLUMN photo_file TEXT")
         if "category" not in cols:

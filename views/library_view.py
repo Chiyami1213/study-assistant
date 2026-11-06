@@ -10,6 +10,8 @@ import streamlit as st
 import streamlit.components.v1 as components
 
 import covers
+import htmlnotes
+import reader
 import crud
 import navigation
 import pdfmeta
@@ -156,23 +158,10 @@ def _viewer(book):
     if not path.exists():
         st.error("The stored PDF file is missing."); return
     if path.suffix.lower() in (".html", ".htm"):
-        components.html(path.read_text(encoding="utf-8", errors="replace"), height=900, scrolling=True)
+        components.html(htmlnotes.safe_html(path.read_text(encoding="utf-8", errors="replace")), height=900, scrolling=True)
         return
-    try:
-        total = covers.page_count(path)
-    except Exception:
-        st.error("This PDF could not be opened for preview."); return
-
-    key = f"view_page_{book['id']}"
-    st.session_state.setdefault(key, 1)
-    c1, c2, c3, c4 = st.columns([1, 1, 2, 4])
-    if c1.button("◀ Prev", key=f"prev_{book['id']}"):
-        st.session_state[key] = max(1, st.session_state[key] - 1)
-    if c2.button("Next ▶", key=f"next_{book['id']}"):
-        st.session_state[key] = min(total, st.session_state[key] + 1)
-    page = c3.number_input(f"Page (of {total})", 1, total, key=key)
-    width = c4.select_slider("Zoom", [600, 800, 1000, 1300], value=1000, key=f"zoom_{book['id']}")
-    st.image(_page_png(str(path), path.stat().st_mtime, page - 1, width * 2), width=width)
+    reader.pdf_reader(path, f"view_{book['id']}", height=820,
+                      start=st.session_state.pop(f"view_page_{book['id']}", 1))
 
 
 @st.dialog("Edit File", width="large")

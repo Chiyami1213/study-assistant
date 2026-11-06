@@ -9,8 +9,8 @@ import sys
 import icons
 
 # The dev server caches imported modules between reruns; reload ours so edits apply without a restart.
-for _m in ("database", "crud", "settings", "icons", "pdfmeta", "covers", "photos", "views.notes_view", "views.courses_view", "views.home_view",
-           "navigation", "views.homework_view", "views.exam_mode_view", "views.recall_view", "views.library_view", "views.calendar_view", "views.file_view",
+for _m in ("database", "crud", "settings", "icons", "pdfmeta", "covers", "reader", "outline", "htmlnotes", "claude_chat", "photos", "views.notes_view", "views.courses_view", "views.home_view",
+           "navigation", "views.homework_view", "views.exam_mode_view", "views.recall_view", "views.library_view", "views.calendar_view", "views.file_view", "views.lab_view",
            "views.settings_view"):
     if _m in sys.modules:
         importlib.reload(sys.modules[_m])
@@ -18,7 +18,7 @@ import navigation
 import photos
 import settings
 from database import init_db
-from views import calendar_view, courses_view, file_view, home_view, library_view, settings_view
+from views import calendar_view, courses_view, file_view, home_view, lab_view, library_view, settings_view
 
 st.set_page_config(page_title="Study Assistant", page_icon=":material/book:", layout="wide",
                    initial_sidebar_state="expanded")
@@ -28,10 +28,11 @@ photos.organize_photos()
 # (label, material icon, renderer)
 NAV_TOP = {
     "Home": (":material/home:", home_view.render),
+    "File": (":material/folder:", file_view.render),
     "Calendar": (":material/calendar_month:", calendar_view.render),
     "Library": (":material/library_books:", library_view.render),
+    "Note Builder": (":material/edit_note:", lab_view.render),
     "Courses": ("svg:course_cap", courses_view.render),
-    "File": (":material/folder:", file_view.render),
 }
 NAV_BOTTOM = {"Settings": (":material/settings:", settings_view.render)}
 PAGES = {**NAV_TOP, **NAV_BOTTOM}
@@ -260,6 +261,7 @@ section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-h
 .ol-kids {{padding: 4px 0 6px 32px;}}
 .ol-leaf {{display: flex; gap: 10px; padding: 2px 0; font-size: 0.95rem;}}
 .ol-leaf .ol-marker {{min-width: 22px; text-align: right;}}
+.ol-leaf.ol-l3 {{padding-left: 34px; font-size: 0.9rem; opacity: 0.92;}}
 .ol a {{color: var(--accent) !important; text-decoration: none;}}
 .ol a:hover {{text-decoration: underline;}}
 
@@ -279,11 +281,17 @@ section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-h
 .dl-row:last-child {{border-bottom: none;}}
 .dl-title {{font-weight: 600;}}
 .dl-when {{opacity: 0.8; font-size: 0.92rem;}}
+.dl-sub {{opacity: 0.75; font-size: 0.85rem; margin-top: 3px;}}
 .dl-pill {{justify-self: end; font-size: 0.78rem; border-radius: 999px; padding: 1px 12px; border: 1px solid var(--border);}}
 .dl-pill.done {{border-color: #2f9e5f; color: #2f9e5f; background: rgba(47, 158, 95, 0.12);}}
 .dl-pill.open {{border-color: var(--accent); color: var(--accent); background: rgba(76, 141, 255, 0.10);}}
 .dl-pill.late {{border-color: #d14343; color: #d14343; background: rgba(209, 67, 67, 0.12);}}
 .dl-pill.none {{opacity: 0.7;}}
+.up-row {{display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 16px;
+    border-bottom: 1px solid var(--border);}}
+.up-row:last-child {{border-bottom: none;}}
+.up-meta {{display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 4px;}}
+.up-meta .book-badge {{margin: 0;}}
 
 /* Calendar: week view */
 .st-key-edit_schedule_open {{width: 100% !important;}}
@@ -332,16 +340,14 @@ section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-h
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}}
 .cal-more {{font-size: 0.72rem; opacity: 0.7; margin-top: 3px;}}
 
-/* Study Mode pill and the 20-20-20 eye rest prompt (built by the script below) */
-#sa-study {{position: fixed; right: 18px; bottom: 16px; z-index: 99990; display: flex; align-items: center; gap: 8px;
-    background: var(--card); color: var(--text); border: 1px solid var(--border); border-radius: 999px;
-    padding: 7px 14px; font-size: 0.85rem; cursor: pointer; user-select: none; box-shadow: 0 2px 10px #0004;}}
-#sa-study:hover {{border-color: var(--accent);}}
-#sa-study .dot {{width: 9px; height: 9px; border-radius: 50%; background: #8c92a0;}}
-#sa-study.on .dot {{background: #2f9e5f; box-shadow: 0 0 6px #2f9e5f;}}
+/* 20-20-20 eye rest prompt (built by the script below) */
 #sa-rest {{position: fixed; top: 22px; left: 50%; transform: translateX(-50%); z-index: 99995; width: min(440px, 92vw);
     background: var(--card); color: var(--text); border: 1px solid var(--accent); border-radius: 12px;
     padding: 18px 22px; box-shadow: 0 8px 30px #0007; text-align: center;}}
+#sa-force {{position: fixed; inset: 0; z-index: 99999; background: rgba(0, 0, 0, 0.72); display: flex; align-items: center; justify-content: center;}}
+#sa-force #sa-rest {{position: static; transform: none;}}
+#sa-rest.warn {{border-color: #e0a030;}}
+#sa-rest button:disabled {{opacity: 0.4; cursor: not-allowed;}}
 #sa-rest h3 {{margin: 0 0 6px; font-size: 1.15rem; color: var(--text);}}
 #sa-rest p {{margin: 0 0 10px; opacity: 0.85; font-size: 0.95rem;}}
 #sa-rest .count {{font-size: 2.6rem; font-weight: 700; line-height: 1.1; color: var(--accent);}}
@@ -350,6 +356,78 @@ section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-h
 #sa-rest button {{background: var(--input); color: var(--text); border: 1px solid var(--border); border-radius: 8px;
     padding: 6px 18px; cursor: pointer; font-size: 0.9rem;}}
 #sa-rest button:hover {{border-color: var(--accent);}}
+
+/* Compact PDF reader */
+[class*="st-key-reader_"] {{border-bottom: 1px solid var(--border); padding: 6px 4px 8px; margin-bottom: 8px;}}
+[class*="st-key-reader_"] [data-testid="stHorizontalBlock"] {{gap: 0.3rem; align-items: center;}}
+[class*="st-key-reader_"] button {{min-height: 2rem; padding: 0 0.5rem; font-size: 0.9rem; border: none; background: transparent; box-shadow: none;}}
+[class*="st-key-reader_"] button:hover {{background: var(--hover); color: var(--accent);}}
+[class*="st-key-reader_"] [class*="st-key-"][class*="_prev"] button, [class*="st-key-reader_"] [class*="st-key-"][class*="_next"] button {{background: var(--card);}}
+[class*="st-key-reader_"] [data-testid="stNumberInput"] input {{text-align: right; padding: 0 0.2rem; min-height: 2rem; font-size: 0.95rem; background: transparent; border: none;}}
+[class*="st-key-reader_"] [data-testid="stNumberInput"] [data-baseweb="input"], [class*="st-key-reader_"] [data-testid="stNumberInput"] [data-baseweb="base-input"],
+[class*="st-key-reader_"] [data-testid="stNumberInputContainer"] {{background: transparent !important; border: none !important;}}
+[class*="st-key-reader_"] [data-testid="stNumberInputStepUp"], [class*="st-key-reader_"] [data-testid="stNumberInputStepDown"] {{display: none;}}
+.rd-total, .rd-zoom {{height: 1.9rem; display: flex; align-items: center; justify-content: center; margin: 0; padding: 0; line-height: 1;
+    white-space: nowrap; font-size: 0.9rem;}}
+.rd-total {{justify-content: flex-start; font-size: 0.95rem;}}
+.rd-zoom {{font-size: 0.9rem; background: var(--card); border-radius: 8px;}}
+[class*="st-key-reader_"] [data-testid="stColumn"] {{display: flex; flex-direction: column; justify-content: center;}}
+[class*="st-key-reader_"] [data-testid="stElementContainer"], [class*="st-key-reader_"] [data-testid="stMarkdownContainer"],
+[class*="st-key-reader_"] [data-testid="stNumberInput"] {{margin: 0 !important; padding: 0;}}
+[class*="st-key-reader_"] [data-testid="stNumberInput"] [data-baseweb="input"] {{height: 1.9rem; align-items: center;}}
+.rd-scroll {{overflow: auto; background: #3a3d45; border-radius: 8px; padding: 12px; text-align: center;}}
+.rd-scroll img {{display: block; margin: 0 auto; max-width: none; box-shadow: 0 2px 10px #0008; background: #fff;}}
+
+/* Note Builder and File page */
+[class*="st-key-lab_refname_"] [data-testid="stPopover"] button {{border: none !important; background: transparent !important; justify-content: flex-start;
+    padding: 0.2rem 0.4rem; min-height: 0; width: 100%;}}
+[class*="st-key-lab_refname_"] [data-testid="stPopover"] button p {{font-size: 1.45rem; font-weight: 700; line-height: 1.25; letter-spacing: 0;
+    white-space: normal; text-align: left;}}
+[class*="st-key-lab_refname_"] [data-testid="stPopover"] button:hover p {{color: var(--accent);}}
+[data-testid="stPopoverBody"]:has([data-testid="stSelectbox"]) {{min-width: min(560px, 92vw);}}
+.st-key-lab_tab_sink {{position: absolute !important; width: 1px; height: 1px; overflow: hidden; opacity: 0; pointer-events: none;}}
+.lab-tabs {{display: grid; gap: 1rem; padding: 4px 0 0; background: var(--bg2); border-radius: 10px 10px 0 0; position: relative;}}
+.lab-tab {{display: flex; align-items: center; gap: 9px; padding: 8px 14px; border-radius: 9px 9px 0 0; background: var(--card);
+    color: var(--text); font-size: 0.9rem; cursor: grab; user-select: none; min-width: 0;}}
+[data-testid="stElementContainer"]:has(.lab-tabs) {{min-height: 46px;}}
+.lab-tab span {{overflow: hidden; text-overflow: ellipsis; white-space: nowrap;}}
+.lab-tab svg {{flex: none; opacity: 0.8;}}
+.lab-tab:hover {{background: var(--hover);}}
+.lab-x {{margin-left: auto; padding: 0 6px; border-radius: 5px; font-size: 1.05rem; line-height: 1.2; opacity: 0.6; cursor: pointer;}}
+.lab-x:hover {{background: var(--input); opacity: 1;}}
+.lab-add {{position: absolute; right: -2.4rem; top: 8px; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;
+    border-radius: 8px; font-size: 1.3rem; cursor: pointer;}}
+.lab-add:hover {{background: var(--hover);}}
+/* the popover button of the notes window looks like the other buttons */
+[class*="st-key-lab_pane_"] [data-testid="stPopover"] button {{border: 1px solid var(--border) !important; background: var(--card) !important;
+    padding: 0.25rem 0.75rem; min-height: 2.5rem; justify-content: center;}}
+[class*="st-key-lab_pane_"] [data-testid="stPopover"] button p {{font-size: 0.95rem; font-weight: 400; letter-spacing: 0; line-height: 1.4;}}
+.lab-tab.dragging {{opacity: 0.45;}}
+.lab-tab.drop-target {{box-shadow: inset 0 -3px 0 var(--accent);}}
+[class*="st-key-lab_pane_"] {{height: calc(100vh - 62px); overflow-y: auto; overflow-x: hidden; padding: 0 12px; background: var(--bg);}}
+[data-testid="stHorizontalBlock"]:has([class*="st-key-lab_pane_"]) > div:not(:last-child) {{border-right: 1px solid var(--border);}}
+.lab-detached-title {{font-weight: 600; padding: 8px 4px; opacity: 0.9;}}
+.lab-heading {{font-size: 1.45rem; margin: 6px 0 6px; padding: 0;}}
+[class*="st-key-lab_html_"] {{flex: 1 1 auto; min-height: 0; height: auto !important; width: 100%;}}
+[class*="st-key-lab_html_"] [data-testid="stElementContainer"], [class*="st-key-lab_html_"] iframe {{height: 100% !important; width: 100% !important; min-height: 300px;}}
+[class*="st-key-lab_view_scroll"] h1 {{font-size: 1.6rem;}}
+[class*="st-key-lab_view_scroll"] h2 {{font-size: 1.3rem;}}
+[class*="st-key-lab_view_scroll"] h3 {{font-size: 1.1rem;}}
+[class*="st-key-lab_view_scroll"] {{height: calc(100vh - 300px); overflow-y: auto;}}
+[class*="st-key-lab_view_scroll"] iframe {{height: calc(100vh - 310px) !important;}}
+.st-key-lab_chat_box {{height: calc(100vh - 360px); overflow-y: auto;}}
+[class*="st-key-lab_pane_"] textarea {{height: calc(100vh - 330px) !important; min-height: 280px;}}
+.rd-cont {{position: relative; scroll-behavior: auto;}}
+.rd-pg {{margin: 0 auto 14px; background: #fff; box-shadow: 0 2px 10px #0008; overflow: hidden;}}
+.rd-pg img {{display: block; width: 100%; height: 100%; object-fit: contain; margin: 0; box-shadow: none; max-width: 100%;}}
+.rd-live {{position: sticky; top: 0; z-index: 3; width: fit-content; margin: 0 0 -26px auto; font-size: 0.8rem; padding: 3px 10px;
+    border-radius: 999px; background: rgba(20, 22, 28, 0.85); color: #e8e9ec; pointer-events: none;}}
+.rd-scroll.rd-fill {{height: calc(100vh - 175px);}}
+.lab-heading {{font-size: 1.5rem; margin: 0 0 4px; padding: 0;}}
+.file-head {{display: flex; align-items: center; gap: 10px; margin-top: 1.2rem;}}
+.file-head {{display: block !important;}}
+.file-dot {{width: 12px; height: 12px; border-radius: 50%; display: inline-block; margin-right: 12px; vertical-align: middle; position: relative; top: -2px;}}
+.file-count {{font-weight: 400; opacity: 0.6; font-size: 1rem;}}
 
 /* Library */
 /* Library grid: one HTML block, cards are clickable through data-lib-act */
@@ -514,57 +592,183 @@ if (!win.__olNavV1) {
     inp.blur();
   }, true);
 }
-// Study Mode: a pill that starts a session; every 20 minutes of it asks for a 20-second look 20 feet away (20-20-20 rule).
-if (!win.__studyV1) {
-  win.__studyV1 = true;
-  const KEY = 'sa_study', fmt = n => String(Math.floor(n / 60)).padStart(2, '0') + ':' + String(n % 60).padStart(2, '0');
+// 20-20-20 rule: after every 20 minutes of using the app, ask for a 20-second look at something 20 feet away.
+// Turning that down is allowed, but after 2 refusals in a row there is a warning, and the 3rd prompt (1 hour of
+// non-stop use) becomes a required 5-minute rest.
+if (!win.__eyeRestV2) {
+  win.__eyeRestV2 = true;
+  const KEY = 'sa_eye_rest', num = (k, d) => +localStorage.getItem(k) || d;
   const load = () => { try { return JSON.parse(localStorage.getItem(KEY)) || null; } catch (e) { return null; } };
-  const save = v => { try { v ? localStorage.setItem(KEY, JSON.stringify(v)) : localStorage.removeItem(KEY); } catch (e) {} };
-  const interval = () => (+localStorage.getItem('sa_study_interval') || 1200) * 1000;     // 20 minutes
-  const restLen = () => (+localStorage.getItem('sa_rest_seconds') || 20);                // 20 seconds
-  const pill = doc.createElement('div'); pill.id = 'sa-study';
-  doc.body.appendChild(pill);
-  let rest = null;
+  const save = v => { try { localStorage.setItem(KEY, JSON.stringify(v)); } catch (e) {} };
+  const interval = () => num('sa_study_interval', 1200) * 1000;       // 20 minutes
+  const restLen = () => num('sa_rest_seconds', 20);                   // 20 seconds
+  const forceLen = () => num('sa_force_seconds', 300);                // 5 minutes
+  const idleReset = () => num('sa_idle_reset', 300) * 1000;           // away 5+ minutes counts as a rest
+  const fmt = n => Math.floor(n / 60) + ':' + String(n % 60).padStart(2, '0');
+  let st = load(), card = null, forced = null;
+  const fresh = () => ({next: Date.now() + interval(), seen: Date.now(), refused: 0, forceEnd: 0});
+  if (!st || Date.now() - st.seen > idleReset()) st = fresh();
+  save(st);
   const beep = () => { try { const c = new (win.AudioContext || win.webkitAudioContext)(), o = c.createOscillator(), g = c.createGain();
     o.connect(g); g.connect(c.destination); o.frequency.value = 660; g.gain.value = 0.08; o.start(); o.stop(c.currentTime + 0.25); } catch (e) {} };
-  function closeRest(takenBreak) {
-    if (rest) { rest.el.remove(); rest = null; }
-    const st = load(); if (st) { st.next = Date.now() + interval(); save(st); }
+  function closeCard() { if (card) { card.el.remove(); card = null; } }
+  function refuse() {
+    closeCard(); st.refused = (st.refused || 0) + 1; save(st);
+    if (st.refused === 2) warn();
   }
-  function showRest() {
-    if (rest) return;
+  function warn() {
+    const el = doc.createElement('div'); el.id = 'sa-rest'; el.className = 'warn';
+    el.innerHTML = '<h3>Rest Warning</h3><p>You have skipped 2 eye rests in a row. If you keep studying without a break, ' +
+      'a required 5-minute rest starts after 1 hour of non-stop use.</p><button type="button">Understood</button>';
+    doc.body.appendChild(el); card = {el, phase: 'warn'};
+    el.querySelector('button').onclick = closeCard;
+    setTimeout(() => { if (card && card.el === el) closeCard(); }, 15000);
+  }
+  function ask() {
     const el = doc.createElement('div'); el.id = 'sa-rest';
-    el.innerHTML = '<h3>Eye Rest</h3><p>Look at something 20 feet (6 meters) away for ' + restLen() + ' seconds.</p>' +
-      '<div class="count"></div><div class="bar"><i></i></div><button type="button">Skip</button>';
+    el.innerHTML = '<h3>Eye Rest</h3><p>You have been studying for 20 minutes. Look at something 20 feet (6 meters) away for ' +
+      restLen() + ' seconds?</p><div class="count" style="display:none"></div><div class="bar" style="display:none"><i></i></div>' +
+      '<button type="button" class="go">Start Rest</button> <button type="button" class="no">Not Now</button>';
     doc.body.appendChild(el);
-    rest = {el, end: Date.now() + restLen() * 1000, done: false};
-    el.querySelector('button').onclick = () => closeRest();
+    card = {el, phase: 'ask', end: 0, done: false};
+    el.querySelector('.no').onclick = () => { if (card.done) closeCard(); else refuse(); };   // Skip mid-rest counts as a refusal too
+    el.querySelector('.go').onclick = () => {
+      card.phase = 'rest'; card.end = Date.now() + restLen() * 1000; st.refused = 0; save(st);
+      el.querySelector('p').textContent = 'Look at something 20 feet (6 meters) away.';
+      el.querySelector('.count').style.display = ''; el.querySelector('.bar').style.display = '';
+      el.querySelector('.go').remove(); el.querySelector('.no').textContent = 'Skip'; tick();
+    };
     beep();
   }
+  function force() {
+    if (!st.forceEnd || st.forceEnd < Date.now() - 1000) { st.forceEnd = Date.now() + forceLen() * 1000; save(st); }
+    closeCard();
+    const el = doc.createElement('div'); el.id = 'sa-force';
+    el.innerHTML = '<div id="sa-rest"><h3>Required Rest</h3><p>You have used the app for 1 hour without taking an eye rest. ' +
+      'Step away from the screen and rest your eyes for 5 minutes.</p><div class="count"></div><div class="bar"><i></i></div>' +
+      '<button type="button" disabled>Resume Studying</button></div>';
+    doc.body.appendChild(el); forced = {el, done: false}; beep();
+    el.querySelector('button').onclick = () => { el.remove(); forced = null; };
+  }
   function tick() {
-    const st = load();
-    pill.className = st ? 'on' : '';
-    if (!st) { pill.innerHTML = '<span class="dot"></span>Study Mode'; pill.title = 'start study mode; reminds you to rest your eyes every 20 minutes (20-20-20 rule)'; if (rest) closeRest(); return; }
     const now = Date.now();
-    pill.innerHTML = '<span class="dot"></span>Study Mode · ' + fmt(Math.floor((now - st.start) / 1000));
-    pill.title = 'click to end study mode; next eye rest in ' + fmt(Math.max(0, Math.ceil((st.next - now) / 1000)));
-    if (!rest && now >= st.next) showRest();
-    if (rest) {
-      const left = Math.max(0, Math.ceil((rest.end - now) / 1000)), total = restLen();
-      rest.el.querySelector('.count').textContent = rest.done ? 'Done' : left;
-      rest.el.querySelector('.bar i').style.width = (rest.done ? 100 : (total - left) / total * 100) + '%';
-      if (!rest.done && left === 0) {
-        rest.done = true; beep();
-        rest.el.querySelector('p').textContent = 'Nice work. Your eyes are rested.';
-        rest.el.querySelector('button').textContent = 'Back to Studying';
+    if (now - st.seen > idleReset() && !card && !forced) st = fresh();          // away or asleep long enough = rested
+    st.seen = now; save(st);
+    if (forced) {
+      const left = Math.max(0, Math.ceil((st.forceEnd - now) / 1000)), total = forceLen();
+      forced.el.querySelector('.count').textContent = left ? fmt(left) : 'Done';
+      forced.el.querySelector('.bar i').style.width = ((total - left) / total * 100) + '%';
+      if (!left && !forced.done) {
+        forced.done = true; beep(); st = Object.assign(fresh(), {seen: now}); save(st);
+        forced.el.querySelector('button').disabled = false;
+        forced.el.querySelector('p').textContent = 'Nice work. Your eyes are rested.';
+      }
+      return;
+    }
+    if (st.forceEnd > now) { force(); return; }                                 // a reload cannot skip the required rest
+    if (!card || card.phase === 'warn') {
+      if (now >= st.next) {
+        st.next = now + interval(); save(st);                                  // the next prompt is 20 minutes after this one
+        if (st.refused >= 2) force(); else { closeCard(); ask(); }
+      }
+    }
+    if (card && card.phase === 'rest') {
+      const left = Math.max(0, Math.ceil((card.end - now) / 1000)), total = restLen();
+      card.el.querySelector('.count').textContent = card.done ? 'Done' : left;
+      card.el.querySelector('.bar i').style.width = (card.done ? 100 : (total - left) / total * 100) + '%';
+      if (!card.done && left === 0) {
+        card.done = true; beep();
+        card.el.querySelector('p').textContent = 'Nice work. Your eyes are rested.';
+        card.el.querySelector('.no').textContent = 'Back to Studying';
+        setTimeout(closeCard, 15000);
       }
     }
   }
-  pill.addEventListener('click', () => {
-    if (load()) { save(null); } else { const n = Date.now(); save({start: n, next: n + interval()}); }
-    tick();
+  setInterval(tick, 1000);
+}
+// Note Builder window tabs: drag a tab to any place in the row; x closes a window; + adds one.
+if (!win.__labTabsV2) {
+  win.__labTabsV2 = true;
+  let dragged = null;
+  const send = text => {
+    const inp = doc.querySelector('.st-key-lab_tab_sink input'); if (!inp) return;
+    const set = Object.getOwnPropertyDescriptor(win.HTMLInputElement.prototype, 'value').set;
+    inp.focus(); set.call(inp, text + '|' + Date.now());
+    inp.dispatchEvent(new win.Event('input', {bubbles: true}));
+    inp.dispatchEvent(new win.KeyboardEvent('keydown', {key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true}));
+    inp.blur();
+  };
+  doc.addEventListener('click', e => {
+    const x = e.target.closest && e.target.closest('[data-lab-close]');
+    if (x) { e.preventDefault(); send('close:' + x.dataset.labClose); return; }
+    if (e.target.closest && e.target.closest('[data-lab-add]')) send('add:');
+  }, true);
+  doc.addEventListener('dragstart', e => {
+    const t = e.target.closest && e.target.closest('.lab-tab'); if (!t) return;
+    dragged = t; t.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', t.dataset.labTab);
   });
-  setInterval(tick, 1000); tick();
+  doc.addEventListener('dragover', e => {
+    const t = e.target.closest && e.target.closest('.lab-tab'); if (!t || !dragged) return;
+    e.preventDefault(); doc.querySelectorAll('.lab-tab.drop-target').forEach(x => x.classList.remove('drop-target'));
+    if (t !== dragged) t.classList.add('drop-target');
+  });
+  doc.addEventListener('drop', e => {
+    const t = e.target.closest && e.target.closest('.lab-tab'); if (!t || !dragged) return;
+    e.preventDefault();
+    const from = dragged; dragged = null;             // one drop = one move
+    if (t === from) return;
+    const order = [...doc.querySelectorAll('.lab-tab')].map(x => x.dataset.labTab);
+    const i = order.indexOf(from.dataset.labTab), j = order.indexOf(t.dataset.labTab);
+    order.splice(i, 1); order.splice(j, 0, from.dataset.labTab);      // the dragged tab takes the place it is dropped on
+    send('order:' + order.join(','));
+  });
+  doc.addEventListener('dragend', e => {
+    const t = dragged; dragged = null;
+    doc.querySelectorAll('.lab-tab').forEach(x => x.classList.remove('dragging', 'drop-target'));
+    if (!t || doc.querySelectorAll('.lab-tab').length < 2) return;
+    // dropped outside this window (screen coordinates beyond its frame) = tear the tab off into a new window
+    const out = e.screenX < win.screenX - 4 || e.screenY < win.screenY - 4 ||
+                e.screenX > win.screenX + win.outerWidth + 4 || e.screenY > win.screenY + win.outerHeight + 4;
+    if (!out || (e.screenX === 0 && e.screenY === 0)) return;
+    const wid = t.dataset.labTab;
+    send('detach:' + wid);
+    setTimeout(() => {
+      const url = win.location.origin + win.location.pathname + '?detached=' + encodeURIComponent(wid);
+      if (win.pywebview && win.pywebview.api && win.pywebview.api.open_window) win.pywebview.api.open_window(url);
+      else win.open(url, '_blank', 'popup=yes,width=1000,height=820');
+    }, 900);
+  });
+}
+// Scrolling PDF view: jump to the requested page, keep the page badge current, retry page images that are not ready.
+if (!win.__rdScrollV1) {
+  win.__rdScrollV1 = true;
+  doc.addEventListener('error', e => {
+    const im = e.target;
+    if (!im || im.tagName !== 'IMG' || !im.closest || !im.closest('.rd-pg')) return;
+    const n = (+im.dataset.retry || 0) + 1;
+    if (n < 80) { im.dataset.retry = n; setTimeout(() => { im.src = im.src.split('?')[0] + '?r=' + n; }, 600); }
+  }, true);
+  const current = c => {
+    const pgs = c.querySelectorAll('.rd-pg'), line = c.scrollTop + c.clientHeight * 0.3;
+    let n = 1; for (let i = 0; i < pgs.length; i++) { if (pgs[i].offsetTop + pgs[i].offsetHeight > line) { n = i + 1; break; } n = i + 1; }
+    return n;
+  };
+  setInterval(() => {
+    doc.querySelectorAll('.rd-cont').forEach(c => {
+      if (!c._hooked) {
+        c._hooked = true;
+        c.addEventListener('scroll', () => {
+          if (c._raf) return;
+          c._raf = requestAnimationFrame(() => { c._raf = 0; const b = c.querySelector('.rd-live');
+            if (b) b.textContent = 'Page ' + current(c) + ' / ' + c.dataset.total; });
+        });
+      }
+      if (c._applied !== c.dataset.token + ':' + c.dataset.goto) {
+        const t = c.querySelector('#rdp-' + c.dataset.key + '-' + c.dataset.goto);
+        if (t) { c.scrollTop = t.offsetTop - 12; c._applied = c.dataset.token + ':' + c.dataset.goto; }
+      }
+    });
+  }, 250);
 }
 // Library cards: pass "action:id" to the hidden box (open the file, its Edit window, or the add window).
 if (!win.__libNavV1) {
@@ -581,6 +785,10 @@ if (!win.__libNavV1) {
   }, true);
 }
 </script>""", height=0)
+
+if st.query_params.get("detached"):          # a Note Builder window dragged out into its own window
+    lab_view.render_detached(st.query_params["detached"])
+    st.stop()
 
 st.session_state.setdefault("page", "Home")
 st.session_state.setdefault("mode", "Detailed")

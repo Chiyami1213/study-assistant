@@ -51,7 +51,8 @@ def run_server(port):
     from streamlit.web import bootstrap
     options = {"server.headless": True, "server.port": port, "server.address": "127.0.0.1",
                "global.developmentMode": False, "browser.gatherUsageStats": False,
-               "server.fileWatcherType": "auto", "server.runOnSave": True}
+               "server.fileWatcherType": "auto", "server.runOnSave": True,
+               "server.enableStaticServing": True}
     bootstrap.load_config_options(options)
     bootstrap.run(str(project / "app.py"), False, [], options)
 
@@ -60,6 +61,14 @@ SPLASH = """<html><body style="margin:0;background:#0e1117;color:#c9d1d9;font-fa
 display:flex;align-items:center;justify-content:center;height:100vh"><div style="text-align:center">
 <div style="font-size:26px;font-weight:600;margin-bottom:10px">Study Assistant</div>
 <div style="opacity:.6">Starting...</div></div></body></html>"""
+
+
+class Api:
+    """Called from the page: a Note Builder tab dragged out of the window opens as its own window."""
+
+    def open_window(self, url):
+        import webview
+        webview.create_window(TITLE, url, width=1100, height=850, min_size=(600, 400), background_color="#0e1117")
 
 
 def main():
@@ -71,12 +80,14 @@ def main():
         creation = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
         cmd = [sys.executable, "--server", str(PORT)] if getattr(sys, "frozen", False) \
             else [sys.executable, str(Path(__file__).resolve()), "--server", str(PORT)]
-        server = subprocess.Popen(cmd, cwd=project, creationflags=creation,
-                                  stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL)
+        quiet = getattr(sys, "frozen", False)      # from the exe the server is silent; from `python run.py` it prints here
+        server = subprocess.Popen(cmd, cwd=project, creationflags=creation if quiet else 0,
+                                  stdout=subprocess.DEVNULL if quiet else None,
+                                  stderr=subprocess.DEVNULL if quiet else None, stdin=subprocess.DEVNULL)
 
     url = f"http://127.0.0.1:{PORT}"
     window = webview.create_window(TITLE, html=SPLASH, width=1440, height=900, min_size=(900, 600),
-                                   background_color="#0e1117")
+                                   background_color="#0e1117", js_api=Api())
 
     def wait_then_load():
         for _ in range(600):
@@ -102,5 +113,8 @@ def main():
 if __name__ == "__main__":
     if len(sys.argv) > 2 and sys.argv[1] == "--server":
         run_server(int(sys.argv[2]))
+    elif len(sys.argv) > 2 and sys.argv[1] == "--render":          # page renderer for the scrolling PDF view
+        import pagerender
+        pagerender.main(sys.argv[2:])
     else:
         main()
