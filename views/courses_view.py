@@ -421,19 +421,19 @@ def _exam_items(course):
 
 
 def _overview(course):
-    """How well the materials are understood (quiz scores), then the grades so far."""
-    quiz_view.understanding(course)
+    """The grades so far, then how well the materials are understood (quiz scores)."""
     st.subheader("Grades")
     homework, exams = _homework_items(course), _exam_items(course)
     hw_avg, ex_avg = _percent(homework), _percent(exams)
     if hw_avg is None and ex_avg is None:
         st.caption("No grades yet. Homework and exam grades appear here.")
-        return
-    cols = st.columns(2)
-    cols[0].metric("Homework Average", f"{hw_avg:.0%}" if hw_avg is not None else "None",
-                   help=f"{sum(1 for h in homework if h.get('score') is not None)} of {len(homework)} graded")
-    cols[1].metric("Exam Average", f"{ex_avg:.0%}" if ex_avg is not None else "None",
-                   help=f"{sum(1 for e in exams if e.get('score') is not None)} of {len(exams)} graded")
+    else:
+        cols = st.columns(2)
+        cols[0].metric("Homework Average", f"{hw_avg:.0%}" if hw_avg is not None else "None",
+                       help=f"{sum(1 for h in homework if h.get('score') is not None)} of {len(homework)} graded")
+        cols[1].metric("Exam Average", f"{ex_avg:.0%}" if ex_avg is not None else "None",
+                       help=f"{sum(1 for e in exams if e.get('score') is not None)} of {len(exams)} graded")
+    quiz_view.understanding(course)
 
 
 def _homework(course):
