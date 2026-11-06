@@ -107,9 +107,9 @@ def _is_html(text):
     return text.lstrip().lower().startswith(HTML_START)
 
 
-def _show(text):
+def _show(text, field):
     """A chapter body: Markdown, or a full interactive HTML page (as built with Claude)."""
-    with st.container(key="lab_view_scroll"):          # sized by the page CSS to fill the window
+    with st.container(key=f"lab_view_scroll_{field}"):          # sized by the page CSS to fill the window
         if _is_html(text):
             components.html(htmlnotes.safe_html(text), height=600, scrolling=True)
         else:
@@ -256,7 +256,7 @@ def _notes():
             if editing:
                 st.text_area(label, key=keys[field], height=400, label_visibility="collapsed", placeholder=PLACEHOLDER)
             elif st.session_state[keys[field]].strip():
-                _show(st.session_state[keys[field]])
+                _show(st.session_state[keys[field]], field)
             else:
                 st.caption(f"Nothing in {label} yet. Press Edit to start writing.")
     with tabs[-1]:
