@@ -56,13 +56,81 @@ def _equation_tags(path, mtime):
 
 
 def _numbers(where):
-    """Equation numbers named in a location: "Eq. 490", "Eqs. 468-471" (both ends), "Below Eq. 438"."""
+    """Equation numbers named in a location: "Eq. 490", "Eq. (66)", "Eqs. 468-471" or "Eqs. (262)-(263)" (both ends)."""
     nums = []
-    for m in re.finditer(r"Eqs?\.?\s*(\d{1,4})(?:\s*[–\-]\s*(\d{1,4}))?", where):
+    for m in re.finditer(r"Eqs?\.?\s*\(?(\d{1,4})\)?(?:\s*[–\-]\s*\(?(\d{1,4})\)?)?", where):
         nums.append(int(m.group(1)))
         if m.group(2):
             nums.append(int(m.group(2)))
     return list(dict.fromkeys(nums))
+
+
+def _pages(where):
+    """Printed page numbers in a location ("p. 23", "p. 32–33"), as page indexes (the lecture notes print the PDF's numbers)."""
+    out = []
+    for m in re.finditer(r"\bpp?\.\s*(\d{1,3})(?:\s*[–\-]\s*(\d{1,3}))?", where):
+        out += [int(m.group(1)) - 1] + ([int(m.group(2)) - 1] if m.group(2) else [])
+    return list(dict.fromkeys(out))
+
+
+ORDINALS = {"first": 0, "second": 1, "third": 2, "fourth": 3, "fifth": 4}
+
+
+def _paragraphs(page):
+    """The text blocks of a page that are long enough to be paragraphs, top to bottom."""
+    return sorted((b for b in page.get_text("blocks") if b[6] == 0 and len(b[4].strip()) >= 60), key=lambda b: b[1])
+
+
+def _mark(it, label, page, page_index, rect):
+    return {"n": it["n"], "label": label, "md": it["md"], "page": page_index,
+            "size": (page.rect.width, page.rect.height), "rect": rect}
+
+
+def _by_position(doc, it, pages):
+    """A location that names a paragraph or a place on a page ("first paragraph", "top", a quoted heading) and no equation."""
+    where, out = it["where"], []
+    for pg in pages:
+        if not 0 <= pg < doc.page_count:
+            continue
+        page = doc[pg]
+        W, H = page.rect.width, page.rect.height
+        quoted = re.search(r"“([^”]{4,80})”", where)
+        word = next((w for w in ORDINALS if re.search(r"\b" + w + r"\s+paragraph", where, re.I)), None)
+        if quoted and page.search_for(quoted.group(1)):
+            r = page.search_for(quoted.group(1))[0]
+            out.append(_mark(it, where, page, pg, (r.x0 - 3, r.y0 - 2, r.x1 + 3, r.y1 + 2)))
+        elif word or re.search(r"\blast\s+paragraph", where, re.I):
+            paras = _paragraphs(page)
+            if paras:
+                b = paras[-1] if not word else paras[min(ORDINALS[word], len(paras) - 1)]
+                out.append(_mark(it, where, page, pg, (b[0] - 3, b[1] - 3, b[2] + 3, b[3] + 3)))
+        elif re.search(r"\btop\b", where, re.I):
+            out.append(_mark(it, where, page, pg, (W * 0.08, H * 0.04, W * 0.92, H * 0.16)))
+        if out and out[-1]["page"] == pg:
+            break
+    if not out and pages and 0 <= pages[0] < doc.page_count:               # only the page is known: a bar down its left margin
+        page = doc[pages[0]]
+        out.append(_mark(it, where, page, pages[0], (6, 8, 22, page.rect.height - 8)))
+    return out
+
+
+def _near_equation(doc, it, page_index, tag_rect, size):
+    """"paragraph before/after Eq. (68)", "margin under Eq. (148)": the paragraph above or below the equation, else its row."""
+    page = doc[page_index]
+    W = size[0]
+    where = it["where"]
+    paras = _paragraphs(page)
+    if re.search(r"\b(before|above)\b", where, re.I):
+        above = [b for b in paras if b[3] <= tag_rect[1] + 6]
+        if above:
+            b = above[-1]
+            return _mark(it, where, page, page_index, (b[0] - 3, b[1] - 3, b[2] + 3, b[3] + 3))
+    if re.search(r"\b(after|below|under)\b", where, re.I):
+        below = [b for b in paras if b[1] >= tag_rect[3] - 6]
+        if below:
+            b = below[0]
+            return _mark(it, where, page, page_index, (b[0] - 3, b[1] - 3, b[2] + 3, b[3] + 3))
+    return _mark(it, where, page, page_index, (W * 0.1, tag_rect[1] - 16, tag_rect[2] + 4, tag_rect[3] + 12))
 
 
 def _typos(item):
@@ -100,48 +168,51 @@ def _sentence_marks(doc, item, pages):
 
 
 def locate(path, mtime, items):
-    """Marks for the errata that can be placed in this PDF: {n, label, md, page, rect, size}."""
+    """Marks for the errata that can be placed in this PDF: {n, label, md, page, rect, size, [sentence]}."""
     path = str(path)
     marks = []
     tags = None
     doc = None
     try:
         for it in items:
-            nums = _numbers(it["where"])
+            where = it["where"]
+            nums, pages = _numbers(where), _pages(where)
+            doc = doc or pymupdf.open(path)
+            placed = []
             if nums:
                 tags = tags if tags is not None else _equation_tags(path, mtime)
-                placed = []
                 for k in nums:
-                    for page, r, size in tags.get(k, [])[:1]:                     # the first tag with that number
-                        W = size[0]
-                        marks.append({"n": it["n"], "label": it["where"], "md": it["md"], "page": page, "size": size,
-                                      "rect": (W * 0.1, r[1] - 16, r[2] + 4, r[3] + 12)})
-                        placed.append(page)
-                if placed:                                                        # and the sentence it quotes, near the equation
-                    doc = doc or pymupdf.open(path)
-                    marks += _sentence_marks(doc, it, sorted({q for pg in placed for q in (pg - 1, pg, pg + 1)}))
-            elif re.search(r"§\s*\d+\.\d+", it["where"]):
-                sec = re.search(r"§\s*(\d+\.\d+)", it["where"]).group(1)
-                doc = doc or pymupdf.open(path)
+                    found = tags.get(k, [])
+                    pick = next((t for t in found if t[0] in pages), found[0] if found else None)    # the tag on the named page, if any
+                    if pick:
+                        page_index, r, size = pick
+                        marks.append(_near_equation(doc, it, page_index, r, size))
+                        placed.append(page_index)
+            elif re.search(r"§\s*\d+\.\d+", where):
+                sec = re.search(r"§\s*(\d+\.\d+)", where).group(1)
                 for i in range(doc.page_count):                              # the heading "14.2 ..." at the left margin
                     hit = next((r for r in doc[i].search_for(sec) if r.x0 < doc[i].rect.width * 0.25), None)
                     if hit:
                         W = doc[i].rect.width
-                        marks.append({"n": it["n"], "label": it["where"], "md": it["md"], "page": i,
-                                      "size": (W, doc[i].rect.height), "rect": (hit.x0 - 4, hit.y0 - 3, W * 0.9, hit.y1 + 3)})
+                        marks.append(_mark(it, where, doc[i], i, (hit.x0 - 4, hit.y0 - 3, W * 0.9, hit.y1 + 3)))
+                        placed.append(i)
                         break
-            elif "typo" in it["where"].lower():
-                doc = doc or pymupdf.open(path)
+            elif "typo" in where.lower():
                 for text, pg in _typos(it):
-                    pages = [pg - 1] if pg and 0 < pg <= doc.page_count else range(doc.page_count)
-                    for i in pages:
+                    for i in ([pg - 1] if pg and 0 < pg <= doc.page_count else range(doc.page_count)):
                         hits = doc[i].search_for(text)
                         if hits:
                             r = hits[0]
-                            marks.append({"n": it["n"], "label": f"{it['where']}: {text}", "md": it["md"], "page": i,
-                                          "size": (doc[i].rect.width, doc[i].rect.height),
-                                          "rect": (r.x0 - 2, r.y0 - 2, r.x1 + 2, r.y1 + 2)})
+                            marks.append(_mark(it, f"{where}: {text}", doc[i], i, (r.x0 - 2, r.y0 - 2, r.x1 + 2, r.y1 + 2)))
+                            placed.append(i)
                             break
+            if not placed and pages:                                             # "p. 22, second paragraph", "p. 25, top"
+                found = _by_position(doc, it, pages)
+                marks += found
+                placed += [m["page"] for m in found]
+            if placed:                                                           # and the sentence the erratum quotes
+                near = pages or sorted({q for pg in placed for q in (pg - 1, pg, pg + 1)})   # the page it names, else around the equation
+                marks += _sentence_marks(doc, it, sorted(set(near) | set(placed)))
     finally:
         if doc:
             doc.close()

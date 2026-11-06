@@ -140,14 +140,12 @@ def hint_for(section, books):
     """A hint built from a matching section: where to look, its main idea and its first formulas."""
     book = next((b for b in books if b["id"] == section["book"]), None)
     lec = book.get("lecture") if book else None
-    where = (section.get("label") or ((f"{lec}." if lec else "§") + str(section["num"]))) + " · " + section["title"]
+    where = (section.get("label") or ((f"{lec}." if lec else "§") + str(section["num"]))) + " · " + tex(section["title"], section["defs"])
     md = f"**Where to look:** {where}"
-    first = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", re.search(r"<p[^>]*>(.*?)</p>", section["html"], re.S).group(1))).strip() \
+    first = re.sub(r"\s+", " ", re.sub(r"<(?!/?su[pb]\b)[^>]+>", " ", re.search(r"<p[^>]*>(.*?)</p>", section["html"], re.S).group(1))).strip() \
         if re.search(r"<p[^>]*>(.*?)</p>", section["html"], re.S) else ""
     if first:
-        first = unitex.convert(macros.expand(_html.unescape(first), section["defs"]))
-        first = re.sub(r"\\\((.+?)\\\)", lambda m: "$" + m.group(1).strip() + "$", first)
-        md += f"\n\n{first[:260]}{'…' if len(first) > 260 else ''}"
+        md += "\n\n" + tex(first, section["defs"], 260)
     eqs = _equations(section)
     if eqs:
         md += "\n\n**Start from:**\n\n" + "\n\n".join(f"$${e}$$" for e in eqs)
@@ -176,7 +174,7 @@ def analyze(book, course, books):
     def tag(sec):
         b = by_book.get(sec["book"], {})
         return ((sec.get("label") or ((f"{b.get('lecture')}." if b.get("lecture") else "§") + str(sec["num"])))
-                + " · " + sec["title"], sec["book"], sec["sec"])
+                + " · " + tex(sec["title"], sec.get("defs")), sec["book"], sec["sec"])
 
     out = []
     for pr in problems:
@@ -201,3 +199,25 @@ def analyze(book, course, books):
 def clean(text):
     """Homework text for display: private-use symbol-font glyphs from the PDF dropped, spaces tidied."""
     return re.sub(r"\s+", " ", re.sub(r"[\ue000-\uf8ff]", "", text)).strip()
+
+
+def _cut(text, n):
+    """Text shortened to about n characters, never inside a $...$ formula."""
+    if len(text) <= n:
+        return text
+    i = text.rfind(" ", 0, n)
+    cut = text[:i if i > 0 else n].rstrip()
+    while cut.count("$") % 2:                                  # an open formula: back up to before it
+        cut = cut[:cut.rfind("$")].rstrip()
+    return cut + "\u2026"
+
+
+def tex(text, defs=None, limit=None):
+    """Text for display with every formula as LaTeX between $ signs: the notes' macros expanded, Unicode math (psi, hbar,
+    dagger, x squared) converted, \\( \\) turned into $ $, and sub/superscript tags into TeX."""
+    text = re.sub(r"<su([pb])>(.*?)</su[pb]>", lambda m: "$" + ("^" if m.group(1) == "p" else "_") + "{" + m.group(2) + "}$", text)
+    text = re.sub(r"</?(?:i|em|b|strong|span|code)[^>]*>", "", text)
+    text = _html.unescape(macros.expand(text, defs or {}))
+    text = re.sub(r"\\\((.+?)\\\)", lambda m: "$" + m.group(1).strip() + "$", text, flags=re.S)
+    text = unitex.convert(text)
+    return _cut(text, limit) if limit else text

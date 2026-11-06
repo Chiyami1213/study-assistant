@@ -293,6 +293,12 @@ def set_homework_status(hw_id, status):
     _exec("UPDATE homework_pairs SET status=? WHERE id=?", (status, hw_id))
 
 
+def set_homework_grade(hw_id, score, points, note=None):
+    """The grade a homework received: score out of points (both None when not graded yet), and the grader's comments."""
+    _exec("UPDATE homework_pairs SET score=?, points=?, grade_note=? WHERE id=?",
+          (score, points if score is not None else None, (note or "").strip() or None, hw_id))
+
+
 def delete_homework(hw_id):
     _exec("DELETE FROM homework_pairs WHERE id=?", (hw_id,))
 
@@ -395,6 +401,12 @@ def add_event(title, day, course_id=None, time=None, end_time=None):
 
 def update_event(event_id, title, time, end_time=None):
     _exec("UPDATE events SET title=?, time=?, end_time=? WHERE id=?", (title, time or None, end_time or None, event_id))
+
+
+def set_event_grade(event_id, score, points, note=None):
+    """The score of an exam event (score out of points; both None to clear it)."""
+    _exec("UPDATE events SET score=?, points=?, grade_note=? WHERE id=?",
+          (score, points if score is not None else None, (note or "").strip() or None, event_id))
 
 
 def set_event_covers(event_id, text):

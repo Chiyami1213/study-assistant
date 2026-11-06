@@ -55,7 +55,10 @@ def _placed(path, mtime, items_json):
 
 def _errata_marks(book, path):
     """Errata of the HTML notes open next to this PDF (another window, or the chapter being built), for the same
-    course, placed on this PDF's pages."""
+    course, placed on this PDF's pages. Errata name pages and equations of the course lecture notes, so only a PDF of that
+    kind carries marks."""
+    if book["kind"] != "Lecture Notes":
+        return []
     sources = []                                         # (course ids, html text)
     for w in _windows():
         other = crud.get_book(w["book"]) if w["type"] == "reference" and w.get("book") else None
@@ -91,7 +94,7 @@ def _reference(win):
         codes = " / ".join(courses[i]["code"] or courses[i]["name"] for i in b["course_ids"] if i in courses) or "No Course"
         return f"{codes} · {b['kind']} · {b['title']}"
 
-    kind_rank = {"Textbook": 0, "Lecture Notes": 1, "Notes": 2, "Homework": 3, "Homework Solution": 4}
+    kind_rank = {"Textbook": 0, "Lecture Notes": 1, "Notes": 2, "Homework": 3, "Homework Solution": 4, "Exam": 5}
     books = sorted(books, key=lambda b: (label(b).split(" · ")[0].lower(), kind_rank.get(b["kind"], 9), b["title"].lower()))
     ids = [b["id"] for b in books]
     by_id = {b["id"]: b for b in books}
@@ -107,7 +110,7 @@ def _reference(win):
     if st.session_state[ck] not in course_ids:
         st.session_state[ck] = own_course(cur)
     in_course = [b for b in books if own_course(b) == st.session_state[ck]]
-    kinds = [k for k in ("Textbook", "Lecture Notes", "Notes", "Homework", "Homework Solution") if any(b["kind"] == k for b in in_course)] or ["Notes"]
+    kinds = [k for k in ("Textbook", "Lecture Notes", "Notes", "Homework", "Homework Solution", "Exam") if any(b["kind"] == k for b in in_course)] or ["Notes"]
     kinds += sorted({b["kind"] for b in in_course} - set(kinds))
     st.session_state.setdefault(kk, cur["kind"] if cur["kind"] in kinds else kinds[0])
     if st.session_state[kk] not in kinds:
@@ -161,7 +164,8 @@ def _reference(win):
         active = {m["n"] for m in hit}
         if hit and st.session_state.get(f"_errata_seen_{wid}") != clicked[2]:      # once per click: go to its page
             st.session_state[f"_errata_seen_{wid}"] = clicked[2]
-            st.session_state[f"lab_{wid}_{book_id}_page"] = min(m["page"] for m in hit) + 1
+            where = [m for m in hit if not m.get("sentence")] or hit                  # the named place first, then quotes
+            st.session_state[f"lab_{wid}_{book_id}_page"] = min(m["page"] for m in where) + 1
             reader._bump(f"lab_{wid}_{book_id}")
             st.session_state["_errata_hit"] = True
     reader.pdf_reader(path, f"lab_{wid}_{book_id}", height=None, start=saved, on_page=remember, marks=marks,
@@ -454,7 +458,10 @@ def render():
     if clicked and st.session_state.get("_errata_toasted") != clicked[2]:
         st.session_state["_errata_toasted"] = clicked[2]
         if not st.session_state.get("_errata_hit"):
-            st.toast("Open the textbook or lecture notes of this course in another window to see where this erratum is.")
+            lecture_notes_open = any(
+                w["type"] == "reference" and (crud.get_book(w.get("book") or 0) or {}).get("kind") == "Lecture Notes" for w in wins)
+            st.toast("This erratum could not be placed on the open lecture notes (it names slides or text that is not there)."
+                     if lecture_notes_open else "Open the course's lecture notes PDF in another window to see where this erratum is.")
 
 
 def _dock(win):

@@ -294,6 +294,12 @@ def init_db() -> None:
             conn.execute("ALTER TABLE events ADD COLUMN end_time TEXT")
         if "due_time" not in [r["name"] for r in conn.execute("PRAGMA table_info(homework_pairs)")]:
             conn.execute("ALTER TABLE homework_pairs ADD COLUMN due_time TEXT")
+        for table, columns in (("homework_pairs", ("score REAL", "points REAL", "grade_note TEXT")),
+                               ("events", ("score REAL", "points REAL", "grade_note TEXT"))):
+            have = [r["name"] for r in conn.execute(f"PRAGMA table_info({table})")]
+            for column in columns:
+                if column.split()[0] not in have:
+                    conn.execute(f"ALTER TABLE {table} ADD COLUMN {column}")
         if "course_id" not in [r["name"] for r in conn.execute("PRAGMA table_info(lab_notes)")]:
             conn.execute("ALTER TABLE lab_notes ADD COLUMN course_id INTEGER")
         if "covers" not in [r["name"] for r in conn.execute("PRAGMA table_info(events)")]:

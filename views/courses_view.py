@@ -351,8 +351,35 @@ def _homework_book(course_id, hw_title, kind="Homework"):
     return None
 
 
-def _row_html(title, when, status, css, detail=None, book=None, solution=None):
-    sub = f'<div class="dl-sub">{html.escape(detail)}</div>' if detail else ""
+def _exam_book(course_id, event_title):
+    """The Library exam file of this course for an event like "Midterm 2" or "Final Exam" (same kind of exam, same number)."""
+    def key(text):
+        t = (text or "").lower()
+        kind = "midterm" if re.search(r"mid[\s_\-]*term", t) else "final" if "final" in t else "exam"
+        n = re.search(r"\d+", t)
+        return kind, (n.group() if n else None)
+
+    want = key(event_title)
+    for b in crud.list_books():
+        if b["kind"] == "Exam" and course_id in b["course_ids"] and key(b["title"]) == want:
+            return b
+    return None
+
+
+def _grade_html(item):
+    """"Grade 95/100" and the grader's comments, as small lines under a row; empty when the item has no grade."""
+    if item.get("score") is None or not item.get("points"):
+        return ""
+    num = lambda x: f"{x:g}"
+    out = f'<div class="dl-grade">Grade <b>{num(item["score"])}/{num(item["points"])}</b> ({item["score"] / item["points"]:.0%})</div>'
+    for line in (item.get("grade_note") or "").splitlines():
+        if line.strip():
+            out += f'<div class="dl-sub">{html.escape(line.strip())}</div>'
+    return out
+
+
+def _row_html(title, when, status, css, detail=None, book=None, solution=None, extra=""):
+    sub = (f'<div class="dl-sub">{html.escape(detail)}</div>' if detail else "") + extra
     name = html.escape(title)
     if book:                                              # opens the homework PDF, and Back returns to the Overview
         name = f'<a href="#" data-ol-book="{book["id"]}" data-ol-page="1" data-ol-tab="Overview" title="open the homework pdf">{name}</a>'
@@ -389,7 +416,7 @@ def _overview(course):
             status, css = "Open", "open"
         rows += _row_html(h["title"], _when(h["due_date"], h.get("due_time")), status, css,
                           book=_homework_book(course["id"], h["title"]),
-                          solution=_homework_book(course["id"], h["title"], "Homework Solution"))
+                          solution=_homework_book(course["id"], h["title"], "Homework Solution"), extra=_grade_html(h))
     st.markdown(f'<div class="dl-list">{rows}</div>', unsafe_allow_html=True)
 
     st.subheader(f"Midterms and Finals ({len(exams)})")
@@ -397,7 +424,8 @@ def _overview(course):
         st.caption("No midterms or finals yet.")
     rows = "".join(_row_html(e["title"], _when(e["date"], e.get("time")),
                              "Done" if e["date"] < today else "Upcoming", "done" if e["date"] < today else "open",
-                             f"Covers {e['covers']}" if e.get("covers") else None)
+                             f"Covers {e['covers']}" if e.get("covers") else None, book=_exam_book(course["id"], e["title"]),
+                             extra=_grade_html(e))
                    for e in exams)
     st.markdown(f'<div class="dl-list">{rows}</div>', unsafe_allow_html=True)
 

@@ -20,8 +20,8 @@ from pdfmeta import split_lecture, strip_notes_prefix
 from database import BASE_DIR, PDF_DIR
 
 COLUMNS = 6
-KINDS = ["Textbook", "Lecture Notes", "Notes", "Homework", "Homework Solution"]
-PLURAL = {"Textbook": "Textbooks", "Homework Solution": "Homework Solutions"}
+KINDS = ["Textbook", "Lecture Notes", "Notes", "Homework", "Homework Solution", "Exam"]
+PLURAL = {"Textbook": "Textbooks", "Homework Solution": "Homework Solutions", "Exam": "Exams"}
 
 
 @st.cache_data(show_spinner=False, max_entries=256)
@@ -73,17 +73,20 @@ def detect_course(filename, title=""):
 LECTURE_WORDS = re.compile(r"(?<![a-z])(lectures?|lec|slides?)(?![a-z])", re.I)
 NOTES_WORDS = re.compile(r"(?<![a-z])(notes?|handouts?|cheat[\s_\-]*sheets?|study[\s_\-]*guides?|"
                          r"summary|summaries|review|annotated|worksheet|recitation)(?![a-z])", re.I)
+EXAM_WORDS = re.compile(r"(?<![a-z])(exams?|mid[\s_\-]*terms?|final[\s_\-]*exams?)(?![a-z])", re.I)
 SOLUTION_WORDS = re.compile(r"(?<![a-z])(solutions?|soln?s?)(?![a-z])", re.I)
 HOMEWORK_WORDS = re.compile(r"(?<![a-z])(homework|hw|problem[\s_\-]*sets?|psets?|assignment)(?![a-z])", re.I)
 BOOK_WORDS = re.compile(r"(?<![a-z])(textbook|text[\s_\-]*book|edition|ed\.?\s*\d+|\d+(st|nd|rd|th)[\s_\-]*ed)(?![a-z])", re.I)
 
 
 def detect_kind(filename, title=""):
-    """'Homework', 'Textbook', 'Lecture Notes' or 'Notes' when the file name (then title) says so, else None."""
+    """'Exam', 'Homework', 'Textbook', 'Lecture Notes' or 'Notes' when the file name (then title) says so, else None."""
     for text in (filename, title):
         if not text:
             continue
         text = text.replace("_", " ")
+        if EXAM_WORDS.search(text) and not HOMEWORK_WORDS.search(text):
+            return "Exam"
         if HOMEWORK_WORDS.search(text):                       # "hw4 solution.pdf" is the solution, "hw4.pdf" the homework
             return "Homework Solution" if SOLUTION_WORDS.search(text) else "Homework"
         if BOOK_WORDS.search(text):
@@ -228,7 +231,7 @@ def _homework_helper(book):
         key = f"hw{book['id']}_{pr['id']}"
         with st.container(border=True, key=f"{key}_card"):
             head, page, bulb = st.columns([6, 1.5, 1], vertical_alignment="center")
-            head.markdown(f"**{pr['id']}. {pr['title']}**")
+            head.markdown(f"**{pr['id']}.** {hwassist.tex(hwassist.clean(pr['title']))}")
             page.button(f"Page {pr['page']}", key=f"{key}_page", type="tertiary", on_click=_go_page, args=(book["id"], pr["page"]))
             if pr["hint"]:
                 with bulb.popover("", icon=":material/lightbulb:", help="hint for this problem"):
@@ -237,7 +240,7 @@ def _homework_helper(book):
             for part in pr["parts"]:
                 pkey = f"{key}{part['id']}"
                 txt, pbulb = st.columns([8, 1], vertical_alignment="center")
-                txt.markdown(f"**{part['id']})** {hwassist.clean(part['text'])[:150]}")
+                txt.markdown(f"**{part['id']})** {hwassist.tex(hwassist.clean(part['text']), limit=170)}")
                 if part["hint"]:
                     with pbulb.popover("", icon=":material/lightbulb:", help="hint for this part"):
                         st.markdown(part["hint"])
@@ -319,6 +322,8 @@ def _course_order(book):
         return (1.5, numbers, book["title"].lower())
     if book["kind"] == "Homework Solution":
         return (1.6, numbers, book["title"].lower())
+    if book["kind"] == "Exam":
+        return (1.7, tuple(int(n) for n in re.findall(r"\d+", book["title"])), book["title"].lower())
     if book["kind"] in ("Lecture Notes", "Notes"):
         return (0, numbers, "") if numbers else (1, (), book["title"].lower())
     return (2, (), book["title"].lower())
