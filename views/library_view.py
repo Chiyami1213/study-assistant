@@ -311,6 +311,7 @@ def render():
     with f1:
         choice = st.segmented_control("Show", options, key="library_filter", label_visibility="collapsed",
                                       format_func=lambda o: f"{PLURAL.get(o, o)} ({counts[o]})") or "All"
+    st.session_state.setdefault("library_sort", "Course")           # files are grouped by course unless you pick another sort
     with f2:
         sort_by = st.selectbox("Sort by", SORTS, key="library_sort", label_visibility="collapsed",
                                format_func=lambda s: f"Sort: {s}")
