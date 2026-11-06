@@ -163,18 +163,30 @@ def written_hints(course_code, hw_title):
 
 
 _CUES = [
-    (r"\b(plot|graph|sketch|draw|figure)\b", "Plot it. Choose the quantity for each axis and a range that shows the behaviour, compute the points "
-     "(with a short program if there are many), label the axes with units, and say in a sentence what the curve shows."),
-    (r"\b(derive|show that|prove|demonstrate)\b", "Start from the definition or the governing equation. Change one thing per line, say what you used, "
-     "and stop when you reach exactly the form the problem asks for."),
-    (r"\b(explain|why|justify|discuss|comment|reason|physically|interpret|argue)\b", "Name the principle or condition that decides the answer, "
-     "check it against the numbers you are given, and then state the conclusion in one sentence."),
-    (r"\b(compare|which|greater|larger|smaller|more|less|increase|decrease|higher|lower)\b", "Get the same quantity for each case with the same method, "
-     "so the only difference is the case; then compare the two numbers (or their signs) and say which wins and why."),
-    (r"\b(implication|implications|meaning|consequence)\b", "Say what the result means: its size compared with something you know, its sign, "
-     "how it changes with the inputs, and one limit where you can check it."),
-    (r"\b(how many|how much|calculate|compute|find|determine|what is|estimate|evaluate|solve|number of)\b", "Write the governing equation first and "
-     "list what is given and what is unknown. Solve for the unknown symbolically, then put in numbers with units and check the size of the result."),
+    (r"(write[^.]{0,40}(program|code|script)|programming assignment|\bnumerical|\biterat)",
+     "Plan the program before coding it. Write the equation you need to solve, choose the numerical method and its stopping test, "
+     "code it in small steps, check it against a case you can do by hand, then plot or tabulate the result and say what it shows."),
+    (r"\b(plot|graph|sketch|draw|figure)\b",
+     "Plot it. Choose the quantity for each axis and a range that shows the behaviour, compute the points (with a short program if there are "
+     "many), label the axes with units, and say in a sentence what the curve shows."),
+    (r"\b(derive|show that|prove|demonstrate)\b",
+     "Start from the definition or the governing equation. Change one thing per line, say what you used, and stop when you reach exactly the "
+     "form the problem asks for."),
+    (r"\b(is it|are they|is there|can the|can it|does the|does it|would|will the)\b[^?]*\?",
+     "Decide yes or no first, then support it: list each condition that has to hold, check each with the numbers given, and say which one "
+     "decides the answer."),
+    (r"\b(explain|explanation|why|justify|justification|discuss|comment|reason|physically|interpret|argue|convincing)\b",
+     "Name the principle or condition that decides the answer, check it against the numbers you are given, and then state the conclusion "
+     "in one sentence."),
+    (r"\b(compare|which|greater|larger|smaller|more|less|increase|decrease|higher|lower)\b",
+     "Get the same quantity for each case with the same method, so the only difference is the case; then compare the two numbers (or their "
+     "signs) and say which wins and why."),
+    (r"\b(implication|implications|meaning|consequence)\b",
+     "Say what the result means: its size compared with something you know, its sign, how it changes with the inputs, and one limit where "
+     "you can check it."),
+    (r"\b(how many|how much|calculate|compute|find|determine|what is|estimate|evaluate|solve|number of)\b",
+     "Write the governing equation first and list what is given and what is unknown. Solve for the unknown symbolically, then put in "
+     "numbers with units and check the size of the result."),
 ]
 
 
@@ -195,11 +207,24 @@ def with_approach(text, title, section_hint):
     return md
 
 
+def _whole_assignment(path):
+    """For a homework with no numbered problems (one programming assignment, say): the whole file as a single problem."""
+    try:
+        doc = pymupdf.open(path)
+        text = clean("\n".join(pg.get_text() for pg in doc))
+    except Exception:
+        return []
+    if len(text) < 40:
+        return []
+    first = next((ln.strip() for ln in text.split(". ") if ln.strip()), "Assignment")
+    return [{"id": "1", "title": " ".join(first.split()[:8]) or "Assignment", "page": 1, "text": text[:400], "parts": []}]
+
+
 def analyze(book, course, books):
     """Problems of a homework PDF with the matching note sections and hints.
     [{id, title, page, tags, hint, parts: [{id, page, text, tags, hint}]}]"""
     path = BASE_DIR / book["pdf_path"]
-    problems = parse_problems(str(path), path.stat().st_mtime)
+    problems = parse_problems(str(path), path.stat().st_mtime) or _whole_assignment(path)
     sections = course_sections(course["id"], books)
     by_book = {b["id"]: b for b in books}
     hand = written_hints(course["code"] or course["name"], book["title"])
