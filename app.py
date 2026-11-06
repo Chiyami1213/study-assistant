@@ -318,7 +318,7 @@ section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-h
 /* while the page or a tab is switching, the old content disappears at once instead of squeezing as the new one arrives */
 .stApp.switching [data-testid="stMain"] [data-stale="true"] {{display: none !important;}}
 .stApp.switching [data-testid="stMain"] [data-stale="true"] * {{transition: none !important;}}
-.syl-stack {{display: flex; flex-direction: column; align-items: flex-start; gap: 10px;}} .syl-stack .syl-table {{margin: 0; width: 100%;}}
+.syl-stack {{display: flex; flex-direction: column; align-items: center; gap: 10px;}} .syl-stack .syl-table {{margin: 0; width: 100%;}}
 .syl-row {{display: flex; align-items: center; gap: 28px; flex-wrap: wrap; margin: 6px 0 10px;}}
 .syl-row .syl-table {{flex: 1 1 340px; margin: 0;}}
 .syl-pie {{flex: none; width: 180px; height: 180px;}} .syl-slice {{transition: opacity 0.12s;}} .syl-pie:hover .syl-slice {{opacity: 0.55;}} .syl-pie .syl-slice:hover {{opacity: 1;}}
