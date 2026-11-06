@@ -60,7 +60,8 @@ def parse_problems(path, mtime):
             problems.append(current)
             part = None
             continue
-        if bare and int(bare.group(1)) == want and TITLE.match(nxt):      # "2" then "2D WKB"; not a fraction's "2" then "d"
+        if bare and int(bare.group(1)) == want and TITLE.match(nxt) and re.search(r"[A-Za-z]{3,}", nxt):
+            # "2" then "2D WKB"; not a fraction's "2" then "d", nor a table cell "4" then "120."
             current = {"id": bare.group(1), "title": "", "page": page, "text": "", "parts": []}
             problems.append(current)
             part, pending = None, True
@@ -76,7 +77,29 @@ def parse_problems(path, mtime):
         (part if part else current)["text"] += " " + line.strip()
         if part:
             current["text"] += " " + line.strip()
+    for pr in problems:                                                   # "a. Determine ... b. Determine ..." written inside the text
+        if not pr["parts"]:
+            pr["parts"] = _inline_parts(pr)
     return problems
+
+
+INLINE_PART = re.compile(r"(?:(?<=\s)|^)([a-h])[.)]\s+(?=[A-Z])")
+
+
+def _inline_parts(pr):
+    """Lettered parts that run on in one paragraph ("a. ... b. ... c. ..."): split at the letters, in order, when there are at least two."""
+    marks, want = [], "a"
+    for m in INLINE_PART.finditer(pr["text"]):
+        if m.group(1) == want:
+            marks.append(m)
+            want = chr(ord(want) + 1)
+    if len(marks) < 2:
+        return []
+    out = []
+    for k, m in enumerate(marks):
+        end = marks[k + 1].start() if k + 1 < len(marks) else len(pr["text"])
+        out.append({"id": m.group(1), "page": pr["page"], "text": pr["text"][m.end():end].strip()})
+    return out
 
 
 @lru_cache(maxsize=16)
