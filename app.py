@@ -419,7 +419,7 @@ section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-h
 .lab-detached-title {{font-weight: 600; padding: 8px 4px; opacity: 0.9;}}
 .lab-heading {{font-size: 1.45rem; margin: 6px 0 6px; padding: 0;}}
 [class*="st-key-lab_html_"], [class*="st-key-lab_html_"] [data-testid="stElementContainer"], [class*="st-key-lab_html_"] iframe {{
-    height: calc(100vh - 180px) !important; width: 100% !important; min-height: 300px; flex: none !important;}}
+    height: calc(100vh - 145px) !important; width: 100% !important; min-height: 300px; flex: none !important;}}
 [class*="st-key-lab_view_scroll"] h1 {{font-size: 1.6rem;}}
 [class*="st-key-lab_view_scroll"] h2 {{font-size: 1.3rem;}}
 [class*="st-key-lab_view_scroll"] h3 {{font-size: 1.1rem;}}

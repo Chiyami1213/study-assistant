@@ -388,7 +388,7 @@ def render_detached(wid):
                 "[data-testid='stSidebar'], [data-testid='stSidebarCollapsedControl'] {display: none !important;}"
                 "[class*='st-key-lab_pane_'] {height: calc(100vh - 56px) !important;}"
                 "[class*='st-key-lab_html_'], [class*='st-key-lab_html_'] [data-testid='stElementContainer'], "
-                "[class*='st-key-lab_html_'] iframe {height: calc(100vh - 130px) !important;}"
+                "[class*='st-key-lab_html_'] iframe {height: calc(100vh - 120px) !important;}"
                 ".rd-scroll.rd-fill {height: calc(100vh - 150px) !important;}"
                 "[class*='st-key-lab_view_scroll'], [class*='st-key-lab_view_scroll'] iframe {height: calc(100vh - 270px) !important;}"
                 "</style>", unsafe_allow_html=True)
