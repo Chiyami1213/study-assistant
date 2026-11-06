@@ -19,7 +19,7 @@ import macros
 from database import BASE_DIR
 
 ROOT = BASE_DIR / "quizzes"
-SKIP = re.compile(r"notes check|errata|self-check|quiz", re.I)       # not content sections
+SKIP = re.compile(r"notes check|errata|self-check|quiz|mind map", re.I)       # not content sections
 
 
 def _text(fragment):
@@ -44,7 +44,7 @@ def sections_of(html_text):
         sn = re.search(r'<span class="sn">\s*(\d+)\.(\d+)', h.group(1)) if h else None      # "4.1 · Lec 4-2": lecture.section
         if sn and not num:
             num = type("N", (), {"group": lambda self, i: sn.group(2)})()
-        if SKIP.search(title) or m.group(1).lower() in ("check", "quiz", "errata", "selfcheck"):
+        if SKIP.search(title) or m.group(1).lower() in ("check", "quiz", "errata", "selfcheck", "mindmap"):
             continue
         body = m.group(2)
         derivs = len(re.findall(r'class="deriv"', body))

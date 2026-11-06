@@ -162,6 +162,39 @@ def written_hints(course_code, hw_title):
         return {}
 
 
+_CUES = [
+    (r"\b(plot|graph|sketch|draw|figure)\b", "Plot it. Choose the quantity for each axis and a range that shows the behaviour, compute the points "
+     "(with a short program if there are many), label the axes with units, and say in a sentence what the curve shows."),
+    (r"\b(derive|show that|prove|demonstrate)\b", "Start from the definition or the governing equation. Change one thing per line, say what you used, "
+     "and stop when you reach exactly the form the problem asks for."),
+    (r"\b(explain|why|justify|discuss|comment|reason|physically|interpret|argue)\b", "Name the principle or condition that decides the answer, "
+     "check it against the numbers you are given, and then state the conclusion in one sentence."),
+    (r"\b(compare|which|greater|larger|smaller|more|less|increase|decrease|higher|lower)\b", "Get the same quantity for each case with the same method, "
+     "so the only difference is the case; then compare the two numbers (or their signs) and say which wins and why."),
+    (r"\b(implication|implications|meaning|consequence)\b", "Say what the result means: its size compared with something you know, its sign, "
+     "how it changes with the inputs, and one limit where you can check it."),
+    (r"\b(how many|how much|calculate|compute|find|determine|what is|estimate|evaluate|solve|number of)\b", "Write the governing equation first and "
+     "list what is given and what is unknown. Solve for the unknown symbolically, then put in numbers with units and check the size of the result."),
+]
+
+
+def approach(text, title=""):
+    """A short, answer-free first step for a problem or sub-problem, from what it asks (plot, explain, compare, derive, calculate)."""
+    blob = f"{title} {text}".lower()
+    for pattern, hint in _CUES:
+        if re.search(pattern, blob):
+            return hint
+    return "Re-read what is asked, write down what is given and what is unknown, and name the equation or principle that connects them."
+
+
+def with_approach(text, title, section_hint):
+    """The hint shown for a problem: how to start, then where in the notes to look (when a section matches)."""
+    md = f"**How to start:** {approach(text, title)}"
+    if section_hint:
+        md += chr(10) * 2 + section_hint
+    return md
+
+
 def analyze(book, course, books):
     """Problems of a homework PDF with the matching note sections and hints.
     [{id, title, page, tags, hint, parts: [{id, page, text, tags, hint}]}]"""
@@ -180,7 +213,8 @@ def analyze(book, course, books):
     for pr in problems:
         whole = best_sections(pr["text"], sections, 2, boost=pr["title"])
         item = {"id": pr["id"], "title": pr["title"], "page": pr["page"], "tags": [tag(s) for _, s in whole],
-                "hint": (hand.get(pr["id"], {}).get("hint") or (hint_for(whole[0][1], books) if whole else "")), "parts": []}
+                "hint": (hand.get(pr["id"], {}).get("hint")
+                         or with_approach(pr["text"], pr["title"], hint_for(whole[0][1], books) if whole else "")), "parts": []}
         for part in pr["parts"]:
             m = best_sections(part["text"], sections, 2, boost=pr["title"]) or whole
             if m and whole and m[0][1]["sec"] != whole[0][1]["sec"] or (m and whole and m[0][1]["book"] != whole[0][1]["book"]):
@@ -191,7 +225,8 @@ def analyze(book, course, books):
             key = pr["id"] + part["id"]
             item["parts"].append({"id": part["id"], "page": part["page"], "text": part["text"][:240],
                                   "tags": [tag(s) for _, s in m],
-                                  "hint": hand.get(key, {}).get("hint") or (hint_for(m[0][1], books) if m else "")})
+                                  "hint": hand.get(key, {}).get("hint")
+                                  or with_approach(part["text"], pr["title"], hint_for(m[0][1], books) if m else "")})
         out.append(item)
     return out
 
