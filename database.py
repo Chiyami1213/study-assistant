@@ -210,7 +210,9 @@ CREATE TABLE IF NOT EXISTS quiz_attempts (
     correct   INTEGER NOT NULL,
     total     INTEGER NOT NULL,
     answers   TEXT,
-    assisted  INTEGER NOT NULL DEFAULT 0   -- correct answers made with the notes open
+    assisted  INTEGER NOT NULL DEFAULT 0,  -- correct answers made with the notes or a hint
+    notes_used INTEGER NOT NULL DEFAULT 0, -- questions where Check Notes was used
+    hints_used INTEGER NOT NULL DEFAULT 0  -- questions where Hint was used
 );
 
 -- Notes exported from the Note Builder; the File page lists them under their course.
@@ -298,6 +300,9 @@ def init_db() -> None:
             conn.execute("ALTER TABLE events ADD COLUMN covers TEXT")
         if "source_book_id" not in [r["name"] for r in conn.execute("PRAGMA table_info(lab_chapters)")]:
             conn.execute("ALTER TABLE lab_chapters ADD COLUMN source_book_id INTEGER")
+        for col in ("notes_used", "hints_used"):
+            if col not in [r["name"] for r in conn.execute("PRAGMA table_info(quiz_attempts)")]:
+                conn.execute(f"ALTER TABLE quiz_attempts ADD COLUMN {col} INTEGER NOT NULL DEFAULT 0")
         if "assisted" not in [r["name"] for r in conn.execute("PRAGMA table_info(quiz_attempts)")]:
             conn.execute("ALTER TABLE quiz_attempts ADD COLUMN assisted INTEGER NOT NULL DEFAULT 0")
         if "photo_file" not in cols:

@@ -296,6 +296,7 @@ section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-h
 [data-testid="stColumn"]:has(.st-key-quiz_notes_pane) {{position: sticky; top: 3.8rem; align-self: flex-start; height: fit-content;}}
 .st-key-quiz_notes_pane iframe {{height: calc(100vh - 12rem) !important; min-height: 320px;}}
 .st-key-quiz_notes_pane [data-testid="stElementContainer"]:has(iframe) {{height: calc(100vh - 12rem) !important; min-height: 320px;}}
+[class*="st-key-qcard_"] [data-testid="stCaptionContainer"] {{margin-top: -0.4rem;}}
 .qtag {{font-size: 0.76rem; letter-spacing: 0.04em; text-transform: uppercase; opacity: 0.55; margin-top: -0.3rem;}}
 .und-row {{display: grid; grid-template-columns: minmax(0, 3fr) minmax(80px, 2fr) 3rem 7.8rem; gap: 14px; align-items: center;
     padding: 6px 16px; border-bottom: 1px solid var(--border);}}

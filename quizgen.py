@@ -97,6 +97,6 @@ def questions(data):
                 random.Random(q["q"]).shuffle(order)                     # the right answer is not always first
                 fix = macros.expand
                 out.append({"kind": "mc", "q": fix(q["q"]), "o": [fix(q["o"][i]) for i in order], "a": order.index(q["a"]),
-                            "e": fix(q.get("e", "")),
+                            "e": fix(q.get("e", "")), "h": fix(q.get("h", "")),
                             "tag": f"§ {sec['title']}", "sec": sec.get("id")})
     return out
