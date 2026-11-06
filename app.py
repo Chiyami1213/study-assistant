@@ -9,7 +9,7 @@ import sys
 import icons
 
 # The dev server caches imported modules between reruns; reload ours so edits apply without a restart.
-for _m in ("database", "notesfs", "crud", "settings", "icons", "pdfmeta", "covers", "reader", "macros", "unitex", "outline", "htmlnotes", "quizzes", "quizgen", "quizhtml", "hwassist", "gradereport", "syllabus", "photos", "views.notes_view", "views.courses_view", "views.home_view",
+for _m in ("database", "notesfs", "crud", "settings", "icons", "pdfmeta", "covers", "reader", "macros", "unitex", "outline", "htmlnotes", "quizzes", "quizgen", "quizhtml", "hwassist", "gradereport", "solcrop", "syllabus", "photos", "views.notes_view", "views.courses_view", "views.home_view",
            "navigation", "views.homework_view", "views.exam_mode_view", "views.recall_view", "views.library_view", "views.quiz_view", "views.calendar_view", "views.file_view", "views.lab_view",
            "views.settings_view"):
     if _m in sys.modules:

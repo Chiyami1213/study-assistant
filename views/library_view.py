@@ -12,6 +12,7 @@ import streamlit.components.v1 as components
 import covers
 import htmlnotes
 import gradereport
+import solcrop
 import hwassist
 import reader
 import crud
@@ -357,12 +358,30 @@ def _grade_panel(book):
                 st.button("Hide Corrected Answer" if opened else "Show Corrected Answer", key=f"{flag}_btn", icon=":material/fact_check:",
                           on_click=_toggle_flag, args=(flag,), help="the solution's answer to this problem, with the grader's comments")
                 if opened:
-                    for c in feedback:
-                        st.markdown(f"> **Grader:** {c['text']}")
                     sol_path = BASE_DIR / solution["pdf_path"]
-                    total = solution.get("total_pages") or 1
-                    for pg in _solution_pages(pr, problems, total):
-                        st.image(reader.page_image(sol_path, sol_path.stat().st_mtime, pg - 1, 1100), caption=f"Solution, page {pg}")
+                    mtime = sol_path.stat().st_mtime
+                    pages = tuple(_solution_pages(pr, problems, solution.get("total_pages") or 1))
+                    wanted = [it for it in pr["items"] if it["lost"] or it.get("comment")] or [None]
+                    shown = set()
+                    for it in wanted:                          # the exact part of the solution behind each lost or commented line
+                        text = it["text"] if it else pr["title"]
+                        part = re.match(r"(?:[\d.]+ pts? )?([a-e])\)", text)
+                        target = part.group(1) if part else ("implications" if "implication" in text.lower() else "analysis")
+                        if target in shown:
+                            continue
+                        shown.add(target)
+                        label = {"implications": "Implications", "analysis": "Solution"}.get(target, f"Part {target})")
+                        st.markdown(f"**{label}** in the solution" + (f" · {text}" if it else ""))
+                        note = by_id.get(it.get("comment")) if it else None
+                        if note:
+                            st.markdown(f"> **Grader:** {note['text']}")
+                        found = solcrop.crops(str(sol_path), mtime, pages, target)
+                        for pg, png in found:
+                            st.image(png, caption=f"Solution, page {pg}")
+                        if not found:
+                            st.caption("This part could not be cut out of the solution file.")
+                            st.button(f"Open Solution p. {pr['solution_page']}", key=f"gp{book['id']}_p{pr['n']}_{target}_open", type="tertiary",
+                                      on_click=_open_file_at, args=(solution["id"], pr["solution_page"]))
     for note in comments:                                  # Canvas comments, and report comments not tied to a rubric line
         if problems and any(it.get("comment") == note["id"] for pr in problems for it in pr["items"]):
             continue
