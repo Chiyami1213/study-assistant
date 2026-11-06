@@ -5,10 +5,10 @@ Personal data (`data/`: database, settings, PDFs) is git-ignored. Never edit fil
 
 ## Note Builder chapters are plain files: edit these when asked to build or change notes
 
-    notes/<course code>/<id>-<chapter title>/notes.html        Notes tab
-    notes/<course code>/<id>-<chapter title>/exercises.html    Exercises tab
+    notes/<course code>/<id>-<chapter title>/notes.html    the whole chapter, one page
 
-- Notes are interactive HTML: ONE self-contained page per tab (inline CSS and JavaScript, no build step, no external
+- A chapter is ONE interactive HTML page; its last section, `<section id="exercises">`, holds the exercises (the
+  app's Exercises tab opens the same page scrolled to that section). The page is self-contained (inline CSS and JavaScript, no build step, no external
   images). Study guides include interactive animation: step-through derivations, sliders and canvas or SVG animations
   that show the idea, not decoration.
 - Math: MathJax from the jsdelivr CDN (`https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-svg.js`), `\( ... \)` inline

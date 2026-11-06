@@ -14,8 +14,13 @@ document.addEventListener('click', function (e) {
 </script>"""
 
 
-def safe_html(text):
-    """The note's HTML with the link guard added just before the closing body tag (or at the end)."""
+def safe_html(text, goto=None):
+    """The note's HTML with the link guard added just before the closing body tag (or at the end). `goto` is the id of
+    a section to scroll to once the page has loaded (the Exercises tab opens the page at #exercises)."""
+    script = _SCRIPT
+    if goto:
+        script += ("<script>window.addEventListener('load', function () { var go = function () { var t = document.getElementById("
+                   + repr(goto) + "); if (t) t.scrollIntoView({block: 'start'}); }; go(); setTimeout(go, 400); setTimeout(go, 1200); });</script>")
     low = text.lower()
     i = low.rfind("</body>")
-    return text + _SCRIPT if i < 0 else text[:i] + _SCRIPT + text[i:]
+    return text + script if i < 0 else text[:i] + script + text[i:]

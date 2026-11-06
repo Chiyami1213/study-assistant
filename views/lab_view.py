@@ -4,11 +4,13 @@ the File page under its course. What is open is remembered between sessions."""
 import streamlit as st
 import streamlit.components.v1 as components
 
+import json
 import os
 import shutil
 import subprocess
 
 import crud
+import errata
 import htmlnotes
 import notesfs
 import outline
@@ -46,6 +48,36 @@ def _remember(**values):
     lab = settings.get_lab()
     if any(lab.get(k) != v for k, v in values.items()):
         settings.set_lab({**lab, **values})
+
+
+@st.cache_data(show_spinner=False, max_entries=32)
+def _placed(path, mtime, items_json):
+    return errata.locate(path, mtime, json.loads(items_json))
+
+
+def _errata_marks(book, path):
+    """Errata of the HTML notes open next to this PDF (another window, or the chapter being built), for the same
+    course, placed on this PDF's pages."""
+    sources = []                                         # (course ids, html text)
+    for w in _windows():
+        other = crud.get_book(w["book"]) if w["type"] == "reference" and w.get("book") else None
+        if other and other["id"] != book["id"] and other["pdf_path"].lower().endswith((".html", ".htm")):
+            f = BASE_DIR / other["pdf_path"]
+            if f.exists():
+                sources.append((set(other["course_ids"]), f.read_text(encoding="utf-8", errors="replace")))
+    lab = settings.get_lab()
+    if any(w["type"] == "notes" for w in _windows()) and lab.get("course"):
+        ch = crud.get_chapter(lab.get("chapters", {}).get(str(lab["course"])) or 0)
+        if ch and notesfs.is_html(ch["notes"]):
+            sources.append(({lab["course"]}, ch["notes"]))
+    items, seen = [], set()
+    for courses, text in sources:
+        if courses & set(book["course_ids"]):
+            for it in errata.parse(text):
+                if (it["where"], it["md"]) not in seen:
+                    seen.add((it["where"], it["md"]))
+                    items.append({**it, "n": len(items) + 1})
+    return _placed(str(path), path.stat().st_mtime, json.dumps(items)) if items else []
 
 
 # ---------- Reference window: a Library file, page by page ----------
@@ -91,7 +123,8 @@ def _reference(win):
         if pages.get(str(book_id)) != page:
             _remember(pages={**pages, str(book_id): page})
 
-    reader.pdf_reader(path, f"lab_{wid}_{book_id}", height=None, start=saved, on_page=remember)
+    reader.pdf_reader(path, f"lab_{wid}_{book_id}", height=None, start=saved, on_page=remember,
+                      marks=_errata_marks(book, path))
 
 
 # ---------- Notes window: the notes being built ----------
@@ -100,10 +133,11 @@ def _is_html(text):
 
 
 def _show(text, field):
+    goto = "exercises" if field == "exercises" else None
     """A chapter body: Markdown, or a full interactive HTML page (as built with Claude)."""
     with st.container(key=f"lab_view_scroll_{field}"):          # sized by the page CSS to fill the window
         if _is_html(text):
-            components.html(htmlnotes.safe_html(text), height=600, scrolling=True)
+            components.html(htmlnotes.safe_html(text, goto), height=600, scrolling=True)
         else:
             st.markdown(text)
 
@@ -130,11 +164,27 @@ def _create_from_library(course_id, book_id, whole=True):
     if not book:
         return
     source = (BASE_DIR / book["pdf_path"]).read_text(encoding="utf-8", errors="replace")
+    title, outlined = outline.outline_from_html(source)
+    if whole:                                            # the finished note, with an Exercises section added at its end
+        notes = outline.with_exercises(source, [n for n, _ in outline.parse_sections(source)[2]])
+    else:
+        notes = outlined
+    title = book["title"] if whole else title
+    _set_chapter(course_id, crud.add_chapter(course_id, f"Chapter {len(crud.list_chapters(course_id)) + 1}"))
+
+
+def _create_from_library(course_id, book_id, whole=True):
+    """Callback: a new chapter that starts from a Library HTML note. `whole` copies the finished note as it is, to
+    tailor from there; otherwise only its headings are used, in the standard blank format."""
+    book = crud.get_book(book_id)
+    if not book:
+        return
+    source = (BASE_DIR / book["pdf_path"]).read_text(encoding="utf-8", errors="replace")
     title, notes, exercises = outline.outline_from_html(source)
     if whole:
         notes = source
     title = book["title"] if whole else (title or book["title"])
-    _set_chapter(course_id, crud.add_chapter(course_id, title, notes, exercises))
+    _set_chapter(course_id, crud.add_chapter(course_id, title, notes))
     st.session_state["lab_flash"] = ("Copied the note. Ask Claude in VS Code to tailor it (see the Claude tab)." if whole
                                      else "Outline created. Ask Claude in VS Code to fill it in (see the Claude tab).")
 
@@ -143,7 +193,7 @@ def _rename(chapter_id, title):
     """Callback: change a chapter's title (its folder is renamed with it)."""
     ch = crud.get_chapter(chapter_id)
     if ch and title.strip():
-        crud.update_chapter(chapter_id, title.strip(), {f: ch[f] for f, _ in SECTIONS})
+        crud.update_chapter(chapter_id, title.strip(), {"notes": ch["notes"]})
 
 
 def _remove_chapter(course_id, chapter_id):
@@ -219,25 +269,29 @@ def _notes():
         st.toast(st.session_state.pop("lab_flash"))
 
     st.markdown(f"<h3 class='lab-heading'>{_esc(ch['title'])}</h3>", unsafe_allow_html=True)
-    _, rename, export = st.columns([3.4, 1.3, 1.2], vertical_alignment="center", gap="small")
-    with rename.popover("Rename", width="stretch"):
-        new = st.text_input("Chapter Title", value=ch["title"], key=f"lab_rename_{cid}", label_visibility="collapsed")
-        st.button("Save Title", key=f"lab_rename_save_{cid}", type="primary", width="stretch", on_click=_rename,
-                  args=(cid, new))
-    if export.button("Export", key="lab_export", width="stretch", help="send this chapter to the file page"):
-        crud.export_chapter(cid)
-        st.toast("Exported to the File page.")
+    with st.container(key="lab_toolbar"):               # Rename and Export sit on the same row as the tabs below
+        _, rename, export = st.columns([3.4, 1.3, 1.2], vertical_alignment="center", gap="small")
+        with rename.popover("Rename", width="stretch"):
+            new = st.text_input("Chapter Title", value=ch["title"], key=f"lab_rename_{cid}", label_visibility="collapsed")
+            st.button("Save Title", key=f"lab_rename_save_{cid}", type="primary", width="stretch", on_click=_rename,
+                      args=(cid, new))
+        if export.button("Export", key="lab_export", width="stretch", help="send this chapter to the file page"):
+            crud.export_chapter(cid)
+            st.toast("Exported to the File page.")
 
-    tabs = st.tabs([label for _, label in SECTIONS] + ["Claude"])
-    for tab, (field, label) in zip(tabs, SECTIONS):
-        with tab:
-            if (ch[field] or "").strip():
-                _show(ch[field], field)
-            else:
-                st.caption(f"Nothing in {label} yet. Ask Claude in VS Code to write it (see the Claude tab).")
-    with tabs[-1]:
-        course = courses[course_id]
-        _vscode_guide(course, ch)
+    with st.container(key="lab_tabs_wrap"):
+        tabs = st.tabs([label for _, label in SECTIONS] + ["Claude"], key="lab_tabs", on_change="rerun")
+        for tab, (field, label) in zip(tabs, SECTIONS):
+            with tab:
+                if not tab.open:
+                    continue
+                if (ch["notes"] or "").strip():
+                    _show(ch["notes"], field)
+                else:
+                    st.caption("Nothing here yet. Ask Claude in VS Code to write it (see the Claude tab).")
+        with tabs[-1]:
+            course = courses[course_id]
+            _vscode_guide(course, ch)
     _watch(course_id, cid)
 
 
@@ -272,14 +326,16 @@ def _vscode_guide(course, ch):
     """No API needed: the chapter is plain files, so Claude in VS Code can edit them and the app shows the result."""
     folder = notesfs.chapter_dir(course, ch, create=True)
     rel = folder.relative_to(BASE_DIR).as_posix()
-    names = [(next((p.name for p in (folder / f"{f}.html", folder / f"{f}.md") if p.exists()), f"{f}.html")) for f in notesfs.FIELDS]
-    st.markdown("**Build this chapter with Claude in VS Code.** Each tab is one interactive HTML page (formulas, step-through "
-                "derivations, animations). Ask Claude there to edit the files, and this window updates within a couple of seconds.")
+    names = [next((p.name for p in (folder / "notes.html", folder / "notes.md") if p.exists()), "notes.html")]
+    st.markdown("**Build this chapter with Claude in VS Code.** The chapter is one interactive HTML page (formulas, step-through "
+                "derivations, animations) with the exercises as its last section. Ask Claude there to edit the file, and this "
+                "window updates within a couple of seconds.")
     st.code(chr(10).join(f"{rel}/{n}" for n in names), language="text")
     st.caption("Copy a prompt like this into Claude in VS Code:")
     st.code(f'Edit {rel}/{names[0]} for {crud.label(course)}, chapter "{ch["title"]}". '
             f'Keep it one self-contained interactive HTML page like the starter. Fill each section from the reference I have open, '
-            f'with MathJax formulas, step-through derivations and an animation that shows the idea.', language="text")
+            f'with MathJax formulas, step-through derivations and an animation that shows the idea. '
+            f'Put the exercises in the section with id="exercises" at the end.', language="text")
     a, b, _ = st.columns([1.3, 1.6, 4])
     a.button("Open Folder", key="lab_open_folder", width="stretch", on_click=_open_folder, args=(folder,))
     b.button("Open in VS Code", key="lab_open_code", width="stretch", on_click=_open_vscode, args=(folder,))

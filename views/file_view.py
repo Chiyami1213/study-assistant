@@ -11,21 +11,17 @@ import notesfs
 
 def _note_card(item):
     with st.expander(f"{item['title']} · {item['exported_at'][:10]}"):
-        tabs = st.tabs(["Notes", "Exercises"])
-        for tab, field in zip(tabs, ("notes", "exercises")):
-            text = item[field]
-            with tab:
-                if not text.strip():
-                    st.caption("Nothing here yet.")
-                elif notesfs.is_html(text):               # an interactive page, with its animations
-                    components.html(htmlnotes.safe_html(text), height=620, scrolling=True)
-                else:
-                    st.markdown(text)
-                if text.strip():
-                    html_page = notesfs.is_html(text)
-                    st.download_button(f"Download {field.title()}", text,
-                                       file_name=f"{item['title'] or 'note'} - {field}.{'html' if html_page else 'md'}",
-                                       mime="text/html" if html_page else "text/markdown", key=f"file_dl_{item['id']}_{field}")
+        text = item["notes"]
+        if not text.strip():
+            st.caption("Nothing here yet.")
+        elif notesfs.is_html(text):               # an interactive page, with its animations and its exercises
+            components.html(htmlnotes.safe_html(text), height=680, scrolling=True)
+        else:
+            st.markdown(text)
+        if text.strip():
+            html_page = notesfs.is_html(text)
+            st.download_button("Download", text, file_name=f"{item['title'] or 'note'}.{'html' if html_page else 'md'}",
+                               mime="text/html" if html_page else "text/markdown", key=f"file_dl_{item['id']}")
         if st.button("Remove", key=f"file_rm_{item['id']}"):
             crud.delete_exported_note(item["id"])
             st.rerun()

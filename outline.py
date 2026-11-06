@@ -87,19 +87,38 @@ def _section(i, name, subs):
     return "\n".join(out)
 
 
-def build_pages(title, sections, eyebrow=""):
-    """(notes_html, exercises_html) from [(section title, [sub titles])] (already HTML-safe)."""
-    notes = page(title, "\n".join(_section(i, n, s) for i, (n, s) in enumerate(sections, 1)), eyebrow)
+def exercises_section(titles):
+    """The Exercises section that closes every page (the Exercises tab scrolls to #exercises)."""
     problems = "\n".join(
         f'<details class="problem"><summary>{i}. {n}</summary><p><b>Problem.</b> <span class="todo">State it.</span></p>'
-        f'<p><b>Solution.</b> <span class="todo">Work it out.</span></p></details>' for i, (n, _) in enumerate(sections, 1))
-    exercises = page(f"{title}: Exercises", problems or '<p class="todo">Add problems here.</p>', eyebrow)
-    return notes, exercises
+        f'<p><b>Solution.</b> <span class="todo">Work it out.</span></p></details>' for i, n in enumerate(titles, 1))
+    return ('<section id="exercises">\n<h2><span class="num">Exercises</span>Practice problems</h2>\n'
+            + (problems or '<p class="todo">Add problems here.</p>') + "\n</section>")
 
 
-def blank_pages(title):
-    """(notes_html, exercises_html) for a new empty chapter."""
-    return build_pages(_html.escape(title, quote=False), [("First Topic", [])])
+def with_exercises(page_html, titles):
+    """A finished page with an Exercises section added at its end (unless it already has one)."""
+    if 'id="exercises"' in page_html:
+        return page_html
+    block = exercises_section(titles)
+    low = page_html.lower()
+    for marker in ("</main>", "</body>"):
+        i = low.rfind(marker)
+        if i >= 0:
+            return page_html[:i] + block + "\n" + page_html[i:]
+    return page_html + block
+
+
+def build_page(title, sections, eyebrow=""):
+    """One interactive page: a section per topic, then the Exercises section. `sections` is
+    [(section title, [sub titles])] (already HTML-safe)."""
+    body = "\n".join(_section(i, n, s) for i, (n, s) in enumerate(sections, 1))
+    return page(title, body + "\n" + exercises_section([n for n, _ in sections]), eyebrow)
+
+
+def blank_page(title):
+    """The page of a new empty chapter."""
+    return build_page(_html.escape(title, quote=False), [("First Topic", [])])
 
 
 def _clean(text):
@@ -110,8 +129,8 @@ def _clean(text):
     return _html.escape(text, quote=False)
 
 
-def outline_from_html(html_text):
-    """(title, notes_html, exercises_html) from a Claude-generated HTML note: its headings become the sections."""
+def parse_sections(html_text):
+    """(title, eyebrow, sections) of a Claude-generated HTML note: its headings become the sections."""
     body = re.sub(r"<(script|style)\b.*?</\1>", "", html_text, flags=re.S | re.I)
     eyebrow = ""
     m = re.search(r'class="eyebrow"[^>]*>(.*?)</div>', body, re.S)
@@ -132,6 +151,10 @@ def outline_from_html(html_text):
             sections.append((text, []))
         elif sections and kind in ("h3", "h4", "deriv"):
             sections[-1][1].append(("Derivation: " + text) if kind == "deriv" else text)
-    plain_title = _html.unescape(title) or "Untitled Chapter"
-    notes, exercises = build_pages(title or "Untitled Chapter", sections, eyebrow)
-    return plain_title, notes, exercises
+    return title, eyebrow, sections
+
+
+def outline_from_html(html_text):
+    """(title, page_html): a blank standard page whose sections are the headings of a Library HTML note."""
+    title, eyebrow, sections = parse_sections(html_text)
+    return _html.unescape(title) or "Untitled Chapter", build_page(title or "Untitled Chapter", sections, eyebrow)

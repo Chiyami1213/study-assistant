@@ -97,6 +97,33 @@ def _prefetch(path, mtime, pages, width):
     threading.Thread(target=work, daemon=True).start()
 
 
+def _boxes(marks):
+    """Red boxes with the erratum number over the marked places (positions in % of the page, so any zoom fits)."""
+    out = ""
+    for m in marks or []:
+        W, H = m["size"]
+        x0, y0, x1, y1 = m["rect"]
+        label = m["label"].replace('"', "'")
+        out += (f'<span class="rd-err" data-tip="{label}" style="left:{x0 / W * 100:.2f}%;top:{y0 / H * 100:.2f}%;'
+                f'width:{(x1 - x0) / W * 100:.2f}%;height:{(y1 - y0) / H * 100:.2f}%"><b>{m["n"]}</b></span>')
+    return out
+
+
+def _go(page_key, page, key):
+    st.session_state[page_key] = page
+    _bump(key)
+
+
+def _errata_list(marks, key, page_key):
+    """A button that lists the errata placed in this PDF, each with a way to jump to its page."""
+    with st.popover(f"Errata ({len({m['n'] for m in marks})})", width="content"):
+        st.caption("Corrections from the open notes, marked in red on the pages.")
+        for i, m in enumerate(sorted(marks, key=lambda m: (m["page"], m["n"]))):
+            st.markdown(f"**{m['n']}. {m['label']}** · page {m['page'] + 1}")
+            st.markdown(m["md"])
+            st.button("Go To Page", key=f"{key}_err_{i}", on_click=_go, args=(page_key, m["page"] + 1, key))
+
+
 def _bump(key):
     st.session_state[f"{key}_tok"] = st.session_state.get(f"{key}_tok", 0) + 1       # tells the scrolling view to jump
 
@@ -135,9 +162,14 @@ def _step_zoom(zoom_key, delta):
 
 
 @st.fragment
-def pdf_reader(path, key, height=640, start=1, title=None, on_page=None):
+def pdf_reader(path, key, height=640, start=1, title=None, on_page=None, marks=None):
     """Draw the reader for a PDF file. 100% fits the width of the window; height None fills the window (page CSS).
-    `title` is drawn above the toolbar with the page number; `on_page(page)` is told whenever the page changes."""
+    `title` is drawn above the toolbar with the page number; `on_page(page)` is told whenever the page changes.
+    `marks` are errata to draw on the pages (see errata.py)."""
+    marks = marks or []
+    by_page = {}
+    for m in marks:
+        by_page.setdefault(m["page"], []).append(m)
     try:
         total = covers.page_count(path)
     except Exception:
@@ -167,21 +199,25 @@ def pdf_reader(path, key, height=640, start=1, title=None, on_page=None):
         cols[10].button("", key=f"{key}_mode", icon=MODES[cur][1], width="stretch", on_click=_toggle_mode,
                         args=(mode_key,), help=f"{MODES[cur][0]} view. click for {MODES[nxt][0]} view")
 
+        if marks:
+            _errata_list(marks, key, page_key)
+
     page, zoom = st.session_state[page_key], st.session_state[zoom_key]
     if title:
         heading.markdown(f"<h3 class='lab-heading'>{html.escape(title)} · Page {page}</h3>", unsafe_allow_html=True)
     mtime = path.stat().st_mtime
     mode = st.session_state.get(mode_key, "page")
     if mode in ("scroll", "scroll2") and scroll_available():
-        _scrolling_view(path, key, page, zoom, total, height, mtime, per_row=2 if mode == "scroll2" else 1)
+        _scrolling_view(path, key, page, zoom, total, height, mtime, per_row=2 if mode == "scroll2" else 1, by_page=by_page)
         if on_page:
             on_page(page)
         return
     shown = [page, page + 1] if mode == "double" and page < total else [page]
     width = min(3000, int(1400 * zoom / 100 / len(shown) + 200))
     imgs = "".join(
+        f'<div class="rd-pagewrap" style="width:{zoom / len(shown):g}%">'
         f'<img src="data:image/jpeg;base64,{base64.b64encode(page_image(path, mtime, n - 1, width)).decode()}" '
-        f'style="width:{zoom / len(shown):g}%" alt="Page {n}">' for n in shown)
+        f'style="width:100%" alt="Page {n}">{_boxes(by_page.get(n - 1))}</div>' for n in shown)
     box = f' style="height:{height}px"' if height else ""
     st.markdown(f'<div class="rd-scroll{"" if height else " rd-fill"}"{box}><div class="rd-spread">{imgs}</div></div>',
                 unsafe_allow_html=True)
@@ -192,7 +228,7 @@ def pdf_reader(path, key, height=640, start=1, title=None, on_page=None):
         on_page(page)
 
 
-def _scrolling_view(path, key, page, zoom, total, height, mtime, per_row=1):
+def _scrolling_view(path, key, page, zoom, total, height, mtime, per_row=1, by_page=None):
     """Every page stacked in one scrolling window. Images are page files under static/pages, drawn in the
     background around the current page; the page script retries any that are not ready yet."""
     sizes = _page_sizes(str(path), mtime)
@@ -201,7 +237,8 @@ def _scrolling_view(path, key, page, zoom, total, height, mtime, per_row=1):
     _render_files(str(path), mtime, page - 1, total)
     cells = [
         f'<div class="rd-pg" id="rdp-{key}-{n}" style="aspect-ratio:{w}/{h};width:{zoom / per_row:g}%">'
-        f'<img loading="lazy" decoding="async" alt="" src="/app/static/pages/{folder}/{n}.jpg"></div>'
+        f'<img loading="lazy" decoding="async" alt="" src="/app/static/pages/{folder}/{n}.jpg">'
+        f'{_boxes((by_page or {}).get(n - 1))}</div>'
         for n, (w, h) in enumerate(sizes, 1)]
     if per_row == 1:
         pages = "".join(cells)

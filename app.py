@@ -380,6 +380,10 @@ section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-h
 .rd-spread {{display: flex; justify-content: center; align-items: flex-start; gap: 6px;}}
 .rd-spread img {{margin: 0;}}
 
+/* Note Builder: the tabs share a row with Rename and Export (the toolbar ignores clicks except on its buttons) */
+.st-key-lab_toolbar {{position: relative; z-index: 4; pointer-events: none;}}
+.st-key-lab_toolbar button, .st-key-lab_toolbar [data-testid="stPopover"] {{pointer-events: auto;}}
+.st-key-lab_tabs_wrap {{margin-top: -3.4rem;}}
 /* Note Builder and File page */
 [class*="st-key-lab_refname_"] [data-testid="stPopover"] button {{border: none !important; background: transparent !important; justify-content: flex-start;
     padding: 0.2rem 0.4rem; min-height: 0; width: 100%;}}
@@ -432,6 +436,14 @@ section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-h
 .rd-pg img {{display: block; width: 100%; height: 100%; object-fit: contain; margin: 0; box-shadow: none; max-width: 100%;}}
 .rd-row {{display: flex; justify-content: center; align-items: flex-start; gap: 6px; margin-bottom: 14px;}}
 .rd-row .rd-pg {{margin: 0;}}
+.rd-pagewrap {{position: relative; line-height: 0;}}
+.rd-pg {{position: relative;}}
+.rd-err {{position: absolute; border: 2px solid #e5484d; background: rgba(229, 72, 77, 0.14); border-radius: 4px; z-index: 2; cursor: help;}}
+.rd-err b {{position: absolute; left: -2px; top: -11px; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 10px; background: #e5484d; color: #fff;
+    font: 700 12px/20px system-ui, sans-serif; text-align: center;}}
+.rd-err::after {{content: attr(data-tip); position: absolute; left: 0; top: 100%; margin-top: 4px; white-space: nowrap; background: #1b1c20; color: #fff;
+    font: 12px/1.3 system-ui, sans-serif; padding: 4px 8px; border-radius: 6px; display: none; z-index: 5;}}
+.rd-err:hover::after {{display: block;}}
 .rd-live {{position: sticky; top: 0; z-index: 3; width: fit-content; margin: 0 0 -26px auto; font-size: 0.8rem; padding: 3px 10px;
     border-radius: 999px; background: rgba(20, 22, 28, 0.85); color: #e8e9ec; pointer-events: none;}}
 .rd-scroll.rd-fill {{height: calc(100vh - 175px);}}

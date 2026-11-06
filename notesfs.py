@@ -1,7 +1,6 @@
 """Note Builder chapters as plain files, so Claude in VS Code (or any editor) can edit them directly.
 
-    notes/<course code>/<id>-<chapter title>/notes.md        (or notes.html for an interactive note)
-                                            /exercises.md    (or exercises.html)
+    notes/<course code>/<id>-<chapter title>/notes.html      (one interactive page; its last section is the exercises)
 
 The app reads these files every time it draws a chapter, so changes made outside the app show up there."""
 import re
@@ -10,7 +9,7 @@ import shutil
 from database import BASE_DIR
 
 ROOT = BASE_DIR / "notes"
-FIELDS = ("notes", "exercises")
+FIELDS = ("notes",)
 HTML_START = ("<!doctype", "<html", "<div", "<section", "<main", "<body", "<style")
 
 
@@ -70,18 +69,44 @@ def write_field(folder, field, text):
     target.write_text(text, encoding="utf-8", newline="")
 
 
+def _fold_old_exercises(folder, notes):
+    """Chapters made before exercises moved into the page: add the old exercises file as the page's last section."""
+    old = _file(folder, "exercises")
+    if not old:
+        return notes
+    text = old.read_text(encoding="utf-8", errors="replace")
+    if 'id="exercises"' not in notes and text.strip():
+        problems = re.findall(r'<details class="problem">.*?</details>', text, re.S)
+        inner = "\n".join(problems) if problems else (
+            "" if is_html(text) else '<div class="example" style="white-space:pre-wrap">' + _escape(text) + "</div>")
+        if inner:
+            block = ('<section id="exercises">\n<h2><span class="num">Exercises</span>Practice problems</h2>\n' + inner + "\n</section>")
+            low = notes.lower()
+            marker = "</main>" if "</main>" in low else "</body>"
+            i = low.rfind(marker)
+            notes = notes[:i] + block + "\n" + notes[i:] if i >= 0 else notes + block
+    old.unlink()
+    return notes
+
+
+def _escape(text):
+    return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
 def load(course, ch):
-    """{'notes', 'exercises'} of a chapter from its files. A chapter that has no files yet is filled from the
-    copy in the database (chapters made before the files existed)."""
+    """{'notes'} of a chapter from its file. A chapter that has no file yet is filled from the copy in the database
+    (chapters made before the files existed)."""
     folder = chapter_dir(course, ch)
-    out = {}
-    for f in FIELDS:
-        text = read_field(folder, f) if folder.exists() else None
-        if text is None:
-            text = ch.get(f) or ""
-            write_field(chapter_dir(course, ch, create=True), f, text)       # created empty if need be
-        out[f] = text
-    return out
+    text = read_field(folder, "notes") if folder.exists() else None
+    if text is None:
+        text = ch.get("notes") or ""
+        write_field(chapter_dir(course, ch, create=True), "notes", text)         # created empty if need be
+    if folder.exists() and _file(folder, "exercises"):
+        merged = _fold_old_exercises(folder, text)
+        if merged != text:
+            write_field(folder, "notes", merged)
+            text = merged
+    return {"notes": text}
 
 
 def save(course, ch, sections):

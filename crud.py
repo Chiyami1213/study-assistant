@@ -545,19 +545,19 @@ def get_chapter(chapter_id):
 
 
 def add_chapter(course_id, title="Untitled Chapter", notes="", exercises=""):
-    if not notes and not exercises:                      # a new chapter starts as a standard interactive page
-        notes, exercises = outline.blank_pages(title)
+    if not notes:                                        # a new chapter starts as a standard interactive page
+        notes = outline.blank_page(title)
     last = _one("SELECT MAX(position) AS p FROM lab_chapters WHERE course_id=?", (course_id,))["p"]
     cid = _exec("INSERT INTO lab_chapters(course_id,title,notes,exercises,position) VALUES (?,?,?,?,?)",
-                (course_id, title, notes, exercises, (last if last is not None else -1) + 1))
-    notesfs.save(get_course(course_id), {"id": cid, "title": title}, {"notes": notes, "exercises": exercises})
+                (course_id, title, notes, "", (last if last is not None else -1) + 1))
+    notesfs.save(get_course(course_id), {"id": cid, "title": title}, {"notes": notes})
     return cid
 
 
 def update_chapter(chapter_id, title, sections):
     row = _one("SELECT * FROM lab_chapters WHERE id=?", (chapter_id,))
     _exec("UPDATE lab_chapters SET title=?, notes=?, exercises=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
-          (title, sections.get("notes", ""), sections.get("exercises", ""), chapter_id))
+          (title, sections.get("notes", ""), "", chapter_id))
     notesfs.save(get_course(row["course_id"]), {**row, "title": title}, sections)    # renames the folder with the title
 
 
@@ -575,7 +575,7 @@ def export_chapter(chapter_id):
         return None
     _exec("DELETE FROM exported_notes WHERE source_note_id=?", (chapter_id,))
     return _exec("INSERT INTO exported_notes(source_note_id,course_id,title,notes,exercises) VALUES (?,?,?,?,?)",
-                 (chapter_id, ch["course_id"], ch["title"], ch["notes"], ch["exercises"]))
+                 (chapter_id, ch["course_id"], ch["title"], ch["notes"], ""))
 
 
 def list_exported_notes(course_id):
