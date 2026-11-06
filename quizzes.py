@@ -156,8 +156,14 @@ def _md(text, defs=None):
 
 def _question(item, defs=None):
     """One question from a parsed JavaScript item, or None if it is not a multiple-choice question."""
+    extra = {}
     if isinstance(item, dict):
         q, o, a, e = item.get("q"), item.get("o"), item.get("a"), item.get("e", "")
+    elif isinstance(item, list) and len(item) >= 5 and isinstance(item[0], str) and isinstance(item[1], str) and isinstance(item[2], list):
+        # [section id, question, options, answer, explanation, hint, from the textbook]
+        q, o, a, e = item[1], item[2], item[3], item[4]
+        extra = {"section": item[0], "h": _md(item[5], defs) if len(item) > 5 and isinstance(item[5], str) else "",
+                 "textbook": bool(item[6]) if len(item) > 6 else False}
     elif isinstance(item, list) and len(item) >= 3:
         q, o, a, e = item[0], item[1], item[2], (item[3] if len(item) > 3 else "")
     else:
@@ -165,7 +171,7 @@ def _question(item, defs=None):
     if not (isinstance(q, str) and isinstance(o, list) and o and all(isinstance(x, str) for x in o)
             and isinstance(a, int) and 0 <= a < len(o)):
         return None
-    return {"kind": "mc", "q": _md(q, defs), "o": [_md(x, defs) for x in o], "a": a, "e": _md(e or "", defs)}
+    return {"kind": "mc", "q": _md(q, defs), "o": [_md(x, defs) for x in o], "a": a, "e": _md(e or "", defs), **extra}
 
 
 def _array_questions(html_text):

@@ -18,6 +18,7 @@ import streamlit.components.v1 as components
 import crud
 import htmlnotes
 import macros
+import re
 import quizgen
 import quizzes
 from database import BASE_DIR
@@ -50,7 +51,17 @@ def course_chapters(course):
         defs = macros.from_html(path.read_text(encoding="utf-8", errors="replace"))
         secs = [{**x, "title": quizzes._md(x["title"], defs)} for x in secs]      # titles as Markdown with TeX math
         own = []
-        for qq in _questions(str(path), path.stat().st_mtime):          # the note's own questions: placed in the closest section
+        text = path.read_text(encoding="utf-8", errors="replace")
+        subs = {m.group(1): (m.group(2), quizzes._md(re.sub(r"<[^>]+>", "", m.group(3)), defs))          # subsections: "s1-1" -> ("1.1", title)
+                for m in re.finditer(r'data-t="([^"]+)"[^>]*><span class="n">([\d.]+)</span>(.*?)</a>', text, re.S)}
+        for qq in _questions(str(path), path.stat().st_mtime):
+            if qq.get("section"):                                       # the note names the subsection each question tests
+                top = re.match(r"s\d+", qq["section"])
+                num, title = subs.get(qq["section"], (None, None))
+                label = f"{num} · {title}" if num else (secs and next((x["title"] for x in secs if x["id"] == (top.group(0) if top else "")), "Quiz"))
+                own.append({**qq, "sec": qq["section"], "tag": (label or "Quiz") + (" (textbook)" if qq.get("textbook") else ""),
+                            "_own": True})
+                continue
             sec = quizgen.match_section(qq["q"] + " " + " ".join(qq["o"]) + " " + qq["e"], secs)
             own.append({**qq, "sec": sec["id"] if sec else None, "tag": ("Self-check · " + sec["title"]) if sec else "Self-check",
                         "_num": sec["num"] if sec else None})
@@ -61,6 +72,8 @@ def course_chapters(course):
         titles = {x["id"]: x["title"] for x in secs}
         for qq in made:
             qq["tag"] = (labels.get(qq.get("sec")) or ref(nums.get(qq.get("sec")))) + " · " + titles.get(qq.get("sec"), qq["tag"].lstrip("§ "))
+        if own and all(qq.get("_own") for qq in own):                   # the note's own quiz replaces the written section checks
+            made = []
         for qq in own:
             if qq.get("_num"):
                 qq["tag"] = (labels.get(qq.get("sec")) or ref(qq["_num"])) + " · " + qq["tag"].replace("Self-check · ", "") + " (self-check)"
