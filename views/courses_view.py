@@ -380,7 +380,7 @@ def _grade_html(item):
     return out
 
 
-def _row_html(title, when, status, css, detail=None, book=None, solution=None, extra="", graded=None, tab="Overview"):
+def _row_html(title, when, status, css, detail=None, book=None, solution=None, extra="", graded=None, tab="Overview", guide=None):
     sub = (f'<div class="dl-sub">{html.escape(detail)}</div>' if detail else "") + extra
     name = html.escape(title)
     if book:                                              # opens the homework PDF, and Back returns to the Overview
@@ -388,6 +388,9 @@ def _row_html(title, when, status, css, detail=None, book=None, solution=None, e
     if solution:                                          # a second link when the solution file is in the Library
         name += (f' <a class="dl-solution" href="#" data-ol-book="{solution["id"]}" data-ol-page="1" data-ol-tab="{tab}" '
                  f'title="open the solution">Solution</a>')
+    if guide:                                             # the study guide of an upcoming exam
+        name += (f' <a class="dl-solution" href="#" data-ol-book="{guide["id"]}" data-ol-page="1" data-ol-tab="{tab}" '
+                 f'title="open the study guide">Study Guide</a>')
     if graded:                                            # my own submission with the grading marked on it
         name += (f' <a class="dl-solution" href="#" data-ol-book="{graded["id"]}" data-ol-page="1" data-ol-tab="{tab}" '
                  f'title="open my graded submission">Graded</a>')
@@ -655,7 +658,8 @@ def _exams(course):
         main_file = original
         rows += _row_html(e["title"], _when(e["date"], e.get("time")),
                           "Done" if e["date"] < today else "Upcoming", "done" if e["date"] < today else "open",
-                          f"Covers {e['covers']}" if e.get("covers") else None, book=main_file, solution=solution, graded=graded, extra=_grade_html(e), tab="Exams")
+                          f"Covers {e['covers']}" if e.get("covers") else None, book=main_file, solution=solution, graded=graded, extra=_grade_html(e), tab="Exams",
+                          guide=_exam_book(course["id"], e["title"], "Study Guide"))
     st.markdown(f'<div class="dl-list">{rows}</div>', unsafe_allow_html=True)
     _practice_exams(course)
     _equation_sheets(course, exams)
