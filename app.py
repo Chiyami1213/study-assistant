@@ -931,19 +931,38 @@ if (!win.__labResizeV1) {
     const strip = doc.querySelector('.lab-tabs');                      // the tabs above follow the windows
     if (strip) strip.style.gridTemplateColumns = drag.cs.map(c => 'minmax(0,' + c.getBoundingClientRect().width + 'fr)').join(' ');
   }, true);
-  doc.addEventListener('mouseup', () => {
-    if (!drag) return;
-    const d = drag; drag = null; doc.documentElement.classList.remove('lab-resizing');
+  // send the relative widths of the windows to the app (remembered), then drop the temporary pixel sizes
+  const commit = (cs, widths) => {
     const sink = doc.querySelector('.st-key-lab_tab_sink input'); if (!sink) return;
-    const total = d.cs.reduce((t, c) => t + c.getBoundingClientRect().width, 0) / d.cs.length;       // average width = weight 1
-    const parts = d.cs.map(c => idOf(c) + '=' + (c.getBoundingClientRect().width / total).toFixed(3)).filter(x => !x.startsWith('null'));
+    const total = widths.reduce((t, w) => t + w, 0) / widths.length;                                  // average width = weight 1
+    const parts = cs.map((c, k) => idOf(c) + '=' + (widths[k] / total).toFixed(3)).filter(x => !x.startsWith('null'));
     const set = Object.getOwnPropertyDescriptor(win.HTMLInputElement.prototype, 'value').set;
     sink.focus(); set.call(sink, 'widths:' + parts.join(',') + '|' + Date.now());
     sink.dispatchEvent(new win.Event('input', {bubbles: true}));
     sink.dispatchEvent(new win.KeyboardEvent('keydown', {key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true}));
     sink.blur();
-    // the sizes are now set by the page itself: drop the temporary ones so later changes (a new window) lay out right
-    [900, 2500, 6000].forEach(ms => setTimeout(() => d.cs.forEach(c => ['flex', 'width', 'min-width'].forEach(k => c.style.removeProperty(k))), ms));
+    [900, 2500, 6000].forEach(ms => setTimeout(() => cs.forEach(c => ['flex', 'width', 'min-width'].forEach(k => c.style.removeProperty(k))), ms));
+  };
+  doc.addEventListener('mouseup', () => {
+    if (!drag) return;
+    const d = drag; drag = null; doc.documentElement.classList.remove('lab-resizing');
+    commit(d.cs, d.cs.map(c => c.getBoundingClientRect().width));
+  }, true);
+  // a double click on the border between two windows shares the width equally between all of them
+  doc.addEventListener('dblclick', e => {
+    const cs = columns();
+    for (let i = 0; i < cs.length - 1; i++) {
+      const r = cs[i].getBoundingClientRect(), n = cs[i + 1].getBoundingClientRect();
+      if (e.clientX >= r.right - 6 && e.clientX <= n.left + 6 && e.clientY >= r.top && e.clientY <= r.bottom) {
+        const each = cs.reduce((t, c) => t + c.getBoundingClientRect().width, 0) / cs.length;
+        cs.forEach(c => { c.style.flex = '0 0 ' + each + 'px'; c.style.width = each + 'px'; c.style.minWidth = '0'; });
+        const strip = doc.querySelector('.lab-tabs');
+        if (strip) strip.style.gridTemplateColumns = cs.map(() => 'minmax(0,1fr)').join(' ');
+        e.preventDefault();
+        setTimeout(() => commit(cs, cs.map(() => each)), 60);
+        return;
+      }
+    }
   }, true);
 }
 // Library cards: pass "action:id" to the hidden box (open the file, its Edit window, or the add window).
