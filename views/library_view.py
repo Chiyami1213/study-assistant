@@ -200,7 +200,7 @@ def _viewer(book):
                                             goto=st.session_state.pop("lib_goto", None),
                                             questions=quiz_view.book_questions(book)), height=900, scrolling=True)
         return
-    if book["kind"] == "Homework" and book["course_ids"]:     # the homework and the helper side by side
+    if book["kind"] in ("Homework", "Exam", "Practice Exam") and book["course_ids"]:     # the homework or exam and the helper side by side
         left, right = st.columns([3, 2], gap="medium")
         with left:
             reader.pdf_reader(path, f"view_{book['id']}", height=820, start=st.session_state.pop(f"view_page_{book['id']}", 1))
@@ -304,6 +304,37 @@ def _grade_marks(book, path, sel):
     return marks
 
 
+def _exam_problems(book, exam_file, solution, analysis):
+    """Problem cards for a graded exam without per-problem marks: notes sections, and on request the solution pages."""
+    sol_pages = {}
+    if solution:
+        sol_path = BASE_DIR / solution["pdf_path"]
+        try:
+            found = hwassist.parse_problems(str(sol_path), sol_path.stat().st_mtime)
+        except Exception:
+            found = []
+        starts = {str(x["id"]): x["page"] for x in found}
+        order = sorted(starts.values())
+        total = solution.get("total_pages") or (max(order) if order else 1)
+        for pid, start in starts.items():
+            later = [x for x in order if x > start]
+            sol_pages[pid] = list(range(start, (later[0] - 1 if later else total) + 1))
+    for pid, a in analysis.items():
+        with st.container(border=True, key=f"gp{book['id']}_x{pid}"):
+            st.markdown(f"**{pid}. {hwassist.tex(hwassist.clean(a['title']))}**")
+            if a.get("tags"):
+                _tag_buttons(a["tags"], f"gp{book['id']}_x{pid}")
+            if solution and sol_pages.get(pid):
+                flag = f"gp{book['id']}_x{pid}_open"
+                opened = st.session_state.get(flag)
+                st.button("Hide Solution" if opened else "Show Solution", key=f"{flag}_btn", icon=":material/fact_check:",
+                          on_click=_toggle_flag, args=(flag,), help="the solution's pages for this problem")
+                if opened:
+                    sol_path = BASE_DIR / solution["pdf_path"]
+                    for pg in sol_pages[pid]:
+                        st.image(reader.page_image(sol_path, sol_path.stat().st_mtime, pg - 1, 1100), caption=f"Solution, page {pg}")
+
+
 def _grade_panel(book):
     """Beside a graded file: the grade, the rubric of each problem with the points lost, and the grader's comments. Clicking a
     problem, a rubric line or a comment shows its page and marks it on the paper. Canvas-only grades show what Canvas gave."""
@@ -399,6 +430,11 @@ def _grade_panel(book):
                             st.caption("This part could not be cut out of the solution file.")
                             st.button(f"Open Solution p. {pr['solution_page']}", key=f"gp{book['id']}_p{pr['n']}_{target}_open", type="tertiary",
                                       on_click=_open_file_at, args=(solution["id"], pr["solution_page"]))
+    if exam and not problems and analysis:                 # an exam with only its total: each problem, its notes and its solution
+        st.markdown("**Problems**")
+        st.caption("Canvas gives only the total for this exam. Each problem below links to the notes it draws on and, when the "
+                   "solution file is in the Library, shows the solution.")
+        _exam_problems(book, problem_file, solution, analysis)
     for note in comments:                                  # Canvas comments, and report comments not tied to a rubric line
         if problems and any(it.get("comment") == note["id"] for pr in problems for it in pr["items"]):
             continue
@@ -426,18 +462,16 @@ def _tag_buttons(tags, key):
 
 
 def _homework_helper(book):
-    """For each problem and sub-problem: the note section it draws on, and a hint built from that section."""
+    """For each problem and sub-problem of a homework or an exam: the note section it draws on, and a hint built from that section."""
+    exam = book["kind"] in ("Exam", "Practice Exam")
     course = crud.get_course(book["course_ids"][0])
     books = crud.list_books()
     try:
         problems = hwassist.analyze(book, course, books)
     except Exception:
         problems = []
-    st.subheader("Homework Helper")
-    number = re.search(r"\d+", book.get("lecture") or book["title"])
-    solution = next((b for b in books if b["kind"] == "Homework Solution" and set(b["course_ids"]) & set(book["course_ids"])
-                     and number and re.search(r"\d+", b.get("lecture") or b["title"])
-                     and re.search(r"\d+", b.get("lecture") or b["title"]).group() == number.group()), None)
+    st.subheader("Exam Helper" if exam else "Homework Helper")
+    solution = None if book["kind"] == "Practice Exam" else _sibling(book, ("Exam Solution",) if exam else ("Homework Solution",))
     if solution:
         st.button("Open Solution", key=f"hw{book['id']}_solution", icon=":material/task_alt:", on_click=_open_note,
                   args=(solution["id"], None), help="open the solution file of this homework")

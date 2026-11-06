@@ -12,6 +12,7 @@ DEFAULT = {
     "mel": (r"\langle #1\vert #2\vert #3\rangle", 3),
     "ketbra": (r"\lvert #1\rangle\langle #2\rvert", 2),
     "one": (r"\mathbf{1}", 0),
+    "vr": ("{#2}", 2),            # the new notes tag each variable with a class; the plain TeX is just the symbol
 }
 
 
@@ -89,4 +90,13 @@ def expand(text, defs=None):
             text = "".join(out)
         if text == before:
             break
-    return text
+    return _plain(text)
+
+
+HTML_WRAP = re.compile(r"\\(?:class|cssId|style)\{[^{}]*\}\{")
+
+
+def _plain(text):
+    """TeX for KaTeX: MathJax's \\class{name}{x}, \\cssId{id}{x} and \\style{css}{x} only add a class, an id or a style, which KaTeX cannot
+    read (it would print the command), so each becomes a plain group {x}."""
+    return HTML_WRAP.sub("{", text)
