@@ -104,7 +104,7 @@ def _reference(win):
     saved = lab.get("pages", {}).get(str(book_id), 1)
     is_html = book["pdf_path"].lower().endswith((".html", ".htm"))
     with st.container(key=f"lab_refname_{wid}"):     # the file name is the heading; click it to pick another file
-        with st.popover(book["title"], width="stretch"):
+        with st.popover(book["title"], width="stretch", help=book["title"]):
             st.selectbox("Reference File", ids, key=sel_key, label_visibility="collapsed",
                          format_func=lambda i: label(by_id[i]))
     path = BASE_DIR / book["pdf_path"]
@@ -265,9 +265,9 @@ def _notes():
     if st.session_state.get("lab_flash"):
         st.toast(st.session_state.pop("lab_flash"))
 
-    st.markdown(f"<h3 class='lab-heading'>{_esc(ch['title'])}</h3>", unsafe_allow_html=True)
-    with st.container(key="lab_toolbar"):               # Rename and Export sit on the same row as the tabs below
-        _, rename, export = st.columns([7, 1.5, 1.4], vertical_alignment="center", gap="small")
+    with st.container(key="lab_toolbar"):
+        head, rename, export = st.columns([7, 1.5, 1.4], vertical_alignment="center", gap="small")
+        head.markdown(f"<h3 class='lab-heading' title=\"{_attr(ch['title'])}\">{_esc(ch['title'])}</h3>", unsafe_allow_html=True)
         with rename.popover("Rename", width="stretch"):
             new = st.text_input("Chapter Title", value=ch["title"], key=f"lab_rename_{cid}", label_visibility="collapsed")
             st.button("Save Title", key=f"lab_rename_save_{cid}", type="primary", width="stretch", on_click=_rename,
@@ -301,6 +301,11 @@ def _watch(course_id, chapter_id):
     st.session_state[key] = sig
     if prev is not None and prev != sig:
         st.rerun()
+
+
+def _attr(text):
+    """Text for an HTML attribute (the full name shown when the mouse rests on a shortened one)."""
+    return (text or "").replace("&", "&amp;").replace('"', "&quot;").replace("<", "&lt;").replace(">", "&gt;")
 
 
 def _esc(text):
@@ -367,7 +372,7 @@ def _tab_strip(wins):
     """Browser-style tabs above the windows. Drag a tab to any place in the row to reorder; x closes; + adds."""
     _handle_tab_action(wins)
     tabs = "".join(
-        f'<div class="lab-tab" draggable="true" data-lab-tab="{w["id"]}" title="drag to move this window">'
+        f'<div class="lab-tab" draggable="true" data-lab-tab="{w["id"]}" title="{_attr(_tab_title(w))}">'
         f'{ICONS[w["type"]]}<span>{_esc(_tab_title(w))}</span>'
         f'{"<b class=lab-x data-lab-close=" + w["id"] + " title=&quot;close this window&quot;>×</b>" if len(wins) > 1 else ""}</div>'
         for w in wins)

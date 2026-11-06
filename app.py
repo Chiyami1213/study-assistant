@@ -9,7 +9,7 @@ import sys
 import icons
 
 # The dev server caches imported modules between reruns; reload ours so edits apply without a restart.
-for _m in ("database", "notesfs", "crud", "settings", "icons", "pdfmeta", "covers", "reader", "outline", "htmlnotes", "quizzes", "quizgen", "photos", "views.notes_view", "views.courses_view", "views.home_view",
+for _m in ("database", "notesfs", "crud", "settings", "icons", "pdfmeta", "covers", "reader", "macros", "outline", "htmlnotes", "quizzes", "quizgen", "quizhtml", "photos", "views.notes_view", "views.courses_view", "views.home_view",
            "navigation", "views.homework_view", "views.exam_mode_view", "views.recall_view", "views.library_view", "views.quiz_view", "views.calendar_view", "views.file_view", "views.lab_view",
            "views.settings_view"):
     if _m in sys.modules:
@@ -281,10 +281,15 @@ section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-h
 .dl-row:last-child {{border-bottom: none;}}
 .dl-title {{font-weight: 600;}}
 .dl-when {{opacity: 0.8; font-size: 0.92rem;}}
-/* Quiz cards: the same look as the Self-check in the notes */
-[class*="st-key-qcard_"] {{background: var(--card); border-radius: 10px;}}
-[class*="st-key-qopts_"] button {{border-radius: 8px; min-height: 2.1rem; padding: 0.15rem 0.8rem; background: var(--bg); border: 1px solid var(--border);}}
-[class*="st-key-qopts_"] button:hover {{border-color: var(--accent);}}
+/* Quiz cards: the same look as the Self-check in the notes (navy cards, outlined pill options) */
+[class*="st-key-qcard_"] {{background: var(--qcard); border: 1px solid var(--qline); border-radius: 12px; padding: 1.1rem 1.3rem; gap: 0.9rem;}}
+[class*="st-key-qcard_"] [data-testid="stMarkdownContainer"] p {{font-size: 1.02rem;}}
+[class*="st-key-qopts_"] {{gap: 0.8rem !important;}}
+[class*="st-key-qopts_"] button {{background: transparent; border: 1px solid var(--qline); border-radius: 10px; min-height: 2.7rem;
+    padding: 0.35rem 1.1rem; box-shadow: none;}}
+[class*="st-key-qopts_"] button p {{font-size: 1.02rem; line-height: 1.35;}}
+[class*="st-key-qopts_"] button:hover {{border-color: var(--accent); background: rgba(76, 141, 255, 0.08);}}
+.qtag {{font-size: 0.76rem; letter-spacing: 0.04em; text-transform: uppercase; opacity: 0.55; margin-top: -0.3rem;}}
 .und-row {{display: grid; grid-template-columns: minmax(0, 3fr) minmax(80px, 2fr) 3rem 7.8rem; gap: 14px; align-items: center;
     padding: 6px 16px; border-bottom: 1px solid var(--border);}}
 .und-row:last-child {{border-bottom: none;}}
@@ -397,16 +402,20 @@ section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-h
 .rd-spread img {{margin: 0;}}
 
 /* Note Builder: the tabs share a row with Rename and Export (the toolbar ignores clicks except on its buttons) */
-.st-key-lab_toolbar {{position: relative; z-index: 4; pointer-events: none;}}
-.st-key-lab_toolbar button, .st-key-lab_toolbar [data-testid="stPopover"] {{pointer-events: auto;}}
-.st-key-lab_tabs_wrap {{margin-top: -3.2rem;}}
+.st-key-lab_toolbar [data-testid="stColumn"]:first-child {{min-width: 0;}}
+.st-key-lab_toolbar .lab-heading {{margin: 0;}}
+.lab-heading {{white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}}
+[class*="st-key-lab_pane_"] [data-testid="stHorizontalBlock"] button {{display: flex; align-items: center; justify-content: center;
+    padding-top: 0; padding-bottom: 0; text-align: center;}}
+[class*="st-key-lab_pane_"] [data-testid="stHorizontalBlock"] button > div {{display: flex; align-items: center; justify-content: center; width: 100%;}}
+[class*="st-key-lab_pane_"] [data-testid="stHorizontalBlock"] button p {{margin: 0 !important; line-height: 1.2;}}
 .st-key-lab_toolbar button {{min-height: 1.9rem !important; padding: 0.1rem 0.5rem !important; font-size: 0.8rem !important;}}
-.st-key-lab_toolbar button p {{font-size: 0.8rem !important; line-height: 1.2;}}
+.st-key-lab_toolbar button p {{font-size: 0.8rem !important;}}
 /* Note Builder and File page */
 [class*="st-key-lab_refname_"] [data-testid="stPopover"] button {{border: none !important; background: transparent !important; justify-content: flex-start;
     padding: 0.2rem 0.4rem; min-height: 0; width: 100%;}}
 [class*="st-key-lab_refname_"] [data-testid="stPopover"] button p {{font-size: 1.45rem; font-weight: 700; line-height: 1.25; letter-spacing: 0;
-    white-space: normal; text-align: left;}}
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left; max-width: 100%;}}
 [class*="st-key-lab_refname_"] [data-testid="stPopover"] button:hover p {{color: var(--accent);}}
 [data-testid="stPopoverBody"]:has([data-testid="stSelectbox"]) {{min-width: min(560px, 92vw);}}
 .st-key-lab_tab_sink {{position: absolute !important; width: 1px; height: 1px; overflow: hidden; opacity: 0; pointer-events: none;}}

@@ -15,6 +15,7 @@ import json
 import random
 import re
 
+import macros
 from database import BASE_DIR
 
 ROOT = BASE_DIR / "quizzes"
@@ -39,15 +40,39 @@ def sections_of(html_text):
     for m in re.finditer(r'<section id="([^"]+)"[^>]*>(.*?)</section>', html_text, re.S):
         h = re.search(r"<h2[^>]*>(.*?)</h2>", m.group(2), re.S)
         title = _text(re.sub(r'<span class="(?:num|slides)">.*?</span>', "", h.group(1), flags=re.S)) if h else m.group(1)
-        if SKIP.search(title) or SKIP.search(m.group(1)):
+        num = re.search(r"§\s*(\d+)", _text(h.group(1))) if h else None
+        if SKIP.search(title) or m.group(1).lower() in ("check", "quiz", "errata", "selfcheck"):
             continue
         body = m.group(2)
         derivs = len(re.findall(r'class="deriv"', body))
         equations = len(re.findall(r"\\\[", body))
         text = _text(body)
-        out.append({"id": m.group(1), "title": title, "text": text, "chars": len(text), "derivs": derivs,
+        out.append({"id": m.group(1), "num": int(num.group(1)) if num else len(out) + 1, "title": title, "text": text, "chars": len(text), "derivs": derivs,
                     "equations": equations, "suggested": suggested(len(text), derivs, equations)})
     return out
+
+
+_STOP = set("that this with from have does what which when where there their then than into only each both about "
+            "would could should these those equals equal also because while after before over under must same other more most".split())
+
+
+def _tokens(text):
+    return {w for w in re.findall(r"[a-z]{4,}", text.lower()) if w not in _STOP}
+
+
+def match_section(question_text, sections):
+    """The section of a note that a question most likely belongs to (shared rare words weigh most), or None."""
+    import math
+    if not sections:
+        return None
+    sets = [_tokens(x["text"]) for x in sections]
+    q = _tokens(question_text)
+    best, best_score = None, 0.0
+    for sec, toks in zip(sections, sets):
+        score = sum(math.log(1 + len(sets) / sum(w in t for t in sets)) for w in q & toks)
+        if score > best_score:
+            best, best_score = sec, score
+    return best if best_score >= 3.0 else None
 
 
 def path_for(course_code, title):
@@ -70,7 +95,8 @@ def questions(data):
             if isinstance(q.get("o"), list) and isinstance(q.get("a"), int) and 0 <= q["a"] < len(q["o"]):
                 order = list(range(len(q["o"])))
                 random.Random(q["q"]).shuffle(order)                     # the right answer is not always first
-                out.append({"kind": "mc", "q": q["q"], "o": [q["o"][i] for i in order], "a": order.index(q["a"]),
-                            "e": q.get("e", ""),
+                fix = macros.expand
+                out.append({"kind": "mc", "q": fix(q["q"]), "o": [fix(q["o"][i]) for i in order], "a": order.index(q["a"]),
+                            "e": fix(q.get("e", "")),
                             "tag": f"§ {sec['title']}", "sec": sec.get("id")})
     return out

@@ -10,9 +10,9 @@ THEMES = ("light", "dark", "device")
 # CSS variables for the app's own UI (sidebar, cards) and the Streamlit override palette
 PALETTES = {
     "dark": "--bg:#0e1117;--bg2:#1b1c20;--input:#262730;--border:#2a2c33;--text:#e8e9ec;--hover:#23252c;"
-            "--active:#252d42;--active-text:#fff;--card:#22242a;--accent:#4c8dff;",
+            "--active:#252d42;--active-text:#fff;--card:#22242a;--accent:#4c8dff;--qcard:#141b2a;--qline:#2c3550;",
     "light": "--bg:#ffffff;--bg2:#f4f5f7;--input:#eef0f4;--border:#d9dce3;--text:#2b2d33;--hover:#e9ecf1;"
-             "--active:#dfe8fb;--active-text:#111;--card:#f5f6f8;--accent:#2f6fe0;",
+             "--active:#dfe8fb;--active-text:#111;--card:#f5f6f8;--accent:#2f6fe0;--qcard:#f4f6fb;--qline:#d3d9e6;",
 }
 
 # Streamlit has no runtime theme API, so explicit Light/Dark are applied by overriding its surfaces.

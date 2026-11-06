@@ -7,6 +7,8 @@ import streamlit.components.v1 as components
 import crud
 import htmlnotes
 import notesfs
+import quizhtml
+from views import quiz_view
 
 
 def _note_card(item):
@@ -27,6 +29,20 @@ def _note_card(item):
             st.rerun()
 
 
+def _quiz_exports(course):
+    """Each chapter's quiz as a standalone HTML page (HTML only), ready to open in any browser."""
+    chapters = quiz_view.course_chapters(course)
+    if not chapters:
+        return
+    with st.expander(f"Quizzes ({len(chapters)}) · export as HTML"):
+        for c in chapters:
+            name, btn = st.columns([6, 1.6], vertical_alignment="center")
+            name.markdown(f"{c['name']} · {len(c['questions'])} questions")
+            safe = "".join(ch for ch in c["name"] if ch.isalnum() or ch in " ._-") or "quiz"
+            btn.download_button("Download", quizhtml.build(c["name"], c["questions"]), file_name=f"{safe} - Quiz.html",
+                                mime="text/html", key=f"quizdl_{course['id']}_{c['book']['id']}", width="stretch")
+
+
 def render():
     st.title("File")
     courses = crud.courses_by_status("Active")
@@ -42,3 +58,4 @@ def render():
             st.caption("No exported notes yet.")
         for item in items:
             _note_card(item)
+        _quiz_exports(c)

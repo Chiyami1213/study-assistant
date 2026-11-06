@@ -7,15 +7,17 @@ import html as _html
 import re
 from functools import lru_cache
 
+import macros
+
 try:
     import pymupdf
 except ImportError:  # older PyMuPDF versions expose it as fitz
     import fitz as pymupdf
 
 
-def _plain(inner):
+def _plain(inner, defs=None):
     """Markdown for an erratum body: TeX delimiters for Streamlit, italics kept, other tags dropped."""
-    text = re.sub(r"</?i>", "*", inner)
+    text = re.sub(r"</?i>", "*", macros.expand(inner, defs))
     text = re.sub(r"<[^>]+>", "", text)
     text = _html.unescape(text)
     text = re.sub(r"\\\((.+?)\\\)", lambda m: f"${m.group(1).strip()}$", text, flags=re.S)
@@ -28,11 +30,11 @@ def parse(html_text):
     m = re.search(r'<ol class="errata">(.*?)</ol>', html_text or "", re.S)
     if not m:
         return []
-    out = []
+    out, defs = [], macros.from_html(html_text)
     for i, li in enumerate(re.findall(r"<li>(.*?)</li>", m.group(1), re.S), 1):
         w = re.search(r'<span class="where">(.*?)</span>', li, re.S)
-        where = _plain(w.group(1)) if w else ""
-        body = _plain(li[w.end():] if w else li)
+        where = _plain(w.group(1), defs) if w else ""
+        body = _plain(li[w.end():] if w else li, defs)
         out.append({"n": i, "where": where, "md": body})
     return out
 

@@ -4,7 +4,10 @@ starting page of a chapter: blank, or the outline of a Claude-generated HTML not
 A page has a title, then one <section> per topic: key idea, equations (MathJax), step-through derivations and a
 place for an animation. Everything is plain HTML, CSS and JavaScript in one file, so Claude (or you) can edit it."""
 import html as _html
+import json
 import re
+
+import macros
 
 CSS = """
 :root{--bg:#fff;--panel:#f5f6fa;--ink:#161b29;--muted:#5b667c;--line:#d8dce6;--accent:#3646c7;--soft:#e4e7fa;--ok:#0c7f77}
@@ -34,8 +37,10 @@ details.problem summary{cursor:pointer;font-weight:600}
 .todo{color:var(--muted);font-style:italic}
 """
 
-MATHJAX = """<script>window.MathJax={tex:{inlineMath:[['\\\\(','\\\\)']],displayMath:[['\\\\[','\\\\]']]},svg:{fontCache:'global'}};</script>
-<script src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-svg.js" async></script>"""
+_MACROS = json.dumps({k: [v[0], v[1]] if v[1] else v[0] for k, v in macros.DEFAULT.items()})
+MATHJAX = ("<script>window.MathJax={tex:{inlineMath:[[String.fromCharCode(92)+'(',String.fromCharCode(92)+')']],"
+           "displayMath:[[String.fromCharCode(92)+'[',String.fromCharCode(92)+']']],macros:" + _MACROS + "},svg:{fontCache:'global'}};</script>\n"
+           '<script src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-svg.js" async></script>')
 
 # generic behaviour: "Step through" reveals a derivation one step at a time; the demo is a starting point for an animation
 JS = """<script>

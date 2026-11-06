@@ -29,6 +29,11 @@ def _questions(path, mtime):
     return quizzes.parse(open(path, encoding="utf-8", errors="replace").read())
 
 
+@st.cache_data(show_spinner=False, max_entries=64)
+def _sections(path, mtime):
+    return quizgen.sections_of(open(path, encoding="utf-8", errors="replace").read())
+
+
 def course_chapters(course):
     """[{book, name, questions, path}] for the course's HTML notes that have questions, in lecture order."""
     out = []
@@ -38,8 +43,20 @@ def course_chapters(course):
         path = BASE_DIR / b["pdf_path"]
         if not path.exists():
             continue
-        own = [{**q, "tag": "Self-check", "sec": None} for q in _questions(str(path), path.stat().st_mtime)]
+        secs = _sections(str(path), path.stat().st_mtime)
+        own = []
+        for qq in _questions(str(path), path.stat().st_mtime):          # the note's own questions: placed in the closest section
+            sec = quizgen.match_section(qq["q"] + " " + " ".join(qq["o"]) + " " + qq["e"], secs)
+            own.append({**qq, "sec": sec["id"] if sec else None, "tag": ("Self-check · " + sec["title"]) if sec else "Self-check",
+                        "_num": sec["num"] if sec else None})
         made = quizgen.questions(quizgen.load(quizgen.path_for(course["code"] or course["name"], b["title"])))
+        nums = {x["id"]: x["num"] for x in secs}
+        ref = lambda n: f"{b['lecture']}.{n}" if b.get("lecture") and n else f"§{n}" if n else ""     # "10.2": lecture, section
+        for qq in made:
+            qq["tag"] = ref(nums.get(qq.get("sec"))) + " · " + qq["tag"].lstrip("§ ")
+        for qq in own:
+            if qq.get("_num"):
+                qq["tag"] = ref(qq["_num"]) + " · " + qq["tag"].replace("Self-check · ", "") + " (self-check)"
         qs = made + own
         if qs:
             out.append({"book": b, "questions": qs, "path": path, "made": len(made),
@@ -195,9 +212,11 @@ def _run(course, chapter, run, run_key):
         q, res = qs[qi], res_all.get(qi) or {}
         prefix = f"qo_{cid}_{run['stamp']}_{qi}"
         with st.container(border=True, key=f"qcard_{cid}_{run['stamp']}_{qi}"):
-            st.markdown(f"**{pos}.** {q['q']}" + (f"  \n:gray[{q['tag']}]" if q.get("tag") else ""))
+            st.markdown(f"**{pos}.** {q['q']}")
+            if q.get("tag"):
+                st.markdown(f"<div class='qtag'>{html.escape(q['tag'])}</div>", unsafe_allow_html=True)
             if q["kind"] == "mc":
-                with st.container(horizontal=True, key=f"qopts_{cid}_{run['stamp']}_{qi}"):
+                with st.container(horizontal=True, gap="medium", key=f"qopts_{cid}_{run['stamp']}_{qi}"):
                     for oi, text in enumerate(q["o"]):
                         st.button(text, key=f"{prefix}_{oi}", on_click=_pick, args=(run_key, qi, oi))
                 if res.get("chosen") is not None:
