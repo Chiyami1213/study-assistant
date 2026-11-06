@@ -20,8 +20,8 @@ from pdfmeta import split_lecture, strip_notes_prefix
 from database import BASE_DIR, PDF_DIR
 
 COLUMNS = 6
-KINDS = ["Textbook", "Lecture Notes", "Notes", "Homework"]
-PLURAL = {"Textbook": "Textbooks"}
+KINDS = ["Textbook", "Lecture Notes", "Notes", "Homework", "Homework Solution"]
+PLURAL = {"Textbook": "Textbooks", "Homework Solution": "Homework Solutions"}
 
 
 @st.cache_data(show_spinner=False, max_entries=256)
@@ -73,6 +73,7 @@ def detect_course(filename, title=""):
 LECTURE_WORDS = re.compile(r"(?<![a-z])(lectures?|lec|slides?)(?![a-z])", re.I)
 NOTES_WORDS = re.compile(r"(?<![a-z])(notes?|handouts?|cheat[\s_\-]*sheets?|study[\s_\-]*guides?|"
                          r"summary|summaries|review|annotated|worksheet|recitation)(?![a-z])", re.I)
+SOLUTION_WORDS = re.compile(r"(?<![a-z])(solutions?|soln?s?)(?![a-z])", re.I)
 HOMEWORK_WORDS = re.compile(r"(?<![a-z])(homework|hw|problem[\s_\-]*sets?|psets?|assignment)(?![a-z])", re.I)
 BOOK_WORDS = re.compile(r"(?<![a-z])(textbook|text[\s_\-]*book|edition|ed\.?\s*\d+|\d+(st|nd|rd|th)[\s_\-]*ed)(?![a-z])", re.I)
 
@@ -83,8 +84,8 @@ def detect_kind(filename, title=""):
         if not text:
             continue
         text = text.replace("_", " ")
-        if HOMEWORK_WORDS.search(text):
-            return "Homework"
+        if HOMEWORK_WORDS.search(text):                       # "hw4 solution.pdf" is the solution, "hw4.pdf" the homework
+            return "Homework Solution" if SOLUTION_WORDS.search(text) else "Homework"
         if BOOK_WORDS.search(text):
             return "Textbook"
         if LECTURE_WORDS.search(text):
@@ -118,7 +119,7 @@ def _add_dialog(default_course=None):
     kind = st.segmented_control("Type", KINDS, default=kind_guess or "Textbook", key=f"bk_kind_{k}") or "Textbook"
     if kind_guess:
         st.caption(f"Type detected from the file name: {kind_guess}")
-    is_hw = kind == "Homework"
+    is_hw = kind in ("Homework", "Homework Solution")
     is_notes = kind in ("Lecture Notes", "Notes")
     # Notes: a leading "Lec 3" in the title or file name becomes the Lecture label, not part of the title.
     lec_guess, clean_title = split_lecture(info["title"])
@@ -131,7 +132,7 @@ def _add_dialog(default_course=None):
         num = (re.search(r"\d+", up.name) or re.search(r"\d+", info["title"] or "")) if up else None
         lecture = st.text_input("Homework Number", value=num.group() if num else "", key=f"bk_hw_{k}", placeholder="4")
         if lecture.strip() and not title.strip().lower().startswith("hw"):
-            title = f"HW {lecture.strip()}"
+            title = f"HW {lecture.strip()}" + (" Solution" if kind == "Homework Solution" else "")
     elif is_notes:
         lecture = st.text_input("Lecture", value=lec_guess, key=f"bk_lec_{k}", placeholder="3 or 3-4")
     c1, c2, c3 = st.columns([3, 2, 1.2])
@@ -211,6 +212,13 @@ def _homework_helper(book):
     except Exception:
         problems = []
     st.subheader("Homework Helper")
+    number = re.search(r"\d+", book.get("lecture") or book["title"])
+    solution = next((b for b in books if b["kind"] == "Homework Solution" and set(b["course_ids"]) & set(book["course_ids"])
+                     and number and re.search(r"\d+", b.get("lecture") or b["title"])
+                     and re.search(r"\d+", b.get("lecture") or b["title"]).group() == number.group()), None)
+    if solution:
+        st.button("Open Solution", key=f"hw{book['id']}_solution", icon=":material/task_alt:", on_click=_open_note,
+                  args=(solution["id"], None), help="open the solution file of this homework")
     if not problems:
         st.caption("No numbered problems were found in this file.")
         return
@@ -244,9 +252,10 @@ def _edit_dialog(book):
                                 key=f"ek_{book['id']}") or book["kind"]
     title = st.text_input("Title", value=book["title"], key=f"et_{book['id']}")
     lecture = ""
-    if kind in ("Lecture Notes", "Notes", "Homework"):
-        lecture = st.text_input("Homework Number" if kind == "Homework" else "Lecture", value=book.get("lecture") or "",
-                                key=f"el_{book['id']}", placeholder="4" if kind == "Homework" else "3 or 3-4")
+    if kind in ("Lecture Notes", "Notes", "Homework", "Homework Solution"):
+        hw = kind.startswith("Homework")
+        lecture = st.text_input("Homework Number" if hw else "Lecture", value=book.get("lecture") or "",
+                                key=f"el_{book['id']}", placeholder="4" if hw else "3 or 3-4")
     c1, c2, c3 = st.columns([3, 2, 1.2])
     author = c1.text_input("Author", value=book["author"] or "", key=f"ea_{book['id']}")
     edition = c2.text_input("Edition", value=book["edition"] or "", key=f"ee_{book['id']}")
@@ -287,7 +296,7 @@ def _book_card(book, courses):
     tag = "".join(f'<span class="book-badge tag" style="background:{crud.course_color(c)};'
                   f'border-color:{crud.course_color(c)}">{html.escape(c["code"])}</span>' for c in linked if c["code"])
     states = list(dict.fromkeys(crud.course_status(c) for c in linked))     # one label per distinct status
-    lec = (f'<span class="book-badge meta">{"HW" if book["kind"] == "Homework" else "Lec"} {html.escape(book["lecture"])}</span>'
+    lec = (f'<span class="book-badge meta">{"HW" if book["kind"].startswith("Homework") else "Lec"} {html.escape(book["lecture"])}</span>'
            if book.get("lecture") else "")
     status = "".join(f'<span class="book-badge status {s.lower().replace("-", "")}">{s}</span>' for s in states)
     chips = "".join(f'<span class="book-badge meta">{html.escape(x)}</span>'
@@ -308,6 +317,8 @@ def _course_order(book):
     numbers = tuple(int(n) for n in re.findall(r"\d+", book.get("lecture") or ""))
     if book["kind"] == "Homework":
         return (1.5, numbers, book["title"].lower())
+    if book["kind"] == "Homework Solution":
+        return (1.6, numbers, book["title"].lower())
     if book["kind"] in ("Lecture Notes", "Notes"):
         return (0, numbers, "") if numbers else (1, (), book["title"].lower())
     return (2, (), book["title"].lower())

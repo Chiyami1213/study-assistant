@@ -62,19 +62,19 @@ def _errata_marks(book, path):
         if other and other["id"] != book["id"] and other["pdf_path"].lower().endswith((".html", ".htm")):
             f = BASE_DIR / other["pdf_path"]
             if f.exists():
-                sources.append((set(other["course_ids"]), f.read_text(encoding="utf-8", errors="replace")))
+                sources.append((set(other["course_ids"]), f.read_text(encoding="utf-8", errors="replace"), f"book:{other['id']}"))
     lab = settings.get_lab()
     if any(w["type"] == "notes" for w in _windows()) and lab.get("course"):
         ch = crud.get_chapter(lab.get("chapters", {}).get(str(lab["course"])) or 0)
         if ch and notesfs.is_html(ch["notes"]):
-            sources.append(({lab["course"]}, ch["notes"]))
+            sources.append(({lab["course"]}, ch["notes"], f"book:{ch['source_book_id']}" if ch.get("source_book_id") else f"chapter:{ch['id']}"))
     items, seen = [], set()
-    for courses, text in sources:
+    for courses, text, src in sources:
         if courses & set(book["course_ids"]):
             for it in errata.parse(text):
                 if (it["where"], it["md"]) not in seen:
                     seen.add((it["where"], it["md"]))
-                    items.append({**it, "n": len(items) + 1})
+                    items.append({**it, "n": len(items) + 1, "src": src, "idx": it["n"]})
     return _placed(str(path), path.stat().st_mtime, json.dumps(items)) if items else []
 
 
@@ -91,7 +91,7 @@ def _reference(win):
         codes = " / ".join(courses[i]["code"] or courses[i]["name"] for i in b["course_ids"] if i in courses) or "No Course"
         return f"{codes} · {b['kind']} · {b['title']}"
 
-    kind_rank = {"Textbook": 0, "Lecture Notes": 1, "Notes": 2, "Homework": 3}
+    kind_rank = {"Textbook": 0, "Lecture Notes": 1, "Notes": 2, "Homework": 3, "Homework Solution": 4}
     books = sorted(books, key=lambda b: (label(b).split(" · ")[0].lower(), kind_rank.get(b["kind"], 9), b["title"].lower()))
     ids = [b["id"] for b in books]
     by_id = {b["id"]: b for b in books}
@@ -107,7 +107,7 @@ def _reference(win):
     if st.session_state[ck] not in course_ids:
         st.session_state[ck] = own_course(cur)
     in_course = [b for b in books if own_course(b) == st.session_state[ck]]
-    kinds = [k for k in ("Textbook", "Lecture Notes", "Notes", "Homework") if any(b["kind"] == k for b in in_course)] or ["Notes"]
+    kinds = [k for k in ("Textbook", "Lecture Notes", "Notes", "Homework", "Homework Solution") if any(b["kind"] == k for b in in_course)] or ["Notes"]
     kinds += sorted({b["kind"] for b in in_course} - set(kinds))
     st.session_state.setdefault(kk, cur["kind"] if cur["kind"] in kinds else kinds[0])
     if st.session_state[kk] not in kinds:
@@ -144,7 +144,8 @@ def _reference(win):
         with st.container(key=f"lab_html_{wid}"):          # fills the window (page CSS)
             from views import quiz_view                    # the note's Self-check shows the same questions as the course Quiz tab
             components.html(htmlnotes.safe_html(path.read_text(encoding="utf-8", errors="replace"),
-                                                questions=quiz_view.book_questions(book)), height=600, scrolling=True)
+                                                questions=quiz_view.book_questions(book), errata_source=f"book:{book['id']}"),
+                            height=600, scrolling=True)
         return
 
     def remember(page):
@@ -152,8 +153,19 @@ def _reference(win):
         if pages.get(str(book_id)) != page:
             _remember(pages={**pages, str(book_id): page})
 
-    reader.pdf_reader(path, f"lab_{wid}_{book_id}", height=None, start=saved, on_page=remember,
-                      marks=_errata_marks(book, path))
+    marks = _errata_marks(book, path)
+    active = set()
+    clicked = st.session_state.get("lab_errata_active")                # (source, number, stamp) of the erratum clicked in a note
+    if clicked:
+        hit = [m for m in marks if m.get("src") == clicked[0] and m.get("idx") == clicked[1]]
+        active = {m["n"] for m in hit}
+        if hit and st.session_state.get(f"_errata_seen_{wid}") != clicked[2]:      # once per click: go to its page
+            st.session_state[f"_errata_seen_{wid}"] = clicked[2]
+            st.session_state[f"lab_{wid}_{book_id}_page"] = min(m["page"] for m in hit) + 1
+            reader._bump(f"lab_{wid}_{book_id}")
+            st.session_state["_errata_hit"] = True
+    reader.pdf_reader(path, f"lab_{wid}_{book_id}", height=None, start=saved, on_page=remember, marks=marks,
+                      active=active or None)
 
 
 # ---------- Notes window: the notes being built ----------
@@ -161,7 +173,7 @@ def _is_html(text):
     return text.lstrip().lower().startswith(HTML_START)
 
 
-def _show(text, field, source_book=None):
+def _show(text, field, source_book=None, chapter_id=None):
     """A chapter body: Markdown, or a full interactive HTML page (as built with Claude). The Exercises and Errata tabs
     open the same page at its exercises section and at its errata (Notes check) section."""
     goto = {"exercises": outline.exercises_id, "errata": outline.errata_id}.get(field, lambda _: None)(text)
@@ -169,8 +181,9 @@ def _show(text, field, source_book=None):
         if _is_html(text):
             from views import quiz_view                    # the Self-check shows the same questions as the course Quiz tab
             book = crud.get_book(source_book) if source_book else None
-            components.html(htmlnotes.safe_html(text, goto, questions=quiz_view.book_questions(book) if book else None),
-                            height=600, scrolling=True)
+            src = f"book:{source_book}" if source_book else f"chapter:{chapter_id}"
+            components.html(htmlnotes.safe_html(text, goto, questions=quiz_view.book_questions(book) if book else None,
+                                                errata_source=src), height=600, scrolling=True)
         else:
             st.markdown(text)
 
@@ -321,7 +334,7 @@ def _notes():
                 if field == "errata" and not outline.errata_id(ch["notes"] or ""):
                     st.caption("This note has no errata section.")
                 elif (ch["notes"] or "").strip():
-                    _show(ch["notes"], field, ch.get("source_book_id"))
+                    _show(ch["notes"], field, ch.get("source_book_id"), ch["id"])
                 else:
                     st.caption("Nothing here yet.")
     _watch(course_id, cid)
@@ -383,6 +396,12 @@ def _handle_tab_action(wins):
         popouts = {**lab.get("popouts", {}), rest: next(w for w in wins if w["id"] == rest)}
         settings.set_lab({**lab, "popouts": popouts, "windows": [w for w in wins if w["id"] != rest]})
         st.rerun()
+    elif action == "errata":                                         # "errata:book:16:3": erratum 3 of note 16 was clicked
+        src, _, idx = rest.rpartition(":")
+        if idx.isdigit():
+            st.session_state["lab_errata_active"] = (src, int(idx), sink.split("|")[-1])
+            st.session_state["_errata_hit"] = False
+            st.rerun()
     elif action == "widths":                                         # a divider was dragged: "id=0.4,id=0.6"
         try:
             pairs = [item.split("=") for item in rest.split(",")]
@@ -431,6 +450,11 @@ def render():
                 _notes()
             else:
                 _reference(win)
+    clicked = st.session_state.get("lab_errata_active")
+    if clicked and st.session_state.get("_errata_toasted") != clicked[2]:
+        st.session_state["_errata_toasted"] = clicked[2]
+        if not st.session_state.get("_errata_hit"):
+            st.toast("Open the textbook or lecture notes of this course in another window to see where this erratum is.")
 
 
 def _dock(win):

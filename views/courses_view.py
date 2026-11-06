@@ -338,24 +338,27 @@ def _when(day, time):
     return text + (f" · {time}" if time else "")
 
 
-def _homework_book(course_id, hw_title):
+def _homework_book(course_id, hw_title, kind="Homework"):
     """The Library homework file whose number matches this homework ("HW 4" -> the file numbered 4), or None."""
     num = re.search(r"\d+", hw_title or "")
     if not num:
         return None
     for b in crud.list_books():
-        if b["kind"] == "Homework" and course_id in b["course_ids"]:
+        if b["kind"] == kind and course_id in b["course_ids"]:
             n = re.search(r"\d+", b.get("lecture") or b["title"])
             if n and int(n.group()) == int(num.group()):
                 return b
     return None
 
 
-def _row_html(title, when, status, css, detail=None, book=None):
+def _row_html(title, when, status, css, detail=None, book=None, solution=None):
     sub = f'<div class="dl-sub">{html.escape(detail)}</div>' if detail else ""
     name = html.escape(title)
     if book:                                              # opens the homework PDF, and Back returns to the Overview
         name = f'<a href="#" data-ol-book="{book["id"]}" data-ol-page="1" data-ol-tab="Overview" title="open the homework pdf">{name}</a>'
+    if solution:                                          # a second link when the solution file is in the Library
+        name += (f' <a class="dl-solution" href="#" data-ol-book="{solution["id"]}" data-ol-page="1" data-ol-tab="Overview" '
+                 f'title="open the solution">Solution</a>')
     return (f'<div class="dl-row"><div><div class="dl-title">{name}</div>{sub}</div>'
             f'<div class="dl-when">{html.escape(when)}</div><span class="dl-pill {css}">{status}</span></div>')
 
@@ -385,7 +388,8 @@ def _overview(course):
         else:
             status, css = "Open", "open"
         rows += _row_html(h["title"], _when(h["due_date"], h.get("due_time")), status, css,
-                          book=_homework_book(course["id"], h["title"]))
+                          book=_homework_book(course["id"], h["title"]),
+                          solution=_homework_book(course["id"], h["title"], "Homework Solution"))
     st.markdown(f'<div class="dl-list">{rows}</div>', unsafe_allow_html=True)
 
     st.subheader(f"Midterms and Finals ({len(exams)})")

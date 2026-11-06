@@ -15,6 +15,30 @@ document.addEventListener('click', function (e) {
 }, true);
 </script>"""
 
+# Clicking an erratum (a block of the Notes check list) asks the Note Builder to show it on the open PDF: it writes
+# "errata:<source>:<number>" into the hidden box of the page around this frame (only the Note Builder has one).
+_ERRATA = """<script>
+(function () {
+  var SRC = "__SRC__", P = window.parent;
+  var css = document.createElement('style');
+  css.textContent = '.errata li{cursor:pointer}.errata li:hover{outline:2px solid #e5484d;outline-offset:3px;border-radius:6px}';
+  document.head.appendChild(css);
+  [].forEach.call(document.querySelectorAll('.errata li'), function (li) { li.title = 'show this on the pdf'; });
+  document.addEventListener('click', function (e) {
+    var li = e.target.closest && e.target.closest('.errata li');
+    if (!li || (e.target.closest && e.target.closest('a'))) return;
+    var idx = [].indexOf.call(document.querySelectorAll('.errata li'), li) + 1;
+    var inp = P.document.querySelector('.st-key-lab_tab_sink input');
+    if (!inp) return;
+    var set = Object.getOwnPropertyDescriptor(P.HTMLInputElement.prototype, 'value').set;
+    inp.focus(); set.call(inp, 'errata:' + SRC + ':' + idx + '|' + Date.now());
+    inp.dispatchEvent(new P.Event('input', {bubbles: true}));
+    inp.dispatchEvent(new P.KeyboardEvent('keydown', {key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true}));
+    inp.blur();
+  }, true);
+})();
+</script>"""
+
 # The note's Self-check section is rebuilt from the same questions the course page Quiz tab uses: choose one option
 # per question, nothing is marked until you finish, then the score (below 60% fails) and the explanation of each miss.
 _QUIZ = """<style>
@@ -78,11 +102,13 @@ _QUIZ = """<style>
 </script>"""
 
 
-def safe_html(text, goto=None, questions=None):
+def safe_html(text, goto=None, questions=None, errata_source=None):
     """The note's HTML with the link guard added just before the closing body tag (or at the end). `goto` is the id of
     a section to scroll to once the page has loaded (the Exercises tab opens the page at #exercises). `questions` (the
     app's question dicts) replace the note's own Self-check, so the note and the course Quiz tab agree."""
     script = _SCRIPT
+    if errata_source:
+        script += _ERRATA.replace("__SRC__", errata_source)
     if questions:
         data = [{"q": q["q"], "o": q["o"], "a": q["a"], "e": q.get("e", ""), "tag": q.get("tag", "")}
                 for q in questions if q.get("kind") == "mc"]

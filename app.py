@@ -310,6 +310,7 @@ section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-h
 .und-row .dl-pill {{justify-self: end; width: 100%; text-align: center; padding: 1px 6px;}}
 .und-score {{display: flex; align-items: center; gap: 16px; padding: 10px 0 6px;}}
 .und-score b {{font-size: 2rem;}} .und-score span:not(.dl-pill) {{font-size: 1.3rem; opacity: 0.8;}}
+.dl-solution {{font-size: 0.78rem; font-weight: 500; margin-left: 8px; opacity: 0.85;}}
 .dl-sub {{opacity: 0.75; font-size: 0.85rem; margin-top: 3px;}}
 .dl-pill {{justify-self: end; font-size: 0.78rem; border-radius: 999px; padding: 1px 12px; border: 1px solid var(--border);}}
 .dl-pill.done {{border-color: #2f9e5f; color: #2f9e5f; background: rgba(47, 158, 95, 0.12);}}
@@ -476,6 +477,10 @@ section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-h
 .rd-pagewrap {{position: relative; line-height: 0;}}
 .rd-pg {{position: relative;}}
 .rd-err {{position: absolute; border: 2px solid #e5484d; background: rgba(229, 72, 77, 0.14); border-radius: 4px; z-index: 2; cursor: help;}}
+.rd-err.rd-sent {{border-color: #d9a21b; background: rgba(217, 162, 27, 0.2);}}
+.rd-err.active {{border-width: 3px; box-shadow: 0 0 0 4px rgba(229, 72, 77, 0.35); animation: rd-pulse 1.2s ease-in-out 3; z-index: 4;}}
+.rd-err.rd-sent.active {{box-shadow: 0 0 0 4px rgba(217, 162, 27, 0.4);}}
+@keyframes rd-pulse {{50% {{box-shadow: 0 0 0 9px rgba(229, 72, 77, 0.12);}}}}
 .rd-err b {{position: absolute; left: -2px; top: -11px; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 10px; background: #e5484d; color: #fff;
     font: 700 12px/20px system-ui, sans-serif; text-align: center;}}
 .rd-err::after {{content: attr(data-tip); position: absolute; left: 0; top: 100%; margin-top: 4px; white-space: nowrap; background: #1b1c20; color: #fff;
@@ -817,6 +822,9 @@ if (!win.__rdScrollV1) {
     return n;
   };
   setInterval(() => {
+    doc.querySelectorAll('.rd-err.active').forEach(el => {                       // the erratum clicked in a note: bring it to the middle
+      if (!el._seen) { el._seen = true; el.scrollIntoView({block: 'center', inline: 'nearest'}); }
+    });
     doc.querySelectorAll('.rd-cont').forEach(c => {
       if (!c._hooked) {
         c._hooked = true;

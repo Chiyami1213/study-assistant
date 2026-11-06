@@ -97,14 +97,15 @@ def _prefetch(path, mtime, pages, width):
     threading.Thread(target=work, daemon=True).start()
 
 
-def _boxes(marks):
+def _boxes(marks, active=None):
     """Red boxes with the erratum number over the marked places (positions in % of the page, so any zoom fits)."""
     out = ""
     for m in marks or []:
         W, H = m["size"]
         x0, y0, x1, y1 = m["rect"]
         label = m["label"].replace('"', "'")
-        out += (f'<span class="rd-err" data-tip="{label}" style="left:{x0 / W * 100:.2f}%;top:{y0 / H * 100:.2f}%;'
+        cls = "rd-err" + (" rd-sent" if m.get("sentence") else "") + (" active" if active and m["n"] in active else "")
+        out += (f'<span class="{cls}" data-tip="{label}" style="left:{x0 / W * 100:.2f}%;top:{y0 / H * 100:.2f}%;'
                 f'width:{(x1 - x0) / W * 100:.2f}%;height:{(y1 - y0) / H * 100:.2f}%"><b>{m["n"]}</b></span>')
     return out
 
@@ -162,10 +163,10 @@ def _step_zoom(zoom_key, delta):
 
 
 @st.fragment
-def pdf_reader(path, key, height=640, start=1, title=None, on_page=None, marks=None):
+def pdf_reader(path, key, height=640, start=1, title=None, on_page=None, marks=None, active=None):
     """Draw the reader for a PDF file. 100% fits the width of the window; height None fills the window (page CSS).
     `title` is drawn above the toolbar with the page number; `on_page(page)` is told whenever the page changes.
-    `marks` are errata to draw on the pages (see errata.py)."""
+    `marks` are errata to draw on the pages (see errata.py); the numbers in `active` are drawn emphasised and scrolled to."""
     marks = marks or []
     by_page = {}
     for m in marks:
@@ -208,7 +209,7 @@ def pdf_reader(path, key, height=640, start=1, title=None, on_page=None, marks=N
     mtime = path.stat().st_mtime
     mode = st.session_state.get(mode_key, "page")
     if mode in ("scroll", "scroll2") and scroll_available():
-        _scrolling_view(path, key, page, zoom, total, height, mtime, per_row=2 if mode == "scroll2" else 1, by_page=by_page)
+        _scrolling_view(path, key, page, zoom, total, height, mtime, per_row=2 if mode == "scroll2" else 1, by_page=by_page, active=active)
         if on_page:
             on_page(page)
         return
@@ -217,7 +218,7 @@ def pdf_reader(path, key, height=640, start=1, title=None, on_page=None, marks=N
     imgs = "".join(
         f'<div class="rd-pagewrap" style="width:{zoom / len(shown):g}%">'
         f'<img src="data:image/jpeg;base64,{base64.b64encode(page_image(path, mtime, n - 1, width)).decode()}" '
-        f'style="width:100%" alt="Page {n}">{_boxes(by_page.get(n - 1))}</div>' for n in shown)
+        f'style="width:100%" alt="Page {n}">{_boxes(by_page.get(n - 1), active)}</div>' for n in shown)
     box = f' style="height:{height}px"' if height else ""
     st.markdown(f'<div class="rd-scroll{"" if height else " rd-fill"}"{box}><div class="rd-spread">{imgs}</div></div>',
                 unsafe_allow_html=True)
@@ -228,7 +229,7 @@ def pdf_reader(path, key, height=640, start=1, title=None, on_page=None, marks=N
         on_page(page)
 
 
-def _scrolling_view(path, key, page, zoom, total, height, mtime, per_row=1, by_page=None):
+def _scrolling_view(path, key, page, zoom, total, height, mtime, per_row=1, by_page=None, active=None):
     """Every page stacked in one scrolling window. Images are page files under static/pages, drawn in the
     background around the current page; the page script retries any that are not ready yet."""
     sizes = _page_sizes(str(path), mtime)
@@ -238,7 +239,7 @@ def _scrolling_view(path, key, page, zoom, total, height, mtime, per_row=1, by_p
     cells = [
         f'<div class="rd-pg" id="rdp-{key}-{n}" style="aspect-ratio:{w}/{h};width:{zoom / per_row:g}%">'
         f'<img loading="lazy" decoding="async" alt="" src="/app/static/pages/{folder}/{n}.jpg">'
-        f'{_boxes((by_page or {}).get(n - 1))}</div>'
+        f'{_boxes((by_page or {}).get(n - 1), active)}</div>'
         for n, (w, h) in enumerate(sizes, 1)]
     if per_row == 1:
         pages = "".join(cells)

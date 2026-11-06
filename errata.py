@@ -73,6 +73,32 @@ def _typos(item):
     return found
 
 
+def _sentence_marks(doc, item, pages):
+    """Marks for the sentences an erratum quotes (“...”): found by their first words on the given pages; the mark covers the
+    lines from the start of the quote to its end."""
+    out = []
+    for quote in re.findall(r"“([^”]{18,240})”", item["md"]):
+        if "$" in quote:
+            continue
+        start, end = quote[:42].strip(), quote[-28:].strip()
+        for pg in pages:
+            if not 0 <= pg < doc.page_count:
+                continue
+            page = doc[pg]
+            hits = page.search_for(start) or page.search_for(start[:24])
+            if not hits:
+                continue
+            r = hits[0]
+            tail = [x for x in page.search_for(end) if x.y0 >= r.y0 - 1]
+            block = next((b for b in page.get_text("blocks") if b[0] - 2 <= r.x0 <= b[2] and b[1] - 2 <= r.y0 <= b[3]), None)
+            x0, x1 = (block[0], block[2]) if block else (r.x0, page.rect.width * 0.9)
+            y1 = tail[0].y1 if tail else r.y1 + 12
+            out.append({"n": item["n"], "label": f"{item['where']}: “{start}…”", "md": item["md"], "page": pg,
+                        "size": (page.rect.width, page.rect.height), "rect": (x0 - 2, r.y0 - 1, x1 + 2, y1 + 1), "sentence": True})
+            break
+    return out
+
+
 def locate(path, mtime, items):
     """Marks for the errata that can be placed in this PDF: {n, label, md, page, rect, size}."""
     path = str(path)
@@ -84,11 +110,16 @@ def locate(path, mtime, items):
             nums = _numbers(it["where"])
             if nums:
                 tags = tags if tags is not None else _equation_tags(path, mtime)
+                placed = []
                 for k in nums:
                     for page, r, size in tags.get(k, [])[:1]:                     # the first tag with that number
                         W = size[0]
                         marks.append({"n": it["n"], "label": it["where"], "md": it["md"], "page": page, "size": size,
                                       "rect": (W * 0.1, r[1] - 16, r[2] + 4, r[3] + 12)})
+                        placed.append(page)
+                if placed:                                                        # and the sentence it quotes, near the equation
+                    doc = doc or pymupdf.open(path)
+                    marks += _sentence_marks(doc, it, sorted({q for pg in placed for q in (pg - 1, pg, pg + 1)}))
             elif re.search(r"§\s*\d+\.\d+", it["where"]):
                 sec = re.search(r"§\s*(\d+\.\d+)", it["where"]).group(1)
                 doc = doc or pymupdf.open(path)
@@ -114,4 +145,7 @@ def locate(path, mtime, items):
     finally:
         if doc:
             doc.close()
+    by_n = {it["n"]: it for it in items}
+    for m in marks:                                                               # where each mark came from (for clicks in the notes)
+        m["src"], m["idx"] = by_n[m["n"]].get("src"), by_n[m["n"]].get("idx")
     return marks
