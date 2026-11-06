@@ -311,7 +311,7 @@ section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-h
 .und-score {{display: flex; align-items: center; gap: 16px; padding: 10px 0 6px;}}
 .und-score b {{font-size: 2rem;}} .und-score span:not(.dl-pill) {{font-size: 1.3rem; opacity: 0.8;}}
 .dl-solution {{font-size: 0.78rem; font-weight: 500; margin-left: 8px; opacity: 0.85;}}
-.dl-grade {{font-size: 0.85rem; margin-top: 3px;}} .dl-grade b {{color: #2f9e5f;}}
+.dl-grade {{font-size: 0.85rem; margin-top: 3px;}} .dl-grade b {{color: #2f9e5f;}} .dl-grade.none {{opacity: 0.6;}}
 .dl-sub {{opacity: 0.75; font-size: 0.85rem; margin-top: 3px;}}
 .dl-pill {{justify-self: end; font-size: 0.78rem; border-radius: 999px; padding: 1px 12px; border: 1px solid var(--border);}}
 .dl-pill.done {{border-color: #2f9e5f; color: #2f9e5f; background: rgba(47, 158, 95, 0.12);}}

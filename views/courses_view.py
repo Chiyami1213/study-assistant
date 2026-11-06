@@ -369,7 +369,7 @@ def _exam_book(course_id, event_title, kind="Exam"):
 def _grade_html(item):
     """"Grade 95/100" and the grader's comments, as small lines under a row; empty when the item has no grade."""
     if item.get("score") is None or not item.get("points"):
-        return ""
+        return '<div class="dl-grade none">Not graded</div>'
     num = lambda x: f"{x:g}"
     out = f'<div class="dl-grade">Grade <b>{num(item["score"])}/{num(item["points"])}</b> ({item["score"] / item["points"]:.0%})</div>'
     for line in (item.get("grade_note") or "").splitlines():
