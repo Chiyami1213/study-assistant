@@ -15,7 +15,7 @@ import reader
 import settings
 from database import BASE_DIR
 
-SECTIONS = [("notes", "Notes"), ("exercises", "Exercises")]
+SECTIONS = [("notes", "Notes"), ("exercises", "Exercises"), ("errata", "Errata")]
 HTML_START = ("<!doctype", "<html", "<div", "<section", "<main", "<body", "<style")
 
 
@@ -132,8 +132,9 @@ def _is_html(text):
 
 
 def _show(text, field, source_book=None):
-    goto = outline.exercises_id(text) if field == "exercises" else None
-    """A chapter body: Markdown, or a full interactive HTML page (as built with Claude)."""
+    """A chapter body: Markdown, or a full interactive HTML page (as built with Claude). The Exercises and Errata tabs
+    open the same page at its exercises section and at its errata (Notes check) section."""
+    goto = {"exercises": outline.exercises_id, "errata": outline.errata_id}.get(field, lambda _: None)(text)
     with st.container(key=f"lab_view_scroll_{field}"):          # sized by the page CSS to fill the window
         if _is_html(text):
             from views import quiz_view                    # the Self-check shows the same questions as the course Quiz tab
@@ -287,7 +288,9 @@ def _notes():
             with tab:
                 if not tab.open:
                     continue
-                if (ch["notes"] or "").strip():
+                if field == "errata" and not outline.errata_id(ch["notes"] or ""):
+                    st.caption("This note has no errata section.")
+                elif (ch["notes"] or "").strip():
                     _show(ch["notes"], field, ch.get("source_book_id"))
                 else:
                     st.caption("Nothing here yet.")

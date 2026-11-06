@@ -8,6 +8,7 @@ import html as _html
 import re
 
 import macros
+import unitex
 
 
 # ---------- a tolerant reader for JavaScript literals (arrays, objects, strings, templates, numbers) ----------
@@ -144,11 +145,13 @@ def _md(text, defs=None):
     text = re.sub(r"</?(?:i|em)>", "*", text)
     text = re.sub(r"</?(?:b|strong)>", "**", text)
     text = re.sub(r"</?p>", "\n\n", text)
-    text = re.sub(r"<[^>]+>", "", text)
+    text = re.sub(r"</?[A-Za-z][^>]*>", "", text)
     text = _html.unescape(text)
     text = re.sub(r"\\\((.+?)\\\)", lambda m: "$" + m.group(1).strip() + "$", text, flags=re.S)
     text = re.sub(r"\\\[(.+?)\\\]", lambda m: "$$" + m.group(1).strip() + "$$", text, flags=re.S)
-    return re.sub(r"[ \t]+\n", "\n", text).strip()
+    text = re.sub(r"[ \t]+\n", "\n", text).strip()
+    text = text.replace(chr(92) + ",'", chr(92) + ",{}'").replace(chr(92) + ",^", chr(92) + ",{}^")   # MathJax accepts a prime or power after a thin space; KaTeX needs a base
+    return unitex.convert(text)                    # math typed with Unicode symbols (U†AU, ⟨x|ψ⟩) becomes LaTeX
 
 
 def _question(item, defs=None):

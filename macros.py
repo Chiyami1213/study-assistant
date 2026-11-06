@@ -83,7 +83,7 @@ def expand(text, defs=None):
                 for k in range(nargs, 0, -1):
                     repl = repl.replace(f"#{k}", args[k - 1])
                 out.append(text[pos:m.start()])
-                out.append(repl + (" " if not nargs else ""))
+                out.append(repl + (" " if (not nargs or repl[-1:].isalpha()) else ""))      # a macro must not run into the next letter
                 pos = end
             out.append(text[pos:])
             text = "".join(out)

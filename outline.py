@@ -110,7 +110,24 @@ def exercises_id(page_html):
     if 'id="exercises"' in page_html:
         return "exercises"
     for m in re.finditer(r'<section[^>]*id="([^"]+)"[^>]*>\s*<h2[^>]*>(.*?)</h2>', page_html, re.S):
-        if EXERCISE_WORDS.search(re.sub(r"<[^>]+>", " ", m.group(2))):
+        if EXERCISE_WORDS.search(re.sub(r"</?[A-Za-z][^>]*>", " ", m.group(2))):
+            return m.group(1)
+    return None
+
+
+ERRATA_WORDS = re.compile(r"errata|notes check|things to fix|clarification", re.I)
+
+
+def errata_id(page_html):
+    """Id of the note's errata section (the list of corrections to the source notes), or None. A section holding an
+    errata list wins; otherwise one whose heading says Errata, Notes check or Clarifications."""
+    sections = list(re.finditer(r'<section[^>]*id="([^"]+)"[^>]*>(.*?)</section>', page_html, re.S))
+    for m in sections:
+        if 'class="errata"' in m.group(2):
+            return m.group(1)
+    for m in sections:
+        h = re.search(r"<h2[^>]*>(.*?)</h2>", m.group(2), re.S)
+        if h and ERRATA_WORDS.search(re.sub(r"</?[A-Za-z][^>]*>", " ", h.group(1))):
             return m.group(1)
     return None
 
@@ -143,7 +160,7 @@ def blank_page(title):
 
 def _clean(text):
     """Heading text for HTML: tags removed, entities kept safe, MathJax \\( \\) left as it is."""
-    text = re.sub(r"<[^>]+>", "", text)
+    text = re.sub(r"</?[A-Za-z][^>]*>", "", text)
     text = _html.unescape(text)
     text = re.sub(r"\s+", " ", text).strip()
     return _html.escape(text, quote=False)
@@ -155,7 +172,7 @@ def parse_sections(html_text):
     eyebrow = ""
     m = re.search(r'class="eyebrow"[^>]*>(.*?)</div>', body, re.S)
     if m:
-        eyebrow = _html.unescape(re.sub(r"<[^>]+>", "", m.group(1))).strip()
+        eyebrow = _html.unescape(re.sub(r"</?[A-Za-z][^>]*>", "", m.group(1))).strip()
     title, sections = "", []
     for m in re.finditer(r"<(h1|h2|h3|h4)[^>]*>(.*?)</\1>|<div class=\"deriv-head\".*?<b>(.*?)</b>", body, re.S):
         if m.group(1):

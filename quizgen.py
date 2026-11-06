@@ -24,7 +24,7 @@ SKIP = re.compile(r"notes check|errata|self-check|quiz", re.I)       # not conte
 
 def _text(fragment):
     fragment = re.sub(r"<(script|style)\b.*?</\1>", "", fragment, flags=re.S | re.I)
-    fragment = re.sub(r"<[^>]+>", " ", fragment)
+    fragment = re.sub(r"</?[A-Za-z][^>]*>", " ", fragment)
     return re.sub(r"\s+", " ", _html.unescape(fragment)).strip()
 
 

@@ -8,6 +8,7 @@ import re
 from functools import lru_cache
 
 import macros
+import unitex
 
 try:
     import pymupdf
@@ -18,11 +19,12 @@ except ImportError:  # older PyMuPDF versions expose it as fitz
 def _plain(inner, defs=None):
     """Markdown for an erratum body: TeX delimiters for Streamlit, italics kept, other tags dropped."""
     text = re.sub(r"</?i>", "*", macros.expand(inner, defs))
-    text = re.sub(r"<[^>]+>", "", text)
+    text = re.sub(r"</?[A-Za-z][^>]*>", "", text)
     text = _html.unescape(text)
     text = re.sub(r"\\\((.+?)\\\)", lambda m: f"${m.group(1).strip()}$", text, flags=re.S)
     text = re.sub(r"\\\[(.+?)\\\]", lambda m: f"$${m.group(1).strip()}$$", text, flags=re.S)
-    return re.sub(r"\s+", " ", text).strip()
+    text = text.replace(chr(92) + ",'", chr(92) + ",{}'").replace(chr(92) + ",^", chr(92) + ",{}^")   # KaTeX needs a base here
+    return unitex.convert(re.sub(r"\s+", " ", text).strip())
 
 
 def parse(html_text):
