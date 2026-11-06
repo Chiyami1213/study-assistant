@@ -103,6 +103,7 @@ def main():
     storage = Path(os.environ.get("LOCALAPPDATA", project)) / "StudyAssistant" / "webview"
     storage.mkdir(parents=True, exist_ok=True)       # keeps the theme and other browser-side settings
     try:
+        webview.settings["ALLOW_DOWNLOADS"] = True        # the File page's Download buttons (quizzes, notes) save files
         webview.start(storage_path=str(storage), private_mode=False)
     finally:
         if server and server.poll() is None:         # closing the window stops the server it started
