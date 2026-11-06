@@ -26,7 +26,8 @@ PASS, STRONG = 60, 80          # percent: below PASS the quiz is failed
 
 @st.cache_data(show_spinner=False, max_entries=64)
 def _questions(path, mtime):
-    return quizzes.parse(open(path, encoding="utf-8", errors="replace").read())
+    # only real questions: the open "think of an answer" items of some notes are replaced by written multiple-choice ones
+    return [x for x in quizzes.parse(open(path, encoding="utf-8", errors="replace").read()) if x["kind"] == "mc"]
 
 
 @st.cache_data(show_spinner=False, max_entries=64)
