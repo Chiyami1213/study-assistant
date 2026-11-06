@@ -40,9 +40,11 @@ def parse_problems(path, mtime):
     lines = []
     with pymupdf.open(path) as doc:
         for i, page in enumerate(doc):
-            for line in page.get_text().splitlines():
-                if line.strip():
-                    lines.append((i + 1, line.rstrip()))
+            page_lines = [ln for ln in page.get_text().splitlines() if ln.strip()]
+            if page_lines and page_lines[-1].strip() == str(i + 1):         # the page number at the foot
+                page_lines = page_lines[:-1]
+            for line in page_lines:
+                lines.append((i + 1, line.rstrip()))
     problems, current, part, pending = [], None, None, False
     for at, (page, line) in enumerate(lines):
         nxt = lines[at + 1][1].strip() if at + 1 < len(lines) else ""
@@ -117,6 +119,43 @@ def _sections(paths_key):
     return out
 
 
+EXAMPLE = re.compile(r'<details class="example"([^>]*)>\s*<summary>(.*?)</summary>(.*?)</details>', re.S)
+
+
+@lru_cache(maxsize=16)
+def _examples(paths_key):
+    """Every worked example of the course's HTML notes: [{book, sec (the example's id), title, num, label, words, defs}]."""
+    out = []
+    for book_id, path, mtime in paths_key:
+        text = open(path, encoding="utf-8", errors="replace").read()
+        defs = macros.from_html(text)
+        for m in EXAMPLE.finditer(text):
+            ident = re.search(r'id="([^"]+)"', m.group(1))
+            if not ident:
+                continue
+            head = re.sub(r"<[^>]+>", " ", m.group(2))
+            head = re.sub(r"\s+", " ", _html.unescape(head)).strip()
+            body = re.sub(r"<(script|style|svg|figure)[^>]*>.*?</\1>", " ", m.group(3), flags=re.S)
+            body = re.sub(r"<[^>]+>", " ", body)
+            number = re.search(r"Example\s*(\d+)", head)
+            title = re.sub(r"^Example\s*\d+\s*", "", head)
+            title = re.sub(r"\s*(constructed|from the slides|in class)\s*$", "", title, flags=re.I).strip()
+            out.append({"book": book_id, "sec": ident.group(1), "title": title, "num": int(number.group(1)) if number else 0,
+                        "label": None, "defs": defs, "words": _words(title + " " + _html.unescape(body))})
+    return out
+
+
+def course_examples(course_id, books):
+    """The worked examples of all HTML notes of a course (cached by file time); [] when the notes have none."""
+    key = []
+    for b in books:
+        if course_id in b["course_ids"] and b["kind"] in ("Notes", "Lecture Notes") and b["pdf_path"].lower().endswith((".html", ".htm")):
+            p = BASE_DIR / b["pdf_path"]
+            if p.exists():
+                key.append((b["id"], str(p), p.stat().st_mtime))
+    return _examples(tuple(key))
+
+
 def course_sections(course_id, books):
     """The sections of all HTML notes of a course (cached by file time)."""
     key = []
@@ -126,6 +165,9 @@ def course_sections(course_id, books):
             if p.exists():
                 key.append((b["id"], str(p), p.stat().st_mtime))
     return _sections(tuple(key))
+
+
+EXAMPLE_FLOOR = 14.0          # how well a worked example must match before it is offered
 
 
 def best_sections(text, sections, n=2, boost="", floor=4.0):
@@ -249,7 +291,17 @@ def analyze(book, course, books):
     path = BASE_DIR / book["pdf_path"]
     problems = parse_problems(str(path), path.stat().st_mtime) or _whole_assignment(path)
     sections = course_sections(course["id"], books)
+    examples = course_examples(course["id"], books)
     by_book = {b["id"]: b for b in books}
+
+    def example_tags(text, title):
+        """Up to two worked examples of the notes that look like this problem: (button label, note id, example id)."""
+        out = []
+        for _, ex in best_sections(text, examples, 2, boost=title, floor=EXAMPLE_FLOOR):
+            b = by_book.get(ex["book"], {})
+            lec = f" (Lec {b['lecture']})" if b.get("lecture") else ""
+            out.append((f"Example {ex['num']} · {tex(ex['title'], ex.get('defs'))}{lec}", ex["book"], ex["sec"]))
+        return out
     hand = written_hints(course["code"] or course["name"], book["title"])
 
     def tag(sec):
@@ -260,7 +312,7 @@ def analyze(book, course, books):
     out = []
     for pr in problems:
         whole = best_sections(pr["text"], sections, 2, boost=pr["title"])
-        item = {"id": pr["id"], "title": pr["title"], "page": pr["page"], "tags": [tag(s) for _, s in whole],
+        item = {"id": pr["id"], "title": pr["title"], "page": pr["page"], "tags": [tag(s) for _, s in whole], "examples": example_tags(pr["text"], pr["title"]),
                 "hint": (hand.get(pr["id"], {}).get("hint")
                          or with_approach(pr["text"], pr["title"], hint_for(whole[0][1], books) if whole else "")), "parts": []}
         for part in pr["parts"]:
@@ -272,7 +324,7 @@ def analyze(book, course, books):
                     m = whole
             key = pr["id"] + part["id"]
             item["parts"].append({"id": part["id"], "page": part["page"], "text": part["text"][:240],
-                                  "tags": [tag(s) for _, s in m],
+                                  "tags": [tag(s) for _, s in m], "examples": example_tags(part["text"], pr["title"]),
                                   "hint": hand.get(key, {}).get("hint")
                                   or with_approach(part["text"], pr["title"], hint_for(m[0][1], books) if m else "")})
         out.append(item)
@@ -281,7 +333,7 @@ def analyze(book, course, books):
 
 def clean(text):
     """Homework text for display: private-use symbol-font glyphs from the PDF dropped, spaces tidied."""
-    return re.sub(r"\s+", " ", re.sub(r"[\ue000-\uf8ff]", "", text)).strip()
+    return re.sub(r"\s+", " ", re.sub(r"[\ue000-\uf8ff\ufe00-\ufe0f]", "", text)).strip()
 
 
 def _cut(text, n):
@@ -302,5 +354,9 @@ def tex(text, defs=None, limit=None):
     text = re.sub(r"</?(?:i|em|b|strong|span|code)[^>]*>", "", text)
     text = _html.unescape(macros.expand(text, defs or {}))
     text = re.sub(r"\\\((.+?)\\\)", lambda m: "$" + m.group(1).strip() + "$", text, flags=re.S)
+    text = re.sub(r"(?<![\w/])1\s+\u221a\s+(\d+)", lambda m: "1/\u221a" + m.group(1), text)      # 1 over the square root of 2, split over lines in the PDF
+    text = re.sub(r"\s*\((\d{1,3})\)(?=\s*(?:[|\u2223A-Z]|$))", "", text)           # equation numbers "(10)" copied from the PDF
     text = unitex.convert(text)
+    parts = re.split(r"(\$[^$]*\$)", text)                                       # plain text outside the math: a1, a2 -> $a_1$, $a_2$
+    text = "".join(x if x.startswith("$") else re.sub(r"(?<![\w\\])([a-z])([1-3])(?![\w])", r"$\1_\2$", x) for x in parts)
     return _cut(text, limit) if limit else text

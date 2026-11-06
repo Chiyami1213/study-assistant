@@ -115,7 +115,7 @@ def safe_html(text, goto=None, questions=None, errata_source=None):
         script += _QUIZ.replace("__DATA__", json.dumps(data, ensure_ascii=False).replace("</", "<\\/"))
     if goto:
         script += ("<script>window.addEventListener('load', function () { var go = function () { var t = document.getElementById("
-                   + repr(goto) + "); if (t) t.scrollIntoView({block: 'start'}); }; go(); setTimeout(go, 400); setTimeout(go, 1200); });</script>")
+                   + repr(goto) + "); if (t) { var d = t.tagName === 'DETAILS' ? t : t.closest('details'); if (d) d.open = true; t.scrollIntoView({block: 'start'}); } }; go(); setTimeout(go, 400); setTimeout(go, 1200); });</script>")
     low = text.lower()
     i = low.rfind("</body>")
     return text + script if i < 0 else text[:i] + script + text[i:]

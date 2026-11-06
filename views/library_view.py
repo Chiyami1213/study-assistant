@@ -235,7 +235,8 @@ def _sibling(book, kinds):
         return None
     for b in crud.list_books():
         n = re.search(r"\d+", b.get("lecture") or b["title"])
-        if b["kind"] in kinds and set(b["course_ids"]) & set(book["course_ids"]) and n and n.group() == number.group():
+        if (b["kind"] in kinds and set(b["course_ids"]) & set(book["course_ids"]) and n and n.group() == number.group()
+                and ("practice" in b["title"].lower()) == ("practice" in book["title"].lower())):
             return b
     return None
 
@@ -383,6 +384,8 @@ def _grade_panel(book):
             tagged = analysis.get(str(pr["n"]))
             if tagged and tagged.get("tags"):                  # the notes sections this problem draws on
                 _tag_buttons(tagged["tags"], f"gp{book['id']}_p{pr['n']}")
+            if tagged and tagged.get("examples"):
+                _example_buttons(tagged["examples"], f"gp{book['id']}_p{pr['n']}")
             for k, it in enumerate(pr["items"]):
                 note = by_id.get(it.get("comment"))
                 label = (":red[" + it["text"] + "]") if it["lost"] else it["text"]
@@ -461,6 +464,13 @@ def _tag_buttons(tags, key):
                   args=(note_id, sec_id), help="open this note at that section")
 
 
+def _example_buttons(tags, key):
+    """One button per worked example of the notes that looks like this problem: opens that example, unfolded."""
+    for i, (label, note_id, ex_id) in enumerate(tags[:2]):
+        st.button(label, key=f"{key}_ex_{i}", type="tertiary", icon=":material/calculate:", on_click=_open_note,
+                  args=(note_id, ex_id), help="open a similar worked example in the notes")
+
+
 def _homework_helper(book):
     """For each problem and sub-problem of a homework or an exam: the note section it draws on, and a hint built from that section."""
     exam = book["kind"] in ("Exam", "Practice Exam")
@@ -471,7 +481,7 @@ def _homework_helper(book):
     except Exception:
         problems = []
     st.subheader("Exam Helper" if exam else "Homework Helper")
-    solution = None if book["kind"] == "Practice Exam" else _sibling(book, ("Exam Solution",) if exam else ("Homework Solution",))
+    solution = _sibling(book, ("Exam Solution",) if exam else ("Homework Solution",))
     if solution:
         st.button("Open Solution", key=f"hw{book['id']}_solution", icon=":material/task_alt:", on_click=_open_note,
                   args=(solution["id"], None), help="open the solution file of this homework")
@@ -490,6 +500,7 @@ def _homework_helper(book):
                 with bulb.popover("", icon=":material/lightbulb:", help="hint for this problem"):
                     st.markdown(pr["hint"])
             _tag_buttons(pr["tags"], key)
+            _example_buttons(pr.get("examples") or [], key)
             for part in pr["parts"]:
                 pkey = f"{key}{part['id']}"
                 txt, pbulb = st.columns([8, 1], vertical_alignment="center")
@@ -499,6 +510,8 @@ def _homework_helper(book):
                         st.markdown(part["hint"])
                 if part["tags"] and part["tags"][:1] != pr["tags"][:1]:
                     _tag_buttons(part["tags"][:1], pkey)
+                if part.get("examples") and part["examples"][:1] != (pr.get("examples") or [])[:1]:
+                    _example_buttons(part["examples"][:1], pkey)
 
 
 @st.dialog("Edit File", width="large")

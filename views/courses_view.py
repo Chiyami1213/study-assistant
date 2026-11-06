@@ -363,7 +363,7 @@ def _exam_book(course_id, event_title, kind="Exam"):
 
     want = key(event_title)
     for b in crud.list_books():
-        if b["kind"] == kind and course_id in b["course_ids"] and key(b["title"]) == want:
+        if b["kind"] == kind and course_id in b["course_ids"] and key(b["title"]) == want and "practice" not in b["title"].lower():
             return b
     return None
 
@@ -591,14 +591,21 @@ def _homework(course):
 
 
 def _practice_exams(course):
-    """Practice exams of the course in the Library, as links (the file opens, and Back returns to this tab)."""
-    files = [b for b in crud.list_books() if b["kind"] == "Practice Exam" and course["id"] in b["course_ids"]]
+    """Practice exams of the course in the Library, each with its solution next to it (the file opens, and Back returns to this tab)."""
+    books = crud.list_books()
+    files = [b for b in books if b["kind"] == "Practice Exam" and course["id"] in b["course_ids"]]
     if not files:
         return
+    solutions = [b for b in books if b["kind"] == "Exam Solution" and course["id"] in b["course_ids"] and "practice" in b["title"].lower()]
+
+    def solution_of(b):
+        n = re.search(r"\d+", b["title"])
+        return next((x for x in solutions if n and re.search(r"\d+", x["title"]) and re.search(r"\d+", x["title"]).group() == n.group()), None)
+
     st.subheader(f"Practice Exams ({len(files)})")
-    rows = "".join(f'<div class="dl-row"><div><div class="dl-title"><a href="#" data-ol-book="{b["id"]}" data-ol-page="1" data-ol-tab="Exams" '
-                   f'title="open the practice exam">{html.escape(b["title"])}</a></div></div><div class="dl-when"></div></div>'
-                   for b in sorted(files, key=lambda b: crud._natural_key(b["title"])))
+    rows = ""
+    for b in sorted(files, key=lambda b: crud._natural_key(b["title"])):
+        rows += _row_html(b["title"], "", "", "none", book=b, solution=solution_of(b), tab="Exams").replace('<span class="dl-pill none"></span>', "")
     st.markdown(f'<div class="dl-list">{rows}</div>', unsafe_allow_html=True)
 
 

@@ -5,7 +5,7 @@ import re
 
 # Unicode symbol -> LaTeX (a trailing space where a word-like macro could run into the next letter)
 SYMBOLS = {
-    "⟩": r"\rangle ", "⟨": r"\langle ", "ħ": r"\hbar ", "−": "-", "√": r"\sqrt", "ω": r"\omega ", "ψ": r"\psi ",
+    "⟩": r"\rangle ", "⟨": r"\langle ", "ħ": r"\hbar ", "ℏ": r"\hbar ", "−": "-", "√": r"\sqrt", "ω": r"\omega ", "ψ": r"\psi ",
     "†": r"^\dagger ", "Δ": r"\Delta ", "′": "'", "″": "''", "±": r"\pm ", "⊗": r"\otimes ", "𝟙": r"\mathbf{1}",
     "→": r"\to ", "δ": r"\delta ", "σ": r"\sigma ", "∫": r"\int ", "‖": r"\Vert ", "λ": r"\lambda ", "≪": r"\ll ",
     "≫": r"\gg ", "≥": r"\ge ", "≤": r"\le ", "≠": r"\ne ", "≡": r"\equiv ", "∝": r"\propto ", "∂": r"\partial ",
@@ -50,7 +50,10 @@ def _extendable(token, touches_operator):
 def _tex(run):
     """LaTeX for one run of Unicode math."""
     run = re.sub(r"([A-Za-z])\u0302", r"\\hat{\1}", run)                      # x̂
+    run = re.sub(r"(?<![\w\\])1\s*/\s*√\s*(\d+)", r"\\frac{1}{\\sqrt{\1}}", run)   # 1 over √2, as the PDF text gives it
     run = re.sub(r"√(\d+|[A-Za-z])", r"\\sqrt{\1}", run)                       # √2
+    run = re.sub(r"([θφψωαβγλμνρτσηκδ])(\d)(?!\d)", r"\1_\2", run)            # θ2 -> θ_2
+    run = re.sub(r"(?<![\w\\{^_])([a-z])(\d)(?![\d\w])", r"\1_\2", run)    # a1 -> a_1
     run = re.sub(r"√(\((?:[^()]|\([^()]*\))*\))", r"\\sqrt{\1}", run)          # √(1 + ...)
     run = re.sub("[" + "".join(SUPER) + "]+", lambda m: "^{" + "".join(SUPER[c] for c in m.group()) + "}", run)
     run = re.sub("[" + "".join(SUB) + "]+", lambda m: "_{" + "".join(SUB[c] for c in m.group()) + "}", run)
