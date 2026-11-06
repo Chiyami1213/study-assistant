@@ -18,8 +18,12 @@ import unitex
 from database import BASE_DIR
 
 ROOT = BASE_DIR / "homework"
-PROBLEM = re.compile(r"^\s*(\d{1,2})\.\s+([A-Z].{3,})$")
-PART = re.compile(r"^\s*\(?([a-h])\)\s+(.*)$")
+PROBLEM = re.compile(r"^\s*(\d{1,2})\.\s+([A-Z].{3,})$")             # "2. Rotational Energies ..."        (AE 6765)
+PROBLEM_BARE = re.compile(r"^\s*(\d{1,2})\s*$")                        # "1" on its own line, the title on the next (PHYS 6105)
+PROBLEM_PAREN = re.compile(r"^\s*(\d{1,2})\)\s+(\S.*)$")                 # "1) A uniform beam ..."                (AE 6451)
+PART = re.compile(r"^\s*\(?([a-h])\)\s+(.*)$")                          # "a) ..." or "(a) 5 points ..."
+TITLE = re.compile(r"^[A-Z0-9][A-Za-z0-9’'“”\-,:?\. ]{3,70}$")                       # a short heading line, no math
+POINTS = re.compile(r"^\d+(\.\d+)?\s*points?\s*", re.I)
 STOP = set("that this with from have does what which when where there their then than into only each both about would could "
            "should these those equals equal also because while after before over under must same other more most using use "
            "determine find calculate compute assuming following given show your results result number values value".split())
@@ -31,27 +35,43 @@ def _words(text):
 
 @lru_cache(maxsize=16)
 def parse_problems(path, mtime):
-    """[{id, title, page, text, parts: [{id, page, text}]}] read from the homework PDF."""
+    """[{id, title, page, text, parts: [{id, page, text}]}] read from the homework PDF. Problems are numbered in order, so a
+    page number or an equation number is never taken for the next problem."""
     lines = []
     with pymupdf.open(path) as doc:
         for i, page in enumerate(doc):
             for line in page.get_text().splitlines():
                 if line.strip():
                     lines.append((i + 1, line.rstrip()))
-    problems, current, part = [], None, None
-    for page, line in lines:
-        m = PROBLEM.match(line)
-        if m and not (current is None and int(m.group(1)) != 1) and (current is None or int(m.group(1)) == int(current["id"]) + 1):
-            current = {"id": m.group(1), "title": m.group(2).strip(), "page": page, "text": m.group(2).strip(), "parts": []}
+    problems, current, part, pending = [], None, None, False
+    for at, (page, line) in enumerate(lines):
+        nxt = lines[at + 1][1].strip() if at + 1 < len(lines) else ""
+        want = 1 if current is None else int(current["id"]) + 1
+        if pending:                                                       # the line after a bare number is the title
+            current["title"] = current["text"] = line.strip()
+            pending = False
+            continue
+        m = PROBLEM.match(line) or PROBLEM_PAREN.match(line)
+        bare = PROBLEM_BARE.match(line)
+        if m and int(m.group(1)) == want:
+            text = m.group(2).strip()
+            title = text if PROBLEM.match(line) else " ".join(text.split()[:9]).rstrip(",.;:") + "..."
+            current = {"id": m.group(1), "title": title, "page": page, "text": text, "parts": []}
             problems.append(current)
             part = None
+            continue
+        if bare and int(bare.group(1)) == want and TITLE.match(nxt):      # "2" then "2D WKB"; not a fraction's "2" then "d"
+            current = {"id": bare.group(1), "title": "", "page": page, "text": "", "parts": []}
+            problems.append(current)
+            part, pending = None, True
             continue
         if current is None:
             continue
         m = PART.match(line)
         if m and (part is None and m.group(1) == "a" or part is not None and ord(m.group(1)) == ord(part["id"]) + 1):
-            part = {"id": m.group(1), "page": page, "text": m.group(2).strip()}
+            part = {"id": m.group(1), "page": page, "text": POINTS.sub("", m.group(2).strip())}
             current["parts"].append(part)
+            current["text"] += " " + part["text"]
             continue
         (part if part else current)["text"] += " " + line.strip()
         if part:
@@ -85,7 +105,7 @@ def course_sections(course_id, books):
     return _sections(tuple(key))
 
 
-def best_sections(text, sections, n=2, boost=""):
+def best_sections(text, sections, n=2, boost="", floor=4.0):
     """The n sections whose words best match the text (rare shared words weigh most). Words of `boost` (the problem's title)
     count three times, so a problem named "Rotational Energies and the Rigid Rotor Model" finds the rigid-rotor section."""
     words, heavy = _words(text), _words(boost)
@@ -100,7 +120,7 @@ def best_sections(text, sections, n=2, boost=""):
         title_hit = sum(math.log(1 + docs / freq[w]) * 3 for w in allw & _words(s["title"]))      # a matching section title is a strong sign
         scored.append((score + title_hit, s))
     scored.sort(key=lambda x: -x[0])
-    return [(round(sc, 1), s) for sc, s in scored[:n] if sc >= 4.0]
+    return [(round(sc, 1), s) for sc, s in scored[:n] if sc >= floor]
 
 
 def _equations(section, limit=2):
@@ -167,8 +187,8 @@ def analyze(book, course, books):
             m = best_sections(part["text"], sections, 2, boost=pr["title"]) or whole
             if m and whole and m[0][1]["sec"] != whole[0][1]["sec"] or (m and whole and m[0][1]["book"] != whole[0][1]["book"]):
                 # a sub-problem leaves its problem's section only when another section is clearly better on its own words
-                own = dict((id(s), sc) for sc, s in best_sections(part["text"], sections, len(sections), boost=pr["title"]))
-                if own.get(id(whole[0][1]), 0) * 1.25 >= m[0][0]:
+                own = dict((id(s), sc) for sc, s in best_sections(part["text"], sections, len(sections), boost=pr["title"], floor=0.0))
+                if m[0][0] < 14 or own.get(id(whole[0][1]), 0) * 2.2 >= m[0][0]:       # low confidence, or not clearly better
                     m = whole
             key = pr["id"] + part["id"]
             item["parts"].append({"id": part["id"], "page": part["page"], "text": part["text"][:240],

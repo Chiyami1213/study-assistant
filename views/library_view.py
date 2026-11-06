@@ -198,8 +198,8 @@ def _go_page(book_id, page):
 def _tag_buttons(tags, key):
     """One button per matching note section: opens that note at the section."""
     for i, (label, note_id, sec_id) in enumerate(tags[:2]):
-        st.button(f"📖 {label}", key=f"{key}_note_{i}", type="tertiary", on_click=_open_note, args=(note_id, sec_id),
-                  help="open this note at that section")
+        st.button(label, key=f"{key}_note_{i}", type="tertiary", icon=":material/menu_book:", on_click=_open_note,
+                  args=(note_id, sec_id), help="open this note at that section")
 
 
 def _homework_helper(book):
@@ -381,17 +381,21 @@ def render():
     courses = {c["id"]: c for c in crud.list_courses(section=None)}
     _handle_click()
     st.markdown("<h1 class='lib-title'>Library</h1>", unsafe_allow_html=True)
-    st.session_state.setdefault("library_filter", "All")
+    # The filter and the sort are remembered apart from their widgets (a widget's value is dropped while a file is open), so
+    # Back from a homework or a note returns to the same list, for example the Homework filter.
+    st.session_state.setdefault("library_filter", st.session_state.get("_library_filter_kept", "All"))
     options = ["All"] + KINDS
     counts = {"All": len(all_books), **{k: sum(b["kind"] == k for b in all_books) for k in KINDS}}
     f1, f2 = st.columns([4, 1.4], vertical_alignment="center")
     with f1:
         choice = st.segmented_control("Show", options, key="library_filter", label_visibility="collapsed",
                                       format_func=lambda o: f"{PLURAL.get(o, o)} ({counts[o]})") or "All"
-    st.session_state.setdefault("library_sort", "Course")           # files are grouped by course unless you pick another sort
+    st.session_state["_library_filter_kept"] = choice
+    st.session_state.setdefault("library_sort", st.session_state.get("_library_sort_kept", "Course"))   # by course unless you pick another
     with f2:
         sort_by = st.selectbox("Sort by", SORTS, key="library_sort", label_visibility="collapsed",
                                format_func=lambda s: f"Sort: {s}")
+    st.session_state["_library_sort_kept"] = sort_by
     books = all_books if choice == "All" else [b for b in all_books if b["kind"] == choice]
     st.caption(f"{len(books)} {'Title' if len(books) == 1 else 'Titles'}")
 
