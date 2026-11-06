@@ -102,11 +102,114 @@ _QUIZ = """<style>
 </script>"""
 
 
+# Find (Ctrl+F) and zoom for a note shown in a frame: a small toolbar with magnifier icons (find, zoom out, zoom in) and a find bar.
+_FIND = r"""<script>(function () {
+if (window.__ffV1) return; window.__ffV1 = true;
+var root = document.documentElement, bar, input, count, hits = [], cur = -1, timer = null, zoom = 1;
+var KEY = 'rd-zoom:' + (document.title || 'note');
+var css = document.createElement('style');
+css.textContent = '.ff-tools,.ff-bar{position:fixed;z-index:2147483000;display:flex;align-items:center;gap:4px;background:#fff;color:#111;border:1px solid #9aa3b5;border-radius:10px;padding:4px 6px;box-shadow:0 3px 14px rgba(0,0,0,.22);font:13px system-ui,sans-serif}'
+ + '.ff-tools{top:8px;right:14px;opacity:.55;transition:opacity .15s}.ff-tools:hover,.ff-tools.on{opacity:1}'
+ + '.ff-bar{top:48px;right:14px;display:none;padding:6px 8px}'
+ + '@media (prefers-color-scheme:dark){.ff-tools,.ff-bar{background:#1b2030;color:#e8eaf2;border-color:#3a4260}.ff-bar input{background:#0f1320;color:#e8eaf2;border-color:#3a4260}}'
+ + '.ff-bar input{width:190px;font:inherit;padding:4px 7px;border:1px solid #9aa3b5;border-radius:6px;outline:none}'
+ + '.ff-tools button,.ff-bar button{font:inherit;line-height:1;padding:4px 6px;border:1px solid transparent;border-radius:6px;background:transparent;color:inherit;cursor:pointer;display:flex;align-items:center}'
+ + '.ff-tools button:hover,.ff-bar button:hover{background:rgba(120,130,160,.25)}.ff-tools svg{width:18px;height:18px}'
+ + '.ff-count,.ff-pct{min-width:46px;text-align:center;opacity:.8;font-size:12px}'
+ + 'mark.ff-hit{background:#ffe066;color:#111;border-radius:2px;padding:0}mark.ff-hit.ff-cur{background:#ff9f1a;outline:2px solid #ff9f1a}';
+(document.head || root).appendChild(css);
+function icon(sign) {
+  var inner = sign === 'plus' ? '<path d="M8 11h6M11 8v6"/>' : sign === 'minus' ? '<path d="M8 11h6"/>' : '';
+  return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l5 5"/>' + inner + '</svg>';
+}
+var tools = document.createElement('div'); tools.className = 'ff-tools';
+tools.innerHTML = '<button type="button" data-a="find" title="find in this page (ctrl+f)">' + icon('') + '</button>'
+  + '<button type="button" data-a="out" title="zoom out">' + icon('minus') + '</button><span class="ff-pct">100%</span>'
+  + '<button type="button" data-a="in" title="zoom in">' + icon('plus') + '</button>';
+root.appendChild(tools);
+var pct = tools.querySelector('.ff-pct');
+function setZoom(z) {
+  zoom = Math.min(3, Math.max(0.5, Math.round(z * 10) / 10));
+  document.body.style.zoom = zoom; pct.textContent = Math.round(zoom * 100) + '%';
+  try { localStorage.setItem(KEY, String(zoom)); } catch (e) {}
+}
+try { var saved = parseFloat(localStorage.getItem(KEY)); if (saved) setZoom(saved); } catch (e) {}
+tools.addEventListener('click', function (e) {
+  var b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.a === 'in') setZoom(zoom + 0.1); else if (b.dataset.a === 'out') setZoom(zoom - 0.1); else openBar();
+});
+pct.addEventListener('dblclick', function () { setZoom(1); });
+document.addEventListener('wheel', function (e) { if (e.ctrlKey) { e.preventDefault(); setZoom(zoom + (e.deltaY < 0 ? 0.1 : -0.1)); } }, {passive: false});
+function build() {
+  if (bar) return;
+  bar = document.createElement('div'); bar.className = 'ff-bar';
+  bar.innerHTML = '<input type="text" placeholder="Find in this page" aria-label="Find"><span class="ff-count"></span>'
+    + '<button type="button" data-d="-1" title="previous (shift+enter)">&#9650;</button><button type="button" data-d="1" title="next (enter)">&#9660;</button>'
+    + '<button type="button" data-x="1" title="close (esc)">&#10005;</button>';
+  root.appendChild(bar); input = bar.querySelector('input'); count = bar.querySelector('.ff-count');
+  input.addEventListener('input', function () { clearTimeout(timer); timer = setTimeout(run, 120); });
+  input.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); step(e.shiftKey ? -1 : 1); } else if (e.key === 'Escape') { e.preventDefault(); closeBar(); }
+    e.stopPropagation();
+  });
+  bar.addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; if (b.dataset.x) closeBar(); else step(+b.dataset.d); });
+}
+function clear() {
+  document.querySelectorAll('mark.ff-hit').forEach(function (m) { var p = m.parentNode; p.replaceChild(document.createTextNode(m.textContent), m); p.normalize(); });
+  hits = []; cur = -1;
+}
+function run() {
+  clear(); var q = input.value;
+  if (!q) { count.textContent = ''; return; }
+  var needle = q.toLowerCase();
+  var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {acceptNode: function (n) {
+    var p = n.parentElement;
+    if (!p || p.closest('script,style,noscript,mjx-container,textarea,select,option,svg,canvas')) return NodeFilter.FILTER_REJECT;
+    return n.nodeValue && n.nodeValue.toLowerCase().indexOf(needle) >= 0 ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+  }});
+  var nodes = []; while (walker.nextNode()) nodes.push(walker.currentNode);
+  nodes.forEach(function (n) {
+    var text = n.nodeValue, low = text.toLowerCase(), i = 0, at, frag = document.createDocumentFragment();
+    while ((at = low.indexOf(needle, i)) >= 0) {
+      if (at > i) frag.appendChild(document.createTextNode(text.slice(i, at)));
+      var m = document.createElement('mark'); m.className = 'ff-hit'; m.textContent = text.slice(at, at + needle.length); frag.appendChild(m); i = at + needle.length;
+    }
+    if (i < text.length) frag.appendChild(document.createTextNode(text.slice(i)));
+    n.parentNode.replaceChild(frag, n);
+  });
+  hits = Array.prototype.filter.call(document.querySelectorAll('mark.ff-hit'), function (m) { return !m.closest('[hidden]'); });
+  if (!hits.length) { count.textContent = 'No matches'; return; }
+  step(1, true);
+}
+function step(d, first) {
+  if (!hits.length) return;
+  if (cur >= 0 && hits[cur]) hits[cur].classList.remove('ff-cur');
+  cur = first ? 0 : (cur + d + hits.length) % hits.length;
+  var m = hits[cur]; m.classList.add('ff-cur');
+  var det = m.closest('details'); while (det) { det.open = true; det = det.parentElement && det.parentElement.closest('details'); }
+  m.scrollIntoView({block: 'center', behavior: 'smooth'});
+  count.textContent = (cur + 1) + ' of ' + hits.length;
+}
+function openBar() { build(); bar.style.display = 'flex'; tools.classList.add('on'); input.focus(); input.select(); if (input.value) run(); }
+function closeBar() { clear(); if (bar) bar.style.display = 'none'; tools.classList.remove('on'); }
+document.addEventListener('keydown', function (e) {
+  if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey) {
+    var k = e.key.toLowerCase();
+    if (k === 'f') { e.preventDefault(); openBar(); }
+    else if (k === '=' || k === '+') { e.preventDefault(); setZoom(zoom + 0.1); }
+    else if (k === '-') { e.preventDefault(); setZoom(zoom - 0.1); }
+    else if (k === '0') { e.preventDefault(); setZoom(1); }
+  }
+});
+window.addEventListener('message', function (e) { if (e.data && e.data.study === 'find-open') openBar(); });
+})();</script>"""
+
+
 def safe_html(text, goto=None, questions=None, errata_source=None):
     """The note's HTML with the link guard added just before the closing body tag (or at the end). `goto` is the id of
     a section to scroll to once the page has loaded (the Exercises tab opens the page at #exercises). `questions` (the
     app's question dicts) replace the note's own Self-check, so the note and the course Quiz tab agree."""
-    script = _SCRIPT
+    script = _SCRIPT + _FIND
     if errata_source:
         script += _ERRATA.replace("__SRC__", errata_source)
     if questions:

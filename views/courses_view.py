@@ -652,9 +652,7 @@ def _exams(course):
         original = _exam_book(course["id"], e["title"])
         solution = _exam_book(course["id"], e["title"], "Exam Solution")
         graded = _exam_book(course["id"], e["title"], "Graded Exam")
-        main_file = original or (graded if not solution else None)          # an exam kept only as the graded paper links to that paper
-        if main_file is graded:
-            graded = None
+        main_file = original
         rows += _row_html(e["title"], _when(e["date"], e.get("time")),
                           "Done" if e["date"] < today else "Upcoming", "done" if e["date"] < today else "open",
                           f"Covers {e['covers']}" if e.get("covers") else None, book=main_file, solution=solution, graded=graded, extra=_grade_html(e), tab="Exams")

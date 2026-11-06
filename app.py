@@ -495,6 +495,8 @@ section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-h
 .rd-pg {{position: relative;}}
 .rd-err {{position: absolute; border: 2px solid #e5484d; background: rgba(229, 72, 77, 0.14); border-radius: 4px; z-index: 2; cursor: help;}}
 .rd-err.rd-sent {{border-color: #d9a21b; background: rgba(217, 162, 27, 0.2);}}
+.rd-find {{position: absolute; background: rgba(255, 213, 0, 0.42); border-radius: 2px; z-index: 2; pointer-events: none;}}
+.rd-find.active {{background: rgba(255, 140, 0, 0.55); outline: 2px solid #ff8c00; z-index: 4;}}
 .rd-err.active {{border-width: 3px; box-shadow: 0 0 0 4px rgba(229, 72, 77, 0.35); animation: rd-pulse 1.2s ease-in-out 3; z-index: 4;}}
 .rd-err.rd-sent.active {{box-shadow: 0 0 0 4px rgba(217, 162, 27, 0.4);}}
 @keyframes rd-pulse {{50% {{box-shadow: 0 0 0 9px rgba(229, 72, 77, 0.12);}}}}
@@ -768,6 +770,29 @@ if (!win.__eyeRestV2) {
   setInterval(tick, 1000);
 }
 // Note Reader window tabs: drag a tab to any place in the row; x closes a window; + adds one.
+if (!win.__findV1) {
+  win.__findV1 = true;
+  let px = 0, py = 0;
+  doc.addEventListener('mousemove', e => { px = e.clientX; py = e.clientY; }, true);
+  doc.addEventListener('keydown', e => {
+    if (!((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'f')) return;
+    const tag = (e.target && e.target.tagName || '').toLowerCase();
+    const readers = [...doc.querySelectorAll('[class*="st-key-reader_"]')].filter(r => r.getBoundingClientRect().width > 0);
+    const frames = [...doc.querySelectorAll('iframe')].filter(f => f.getBoundingClientRect().height > 200);
+    const inX = r => { const b = r.getBoundingClientRect(); return px >= b.left && px <= b.right; };
+    const reader = readers.find(inX), frame = frames.find(inX);
+    if (!reader && !frame && !readers.length && !frames.length) return;            // nothing to search here: the browser's own find
+    e.preventDefault(); e.stopPropagation();
+    if (frame && (!reader || py > reader.getBoundingClientRect().bottom)) {
+      frame.contentWindow.postMessage({study: 'find-open'}, '*');
+    } else if (reader || readers.length) {
+      const box = (reader || readers[0]).querySelector('[class*="_findbox"] button');
+      if (box) { box.click(); setTimeout(() => { const i = doc.querySelector('[data-testid="stPopoverBody"] input'); if (i) { i.focus(); i.select(); } }, 250); }
+    } else if (frames.length) {
+      frames[0].contentWindow.postMessage({study: 'find-open'}, '*');
+    }
+  }, true);
+}
 if (!win.__switchV1) {
   win.__switchV1 = true;
   // a click on the sidebar menu or on a tab starts a switch; it ends once nothing is stale any more
@@ -859,7 +884,7 @@ if (!win.__rdScrollV1) {
     return n;
   };
   setInterval(() => {
-    doc.querySelectorAll('.rd-err.active').forEach(el => {                       // the erratum clicked in a note: bring it to the middle
+    doc.querySelectorAll('.rd-err.active, .rd-find.active').forEach(el => {                       // the erratum clicked in a note: bring it to the middle
       if (!el._seen) { el._seen = true; el.scrollIntoView({block: 'center', inline: 'nearest'}); }
     });
     doc.querySelectorAll('.rd-cont').forEach(c => {

@@ -3,6 +3,7 @@
 Page flipping is kept quick three ways: pages are drawn as small JPEGs, the pages next to the current one are
 rendered in the background, and the reader is a fragment, so Prev / Next / zoom redraw only the reader."""
 import base64
+import pathlib
 import hashlib
 import html
 import os
@@ -10,6 +11,7 @@ import threading
 from collections import OrderedDict
 from functools import lru_cache
 
+import pymupdf
 import streamlit as st
 
 import covers
@@ -104,10 +106,82 @@ def _boxes(marks, active=None):
         W, H = m["size"]
         x0, y0, x1, y1 = m["rect"]
         label = m["label"].replace('"', "'")
-        cls = "rd-err" + (" rd-sent" if m.get("sentence") else "") + (" active" if active and m["n"] in active else "")
+        if m.get("find"):                                         # a search hit: a yellow highlight, the current one orange
+            cls, badge = "rd-find" + (" active" if m.get("active") else ""), ""
+        else:
+            cls = "rd-err" + (" rd-sent" if m.get("sentence") else "") + (" active" if active and m["n"] in active else "")
+            badge = f"<b>{m['n']}</b>"
         out += (f'<span class="{cls}" data-tip="{label}" style="left:{x0 / W * 100:.2f}%;top:{y0 / H * 100:.2f}%;'
-                f'width:{(x1 - x0) / W * 100:.2f}%;height:{(y1 - y0) / H * 100:.2f}%"><b>{m["n"]}</b></span>')
+                f'width:{(x1 - x0) / W * 100:.2f}%;height:{(y1 - y0) / H * 100:.2f}%">{badge}</span>')
     return out
+
+
+@lru_cache(maxsize=24)
+def find_matches(path, mtime, query):
+    """Every place the text occurs in the PDF (any case): [(page index, (x0, y0, x1, y1), (page width, page height))], at most 400."""
+    out = []
+    if not query.strip():
+        return out
+    doc = pymupdf.open(path)
+    try:
+        for i, page in enumerate(doc):
+            for r in page.search_for(query.strip()):
+                out.append((i, (r.x0, r.y0, r.x1, r.y1), (page.rect.width, page.rect.height)))
+                if len(out) >= 400:
+                    return out
+    finally:
+        doc.close()
+    return out
+
+
+def _find_go(key, page_key, path, mtime, delta):
+    """Callback: the first hit when the text changes (delta 0), else the next or previous hit; shows its page."""
+    hits = find_matches(path, mtime, st.session_state.get(f"{key}_fq", ""))
+    if not hits:
+        st.session_state[f"{key}_fi"] = 0
+        return
+    i = 0 if delta == 0 else (st.session_state.get(f"{key}_fi", 0) + delta) % len(hits)
+    st.session_state[f"{key}_fi"] = i
+    st.session_state[page_key] = hits[i][0] + 1
+    _bump(key)
+
+
+def _find_marks(key, path, mtime):
+    """The search hits as marks for the page images; the current one is emphasised."""
+    q = st.session_state.get(f"{key}_fq", "")
+    hits = find_matches(str(path), mtime, q)
+    cur = st.session_state.get(f"{key}_fi", 0)
+    return [{"n": "", "label": q, "md": "", "page": pg, "size": size, "rect": rect, "find": True, "active": k == cur}
+            for k, (pg, rect, size) in enumerate(hits)], len(hits)
+
+
+def _find_box(key, page_key, path, mtime):
+    """The search tool in the toolbar: a magnifier button (Ctrl+F opens it) with a text box, the hit count and previous / next."""
+    with st.container(key=f"{key}_findbox"):
+        with st.popover("", icon=":material/search:", width="stretch", help="find text in this file (ctrl+f)"):
+            st.text_input("Find in this file", key=f"{key}_fq", placeholder="Find in this file", label_visibility="collapsed",
+                          on_change=_find_go, args=(key, page_key, str(path), mtime, 0))
+            q = st.session_state.get(f"{key}_fq", "")
+            hits = find_matches(str(path), mtime, q) if q else []
+            c1, c2, c3 = st.columns([2.2, 1, 1], vertical_alignment="center")
+            if q and hits:
+                c1.caption(f"{st.session_state.get(f'{key}_fi', 0) + 1} of {len(hits)}")
+            elif q:
+                c1.caption("No matches (a scanned file has no text to search)" if not covers_has_text(str(path), mtime) else "No matches")
+            c2.button("", key=f"{key}_fprev", icon=":material/keyboard_arrow_up:", width="stretch", disabled=not hits,
+                      on_click=_find_go, args=(key, page_key, str(path), mtime, -1), help="previous match")
+            c3.button("", key=f"{key}_fnext", icon=":material/keyboard_arrow_down:", width="stretch", disabled=not hits,
+                      on_click=_find_go, args=(key, page_key, str(path), mtime, 1), help="next match")
+
+
+@lru_cache(maxsize=24)
+def covers_has_text(path, mtime):
+    """True when the PDF has a text layer on at least one of its first pages."""
+    doc = pymupdf.open(path)
+    try:
+        return any(len(doc[i].get_text().strip()) > 20 for i in range(min(doc.page_count, 6)))
+    finally:
+        doc.close()
 
 
 def _go(page_key, page, key):
@@ -167,9 +241,11 @@ def pdf_reader(path, key, height=640, start=1, title=None, on_page=None, marks=N
     """Draw the reader for a PDF file. 100% fits the width of the window; height None fills the window (page CSS).
     `title` is drawn above the toolbar with the page number; `on_page(page)` is told whenever the page changes.
     `marks` are errata to draw on the pages (see errata.py); the numbers in `active` are drawn emphasised and scrolled to."""
-    marks = marks or []
+    marks = list(marks or [])
+    path = pathlib.Path(path)
+    found, _n = _find_marks(key, path, path.stat().st_mtime)          # the text searched for (Ctrl+F) is highlighted on the pages
     by_page = {}
-    for m in marks:
+    for m in marks + found:
         by_page.setdefault(m["page"], []).append(m)
     try:
         total = covers.page_count(path)
@@ -186,6 +262,8 @@ def pdf_reader(path, key, height=640, start=1, title=None, on_page=None, marks=N
         cols = st.columns([0.55, 1.1, 1.15, 0.75, 0.9, 1.15, 1.1, 1.0, 0.55, 0.55, 0.55], vertical_alignment="center", gap="small")
         cols[0].button("", key=f"{key}_fit", icon=":material/fit_width:", width="stretch", on_click=_set_zoom,
                        args=(zoom_key, 100), help="fit to width")
+        with cols[6]:
+            _find_box(key, page_key, path, path.stat().st_mtime)
         cols[2].button("‹  Prev", key=f"{key}_prev", width="stretch", on_click=_step_page, args=(page_key, -1, total))
         cols[3].number_input("Page", 1, total, key=page_key, label_visibility="collapsed", on_change=_bump, args=(key,))
         cols[4].markdown(f'<div class="rd-total">/{total}</div>', unsafe_allow_html=True)
