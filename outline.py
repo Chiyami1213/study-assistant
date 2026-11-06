@@ -96,16 +96,31 @@ def exercises_section(titles):
             + (problems or '<p class="todo">Add problems here.</p>') + "\n</section>")
 
 
-def with_exercises(page_html, titles):
-    """A finished page with an Exercises section added at its end (unless it already has one)."""
+EXERCISE_WORDS = re.compile(r"exercise|self-check|practice|problem|quiz", re.I)
+
+
+def exercises_id(page_html):
+    """Id of the section the Exercises tab opens: our own #exercises section, else a section of the note whose
+    heading looks like exercises (Self-check, Practice, Problems, Quiz). None if the page has no such section."""
     if 'id="exercises"' in page_html:
+        return "exercises"
+    for m in re.finditer(r'<section[^>]*id="([^"]+)"[^>]*>\s*<h2[^>]*>(.*?)</h2>', page_html, re.S):
+        if EXERCISE_WORDS.search(re.sub(r"<[^>]+>", " ", m.group(2))):
+            return m.group(1)
+    return None
+
+
+def with_exercises(page_html, titles):
+    """A finished page with an Exercises section added at its end, unless it already has one (its own Self-check
+    or Problems section is used instead)."""
+    if exercises_id(page_html):
         return page_html
     block = exercises_section(titles)
     low = page_html.lower()
     for marker in ("</main>", "</body>"):
         i = low.rfind(marker)
         if i >= 0:
-            return page_html[:i] + block + "\n" + page_html[i:]
+            return page_html[:i] + block + chr(10) + page_html[i:]
     return page_html + block
 
 

@@ -133,7 +133,7 @@ def _is_html(text):
 
 
 def _show(text, field):
-    goto = "exercises" if field == "exercises" else None
+    goto = outline.exercises_id(text) if field == "exercises" else None
     """A chapter body: Markdown, or a full interactive HTML page (as built with Claude)."""
     with st.container(key=f"lab_view_scroll_{field}"):          # sized by the page CSS to fill the window
         if _is_html(text):
@@ -270,7 +270,7 @@ def _notes():
 
     st.markdown(f"<h3 class='lab-heading'>{_esc(ch['title'])}</h3>", unsafe_allow_html=True)
     with st.container(key="lab_toolbar"):               # Rename and Export sit on the same row as the tabs below
-        _, rename, export = st.columns([3.4, 1.3, 1.2], vertical_alignment="center", gap="small")
+        _, rename, export = st.columns([7, 1.5, 1.4], vertical_alignment="center", gap="small")
         with rename.popover("Rename", width="stretch"):
             new = st.text_input("Chapter Title", value=ch["title"], key=f"lab_rename_{cid}", label_visibility="collapsed")
             st.button("Save Title", key=f"lab_rename_save_{cid}", type="primary", width="stretch", on_click=_rename,

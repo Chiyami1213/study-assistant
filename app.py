@@ -383,7 +383,9 @@ section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-h
 /* Note Builder: the tabs share a row with Rename and Export (the toolbar ignores clicks except on its buttons) */
 .st-key-lab_toolbar {{position: relative; z-index: 4; pointer-events: none;}}
 .st-key-lab_toolbar button, .st-key-lab_toolbar [data-testid="stPopover"] {{pointer-events: auto;}}
-.st-key-lab_tabs_wrap {{margin-top: -3.4rem;}}
+.st-key-lab_tabs_wrap {{margin-top: -3.2rem;}}
+.st-key-lab_toolbar button {{min-height: 1.9rem !important; padding: 0.1rem 0.5rem !important; font-size: 0.8rem !important;}}
+.st-key-lab_toolbar button p {{font-size: 0.8rem !important; line-height: 1.2;}}
 /* Note Builder and File page */
 [class*="st-key-lab_refname_"] [data-testid="stPopover"] button {{border: none !important; background: transparent !important; justify-content: flex-start;
     padding: 0.2rem 0.4rem; min-height: 0; width: 100%;}}
