@@ -56,13 +56,14 @@ def course_chapters(course):
                         "_num": sec["num"] if sec else None})
         made = quizgen.questions(quizgen.load(quizgen.path_for(course["code"] or course["name"], b["title"])))
         nums = {x["id"]: x["num"] for x in secs}
+        labels = {x["id"]: x.get("label") for x in secs}
         ref = lambda n: f"{b['lecture']}.{n}" if b.get("lecture") and n else f"§{n}" if n else ""     # "10.2": lecture, section
         titles = {x["id"]: x["title"] for x in secs}
         for qq in made:
-            qq["tag"] = ref(nums.get(qq.get("sec"))) + " · " + titles.get(qq.get("sec"), qq["tag"].lstrip("§ "))
+            qq["tag"] = (labels.get(qq.get("sec")) or ref(nums.get(qq.get("sec")))) + " · " + titles.get(qq.get("sec"), qq["tag"].lstrip("§ "))
         for qq in own:
             if qq.get("_num"):
-                qq["tag"] = ref(qq["_num"]) + " · " + qq["tag"].replace("Self-check · ", "") + " (self-check)"
+                qq["tag"] = (labels.get(qq.get("sec")) or ref(qq["_num"])) + " · " + qq["tag"].replace("Self-check · ", "") + " (self-check)"
         qs = made + own
         if qs:
             out.append({"book": b, "questions": qs, "path": path, "made": len(made),

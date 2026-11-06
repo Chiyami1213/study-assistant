@@ -9,7 +9,7 @@ import sys
 import icons
 
 # The dev server caches imported modules between reruns; reload ours so edits apply without a restart.
-for _m in ("database", "notesfs", "crud", "settings", "icons", "pdfmeta", "covers", "reader", "macros", "unitex", "outline", "htmlnotes", "quizzes", "quizgen", "quizhtml", "photos", "views.notes_view", "views.courses_view", "views.home_view",
+for _m in ("database", "notesfs", "crud", "settings", "icons", "pdfmeta", "covers", "reader", "macros", "unitex", "outline", "htmlnotes", "quizzes", "quizgen", "quizhtml", "hwassist", "photos", "views.notes_view", "views.courses_view", "views.home_view",
            "navigation", "views.homework_view", "views.exam_mode_view", "views.recall_view", "views.library_view", "views.quiz_view", "views.calendar_view", "views.file_view", "views.lab_view",
            "views.settings_view"):
     if _m in sys.modules:
@@ -647,7 +647,7 @@ if (!win.__olNavV1) {
     e.preventDefault();
     const inp = doc.querySelector('.st-key-outline_sink input'); if (!inp) return;
     const set = Object.getOwnPropertyDescriptor(win.HTMLInputElement.prototype, 'value').set;
-    inp.focus(); set.call(inp, a.dataset.olBook + ',' + a.dataset.olPage + '|' + Date.now());
+    inp.focus(); set.call(inp, a.dataset.olBook + ',' + a.dataset.olPage + (a.dataset.olTab ? ',' + a.dataset.olTab : '') + '|' + Date.now());
     inp.dispatchEvent(new win.Event('input', {bubbles: true}));
     inp.dispatchEvent(new win.KeyboardEvent('keydown', {key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true}));
     inp.blur();
@@ -709,7 +709,9 @@ if (!win.__eyeRestV2) {
       'Step away from the screen and rest your eyes for 5 minutes.</p><div class="count"></div><div class="bar"><i></i></div>' +
       '<button type="button" disabled>Resume Studying</button></div>';
     doc.body.appendChild(el); forced = {el, done: false}; beep();
-    el.querySelector('button').onclick = () => { el.remove(); forced = null; };
+    el.querySelector('button').onclick = () => {          // the 20 minutes start again from the moment studying resumes
+      el.remove(); forced = null; st = Object.assign(fresh(), {seen: Date.now()}); save(st);
+    };
   }
   function tick() {
     const now = Date.now();

@@ -45,9 +45,10 @@ def _quiz_exports(course):
 
 def render():
     st.title("File")
-    courses = crud.courses_by_status("Active")
+    courses = crud.courses_by_status("Active") + [c for s in crud.STATUSES if s != "Active" for c in crud.courses_by_status(s)
+                                                  if crud.list_exported_notes(c["id"])]      # others show once they have exports
     if not courses:
-        st.info("Active courses appear here with the notes you export from the Note Builder."); return
+        st.info("Courses appear here with the notes you export from the Note Builder."); return
     for c in courses:
         items = crud.list_exported_notes(c["id"])
         color = crud.course_color(c)

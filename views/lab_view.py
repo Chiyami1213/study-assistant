@@ -5,6 +5,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 
 import json
+import re
 
 import crud
 import errata
@@ -90,23 +91,52 @@ def _reference(win):
         codes = " / ".join(courses[i]["code"] or courses[i]["name"] for i in b["course_ids"] if i in courses) or "No Course"
         return f"{codes} · {b['kind']} · {b['title']}"
 
-    kind_rank = {"Textbook": 0, "Lecture Notes": 1, "Notes": 2}
+    kind_rank = {"Textbook": 0, "Lecture Notes": 1, "Notes": 2, "Homework": 3}
     books = sorted(books, key=lambda b: (label(b).split(" · ")[0].lower(), kind_rank.get(b["kind"], 9), b["title"].lower()))
     ids = [b["id"] for b in books]
     by_id = {b["id"]: b for b in books}
     sel_key = f"lab_ref_book_{wid}"
+    ck, kk = f"lab_ref_course_{wid}", f"lab_ref_kind_{wid}"
     st.session_state.setdefault(sel_key, win.get("book") if win.get("book") in by_id else ids[0])
+    cur = by_id[st.session_state[sel_key]] if st.session_state[sel_key] in by_id else books[0]
+    own_course = lambda b: next((i for i in b["course_ids"] if i in courses), 0)       # 0 = a file with no course
+    order = {c["id"]: n for n, c in enumerate(c for s in crud.STATUSES for c in crud.courses_by_status(s))}
+    course_ids = sorted({own_course(b) for b in books}, key=lambda i: (order.get(i, 999), i))
+    course_name = lambda i: (courses[i]["code"] or courses[i]["name"]) if i in courses else "No Course"
+    st.session_state.setdefault(ck, own_course(cur))
+    if st.session_state[ck] not in course_ids:
+        st.session_state[ck] = own_course(cur)
+    in_course = [b for b in books if own_course(b) == st.session_state[ck]]
+    kinds = [k for k in ("Textbook", "Lecture Notes", "Notes", "Homework") if any(b["kind"] == k for b in in_course)] or ["Notes"]
+    kinds += sorted({b["kind"] for b in in_course} - set(kinds))
+    st.session_state.setdefault(kk, cur["kind"] if cur["kind"] in kinds else kinds[0])
+    if st.session_state[kk] not in kinds:
+        st.session_state[kk] = kinds[0]
+
+    def lec_order(b):
+        return (tuple(int(n) for n in re.findall(r"\d+", b.get("lecture") or "")), b["title"].lower())
+
+    files = sorted((b for b in in_course if b["kind"] == st.session_state[kk]), key=lec_order)
+    if st.session_state[sel_key] not in [b["id"] for b in files]:         # the course or category was changed
+        st.session_state[sel_key] = files[0]["id"] if files else cur["id"]
     book_id = st.session_state[sel_key] if st.session_state[sel_key] in by_id else ids[0]
     if win.get("book") != book_id:                      # remember which file each window shows
         _save_windows([{**w, "book": book_id} if w["id"] == wid else w for w in _windows()])
         st.rerun()                                      # so the tab title shows the new file
+
+    def file_name(b):
+        tag = ("HW " if b["kind"] == "Homework" else "Lec ") + b["lecture"] + " · " if b.get("lecture") else ""
+        return tag + b["title"]
+
     book = by_id[book_id]
     saved = lab.get("pages", {}).get(str(book_id), 1)
     is_html = book["pdf_path"].lower().endswith((".html", ".htm"))
     with st.container(key=f"lab_refname_{wid}"):     # the file name is the heading; click it to pick another file
         with st.popover(book["title"], width="stretch", help=book["title"]):
-            st.selectbox("Reference File", ids, key=sel_key, label_visibility="collapsed",
-                         format_func=lambda i: label(by_id[i]))
+            c1, c2 = st.columns(2)
+            c1.selectbox("Course", course_ids, key=ck, format_func=course_name)
+            c2.selectbox("Category", kinds, key=kk)
+            st.selectbox("File", [b["id"] for b in files], key=sel_key, format_func=lambda i: file_name(by_id[i]))
     path = BASE_DIR / book["pdf_path"]
     if not path.exists():
         st.error("The stored file is missing."); return
@@ -212,7 +242,7 @@ def _remove_chapter(course_id, chapter_id):
 
 def _current_chapter():
     """(course, chapter) the notes window shows. Every active course has one notebook; None if none are active."""
-    courses = {c["id"]: c for c in crud.courses_by_status("Active")}
+    courses = {c["id"]: c for s in crud.STATUSES for c in crud.courses_by_status(s)}      # menu order: Active, Self-Study, Completed
     if not courses:
         return None, None
     lab = settings.get_lab()
@@ -224,7 +254,7 @@ def _current_chapter():
 def _notes():
     courses, course_id = _current_chapter()
     if not courses:
-        st.info("Notebooks belong to active courses. Add or activate a course first."); return
+        st.info("Add a course first: every course has its own notebook."); return
     lab = settings.get_lab()
 
     # Row 1: the course notebook and its chapters (add, remove)

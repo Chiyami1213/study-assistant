@@ -39,15 +39,19 @@ def sections_of(html_text):
     out = []
     for m in re.finditer(r'<section id="([^"]+)"[^>]*>(.*?)</section>', html_text, re.S):
         h = re.search(r"<h2[^>]*>(.*?)</h2>", m.group(2), re.S)
-        title = _text(re.sub(r'<span class="(?:num|slides)">.*?</span>', "", h.group(1), flags=re.S)) if h else m.group(1)
+        title = _text(re.sub(r'<span class="(?:num|slides|sn)">.*?</span>', "", h.group(1), flags=re.S)) if h else m.group(1)
         num = re.search(r"§\s*(\d+)", _text(h.group(1))) if h else None
+        sn = re.search(r'<span class="sn">\s*(\d+)\.(\d+)', h.group(1)) if h else None      # "4.1 · Lec 4-2": lecture.section
+        if sn and not num:
+            num = type("N", (), {"group": lambda self, i: sn.group(2)})()
         if SKIP.search(title) or m.group(1).lower() in ("check", "quiz", "errata", "selfcheck"):
             continue
         body = m.group(2)
         derivs = len(re.findall(r'class="deriv"', body))
         equations = len(re.findall(r"\\\[", body))
         text = _text(body)
-        out.append({"id": m.group(1), "num": int(num.group(1)) if num else len(out) + 1, "title": title, "text": text, "chars": len(text), "derivs": derivs,
+        out.append({"id": m.group(1), "num": int(num.group(1)) if num else len(out) + 1, "title": title,
+                    "label": f"{sn.group(1)}.{sn.group(2)}" if sn else None, "text": text, "chars": len(text), "derivs": derivs,
                     "equations": equations, "suggested": suggested(len(text), derivs, equations)})
     return out
 

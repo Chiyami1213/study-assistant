@@ -181,17 +181,17 @@ def pdf_reader(path, key, height=640, start=1, title=None, on_page=None, marks=N
     heading = st.empty()
 
     with st.container(key=f"reader_{key}"):
-        # magnifier (fit to width) | Prev  14/280  Next | zoom chip  +  -
+        # fit width | Prev  14/280  Next | zoom chip, magnifier + (zoom in), magnifier - (zoom out)
         cols = st.columns([0.55, 1.1, 1.15, 0.75, 0.9, 1.15, 1.1, 1.0, 0.55, 0.55, 0.55], vertical_alignment="center", gap="small")
-        cols[0].button("", key=f"{key}_fit", icon=":material/zoom_in:", width="stretch", on_click=_set_zoom,
+        cols[0].button("", key=f"{key}_fit", icon=":material/fit_width:", width="stretch", on_click=_set_zoom,
                        args=(zoom_key, 100), help="fit to width")
         cols[2].button("‹  Prev", key=f"{key}_prev", width="stretch", on_click=_step_page, args=(page_key, -1, total))
         cols[3].number_input("Page", 1, total, key=page_key, label_visibility="collapsed", on_change=_bump, args=(key,))
         cols[4].markdown(f'<div class="rd-total">/{total}</div>', unsafe_allow_html=True)
         cols[5].button("Next  ›", key=f"{key}_next", width="stretch", on_click=_step_page, args=(page_key, 1, total))
         cols[7].markdown(f'<div class="rd-zoom">{st.session_state[zoom_key]}%</div>', unsafe_allow_html=True)
-        cols[8].button("+", key=f"{key}_zin", width="stretch", on_click=_step_zoom, args=(zoom_key, 1), help="zoom in")
-        cols[9].button("−", key=f"{key}_zout", width="stretch", on_click=_step_zoom, args=(zoom_key, -1), help="zoom out")
+        cols[8].button("", key=f"{key}_zin", icon=":material/zoom_in:", width="stretch", on_click=_step_zoom, args=(zoom_key, 1), help="zoom in")
+        cols[9].button("", key=f"{key}_zout", icon=":material/zoom_out:", width="stretch", on_click=_step_zoom, args=(zoom_key, -1), help="zoom out")
         modes = _modes()
         cur = st.session_state.get(mode_key, "page")
         cur = cur if cur in modes else "page"

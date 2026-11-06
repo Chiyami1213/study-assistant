@@ -338,9 +338,25 @@ def _when(day, time):
     return text + (f" · {time}" if time else "")
 
 
-def _row_html(title, when, status, css, detail=None):
+def _homework_book(course_id, hw_title):
+    """The Library homework file whose number matches this homework ("HW 4" -> the file numbered 4), or None."""
+    num = re.search(r"\d+", hw_title or "")
+    if not num:
+        return None
+    for b in crud.list_books():
+        if b["kind"] == "Homework" and course_id in b["course_ids"]:
+            n = re.search(r"\d+", b.get("lecture") or b["title"])
+            if n and int(n.group()) == int(num.group()):
+                return b
+    return None
+
+
+def _row_html(title, when, status, css, detail=None, book=None):
     sub = f'<div class="dl-sub">{html.escape(detail)}</div>' if detail else ""
-    return (f'<div class="dl-row"><div><div class="dl-title">{html.escape(title)}</div>{sub}</div>'
+    name = html.escape(title)
+    if book:                                              # opens the homework PDF, and Back returns to the Overview
+        name = f'<a href="#" data-ol-book="{book["id"]}" data-ol-page="1" data-ol-tab="Overview" title="open the homework pdf">{name}</a>'
+    return (f'<div class="dl-row"><div><div class="dl-title">{name}</div>{sub}</div>'
             f'<div class="dl-when">{html.escape(when)}</div><span class="dl-pill {css}">{status}</span></div>')
 
 
@@ -368,7 +384,8 @@ def _overview(course):
             status, css = "Overdue", "late"
         else:
             status, css = "Open", "open"
-        rows += _row_html(h["title"], _when(h["due_date"], h.get("due_time")), status, css)
+        rows += _row_html(h["title"], _when(h["due_date"], h.get("due_time")), status, css,
+                          book=_homework_book(course["id"], h["title"]))
     st.markdown(f'<div class="dl-list">{rows}</div>', unsafe_allow_html=True)
 
     st.subheader(f"Midterms and Finals ({len(exams)})")
@@ -386,12 +403,14 @@ def _open_pdf_from_outline():
     sink = st.text_input("Outline Navigation", key="outline_sink", label_visibility="collapsed")
     if sink and sink != st.session_state.get("_outline_sink_done"):
         st.session_state["_outline_sink_done"] = sink
+        fields = sink.split("|")[0].split(",")
         try:
-            book_id, page = (int(x) for x in sink.split("|")[0].split(","))
-        except ValueError:
+            book_id, page = int(fields[0]), int(fields[1])
+        except (ValueError, IndexError):
             return
         if crud.get_book(book_id):
-            st.session_state["course_tab"] = (st.session_state.get("open_course"), "Outline")   # reopen here on Back
+            tab = fields[2] if len(fields) > 2 and fields[2] in ("Overview", "Outline", "Resources", "Quiz") else "Outline"
+            st.session_state["course_tab"] = (st.session_state.get("open_course"), tab)   # reopen here on Back
             st.session_state["page"] = "Library"
             st.session_state["open_book"] = book_id
             st.session_state[f"view_page_{book_id}"] = page

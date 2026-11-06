@@ -11,6 +11,7 @@ import streamlit.components.v1 as components
 
 import covers
 import htmlnotes
+import hwassist
 import reader
 import crud
 import navigation
@@ -19,7 +20,7 @@ from pdfmeta import split_lecture, strip_notes_prefix
 from database import BASE_DIR, PDF_DIR
 
 COLUMNS = 6
-KINDS = ["Textbook", "Lecture Notes", "Notes"]
+KINDS = ["Textbook", "Lecture Notes", "Notes", "Homework"]
 PLURAL = {"Textbook": "Textbooks"}
 
 
@@ -72,15 +73,18 @@ def detect_course(filename, title=""):
 LECTURE_WORDS = re.compile(r"(?<![a-z])(lectures?|lec|slides?)(?![a-z])", re.I)
 NOTES_WORDS = re.compile(r"(?<![a-z])(notes?|handouts?|cheat[\s_\-]*sheets?|study[\s_\-]*guides?|"
                          r"summary|summaries|review|annotated|worksheet|recitation)(?![a-z])", re.I)
+HOMEWORK_WORDS = re.compile(r"(?<![a-z])(homework|hw|problem[\s_\-]*sets?|psets?|assignment)(?![a-z])", re.I)
 BOOK_WORDS = re.compile(r"(?<![a-z])(textbook|text[\s_\-]*book|edition|ed\.?\s*\d+|\d+(st|nd|rd|th)[\s_\-]*ed)(?![a-z])", re.I)
 
 
 def detect_kind(filename, title=""):
-    """'Textbook', 'Lecture Notes' or 'Notes' when the file name (then title) says so, else None."""
+    """'Homework', 'Textbook', 'Lecture Notes' or 'Notes' when the file name (then title) says so, else None."""
     for text in (filename, title):
         if not text:
             continue
         text = text.replace("_", " ")
+        if HOMEWORK_WORDS.search(text):
+            return "Homework"
         if BOOK_WORDS.search(text):
             return "Textbook"
         if LECTURE_WORDS.search(text):
@@ -114,6 +118,7 @@ def _add_dialog(default_course=None):
     kind = st.segmented_control("Type", KINDS, default=kind_guess or "Textbook", key=f"bk_kind_{k}") or "Textbook"
     if kind_guess:
         st.caption(f"Type detected from the file name: {kind_guess}")
+    is_hw = kind == "Homework"
     is_notes = kind in ("Lecture Notes", "Notes")
     # Notes: a leading "Lec 3" in the title or file name becomes the Lecture label, not part of the title.
     lec_guess, clean_title = split_lecture(info["title"])
@@ -122,7 +127,12 @@ def _add_dialog(default_course=None):
     title = st.text_input("Title", value=strip_notes_prefix(clean_title) if is_notes else info["title"],
                           key=f"bk_title_{k}_{int(is_notes)}")
     lecture = ""
-    if is_notes:
+    if is_hw:                                                        # "hw4.pdf" -> homework number 4, title "HW 4"
+        num = (re.search(r"\d+", up.name) or re.search(r"\d+", info["title"] or "")) if up else None
+        lecture = st.text_input("Homework Number", value=num.group() if num else "", key=f"bk_hw_{k}", placeholder="4")
+        if lecture.strip() and not title.strip().lower().startswith("hw"):
+            title = f"HW {lecture.strip()}"
+    elif is_notes:
         lecture = st.text_input("Lecture", value=lec_guess, key=f"bk_lec_{k}", placeholder="3 or 3-4")
     c1, c2, c3 = st.columns([3, 2, 1.2])
     author = c1.text_input("Author", value=info["author"], key=f"bk_author_{k}")
@@ -160,10 +170,71 @@ def _viewer(book):
     if path.suffix.lower() in (".html", ".htm"):
         from views import quiz_view                        # the note's Self-check shows the same questions as the course Quiz tab
         components.html(htmlnotes.safe_html(path.read_text(encoding="utf-8", errors="replace"),
+                                            goto=st.session_state.pop("lib_goto", None),
                                             questions=quiz_view.book_questions(book)), height=900, scrolling=True)
+        return
+    if book["kind"] == "Homework" and book["course_ids"]:     # the homework and the helper side by side
+        left, right = st.columns([3, 2], gap="medium")
+        with left:
+            reader.pdf_reader(path, f"view_{book['id']}", height=820, start=st.session_state.pop(f"view_page_{book['id']}", 1))
+        with right:
+            _homework_helper(book)
         return
     reader.pdf_reader(path, f"view_{book['id']}", height=820,
                       start=st.session_state.pop(f"view_page_{book['id']}", 1))
+
+
+def _open_note(note_id, section_id):
+    """Callback: open a note of the course at a section."""
+    st.session_state["open_book"] = note_id
+    st.session_state["lib_goto"] = section_id
+
+
+def _go_page(book_id, page):
+    st.session_state[f"view_{book_id}_page"] = page
+    reader._bump(f"view_{book_id}")
+
+
+def _tag_buttons(tags, key):
+    """One button per matching note section: opens that note at the section."""
+    for i, (label, note_id, sec_id) in enumerate(tags[:2]):
+        st.button(f"📖 {label}", key=f"{key}_note_{i}", type="tertiary", on_click=_open_note, args=(note_id, sec_id),
+                  help="open this note at that section")
+
+
+def _homework_helper(book):
+    """For each problem and sub-problem: the note section it draws on, and a hint built from that section."""
+    course = crud.get_course(book["course_ids"][0])
+    books = crud.list_books()
+    try:
+        problems = hwassist.analyze(book, course, books)
+    except Exception:
+        problems = []
+    st.subheader("Homework Helper")
+    if not problems:
+        st.caption("No numbered problems were found in this file.")
+        return
+    st.caption("Each problem is matched to the section of your course notes that it draws on. The light bulb gives a hint built "
+               "from that section. The match is automatic, so check the section before relying on it.")
+    for pr in problems:
+        key = f"hw{book['id']}_{pr['id']}"
+        with st.container(border=True, key=f"{key}_card"):
+            head, page, bulb = st.columns([6, 1.5, 1], vertical_alignment="center")
+            head.markdown(f"**{pr['id']}. {pr['title']}**")
+            page.button(f"Page {pr['page']}", key=f"{key}_page", type="tertiary", on_click=_go_page, args=(book["id"], pr["page"]))
+            if pr["hint"]:
+                with bulb.popover("", icon=":material/lightbulb:", help="hint for this problem"):
+                    st.markdown(pr["hint"])
+            _tag_buttons(pr["tags"], key)
+            for part in pr["parts"]:
+                pkey = f"{key}{part['id']}"
+                txt, pbulb = st.columns([8, 1], vertical_alignment="center")
+                txt.markdown(f"**{part['id']})** {hwassist.clean(part['text'])[:150]}")
+                if part["hint"]:
+                    with pbulb.popover("", icon=":material/lightbulb:", help="hint for this part"):
+                        st.markdown(part["hint"])
+                if part["tags"] and part["tags"][:1] != pr["tags"][:1]:
+                    _tag_buttons(part["tags"][:1], pkey)
 
 
 @st.dialog("Edit File", width="large")
@@ -173,8 +244,9 @@ def _edit_dialog(book):
                                 key=f"ek_{book['id']}") or book["kind"]
     title = st.text_input("Title", value=book["title"], key=f"et_{book['id']}")
     lecture = ""
-    if kind in ("Lecture Notes", "Notes"):
-        lecture = st.text_input("Lecture", value=book.get("lecture") or "", key=f"el_{book['id']}", placeholder="3 or 3-4")
+    if kind in ("Lecture Notes", "Notes", "Homework"):
+        lecture = st.text_input("Homework Number" if kind == "Homework" else "Lecture", value=book.get("lecture") or "",
+                                key=f"el_{book['id']}", placeholder="4" if kind == "Homework" else "3 or 3-4")
     c1, c2, c3 = st.columns([3, 2, 1.2])
     author = c1.text_input("Author", value=book["author"] or "", key=f"ea_{book['id']}")
     edition = c2.text_input("Edition", value=book["edition"] or "", key=f"ee_{book['id']}")
@@ -215,7 +287,8 @@ def _book_card(book, courses):
     tag = "".join(f'<span class="book-badge tag" style="background:{crud.course_color(c)};'
                   f'border-color:{crud.course_color(c)}">{html.escape(c["code"])}</span>' for c in linked if c["code"])
     states = list(dict.fromkeys(crud.course_status(c) for c in linked))     # one label per distinct status
-    lec = f'<span class="book-badge meta">Lec {html.escape(book["lecture"])}</span>' if book.get("lecture") else ""
+    lec = (f'<span class="book-badge meta">{"HW" if book["kind"] == "Homework" else "Lec"} {html.escape(book["lecture"])}</span>'
+           if book.get("lecture") else "")
     status = "".join(f'<span class="book-badge status {s.lower().replace("-", "")}">{s}</span>' for s in states)
     chips = "".join(f'<span class="book-badge meta">{html.escape(x)}</span>'
                     for x in (book["edition"], book.get("year")) if x)   # edition and year as separate labels
@@ -233,6 +306,8 @@ SORTS = ["Default", "Course", "Title", "Type", "Date Added"]
 def _course_order(book):
     """Order inside a course: notes in lecture-number order, then other notes, then textbooks (each by title)."""
     numbers = tuple(int(n) for n in re.findall(r"\d+", book.get("lecture") or ""))
+    if book["kind"] == "Homework":
+        return (1.5, numbers, book["title"].lower())
     if book["kind"] in ("Lecture Notes", "Notes"):
         return (0, numbers, "") if numbers else (1, (), book["title"].lower())
     return (2, (), book["title"].lower())
