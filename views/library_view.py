@@ -407,13 +407,13 @@ def render():
     st.session_state.setdefault("library_filter", st.session_state.get("_library_filter_kept", "All"))
     options = ["All"] + KINDS
     counts = {"All": len(all_books), **{k: sum(b["kind"] == k for b in all_books) for k in KINDS}}
-    f1, f2 = st.columns([4, 1.4], vertical_alignment="center")
+    f1, f2 = st.columns([6, 1], vertical_alignment="center")
     with f1:
         choice = st.segmented_control("Show", options, key="library_filter", label_visibility="collapsed",
                                       format_func=lambda o: f"{PLURAL.get(o, o)} ({counts[o]})") or "All"
     st.session_state["_library_filter_kept"] = choice
     st.session_state.setdefault("library_sort", st.session_state.get("_library_sort_kept", "Course"))   # by course unless you pick another
-    with f2:
+    with f2, st.container(key="lib_sort_box"):                              # narrow, at the right edge of the page
         sort_by = st.selectbox("Sort by", SORTS, key="library_sort", label_visibility="collapsed",
                                format_func=lambda s: f"Sort: {s}")
     st.session_state["_library_sort_kept"] = sort_by
