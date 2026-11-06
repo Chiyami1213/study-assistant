@@ -158,7 +158,9 @@ def _viewer(book):
     if not path.exists():
         st.error("The stored PDF file is missing."); return
     if path.suffix.lower() in (".html", ".htm"):
-        components.html(htmlnotes.safe_html(path.read_text(encoding="utf-8", errors="replace")), height=900, scrolling=True)
+        from views import quiz_view                        # the note's Self-check shows the same questions as the course Quiz tab
+        components.html(htmlnotes.safe_html(path.read_text(encoding="utf-8", errors="replace"),
+                                            questions=quiz_view.book_questions(book)), height=900, scrolling=True)
         return
     reader.pdf_reader(path, f"view_{book['id']}", height=820,
                       start=st.session_state.pop(f"view_page_{book['id']}", 1))

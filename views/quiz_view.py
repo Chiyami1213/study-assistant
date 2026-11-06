@@ -65,6 +65,16 @@ def course_chapters(course):
     return out
 
 
+def book_questions(book):
+    """The quiz questions of an HTML note (the same set the Quiz tab asks), or None if it has none."""
+    for cid in book["course_ids"]:
+        course = crud.get_course(cid)
+        for ch in course_chapters(course) if course else []:
+            if ch["book"]["id"] == book["id"]:
+                return ch["questions"]
+    return None
+
+
 def _pct(correct, total):
     return round(100 * correct / total) if total else 0
 
@@ -221,8 +231,9 @@ def _run(course, chapter, run, run_key):
                     for oi, text in enumerate(q["o"]):
                         st.button(text, key=f"{prefix}_{oi}", on_click=_pick, args=(run_key, qi, oi))
                 if res.get("chosen") is not None:
-                    styles += (f".st-key-{prefix}_{res['chosen']} button {{border-color: var(--accent) !important; "
-                               f"background: rgba(76, 141, 255, 0.18) !important;}}")
+                    sel = f".stApp .st-key-{prefix}_{res['chosen']} button[data-testid^='stBaseButton']"
+                    styles += (f"{sel}, {sel}:hover {{border: 2px solid var(--accent) !important; background: rgba(76, 141, 255, 0.24) !important;}}"
+                               f"{sel} p::before {{content: '✓  '; font-weight: 700;}}")
             else:
                 st.caption("Think of your answer first, then check it against the model answer when you finish.")
                 a, b, _ = st.columns([1.2, 1.2, 5])

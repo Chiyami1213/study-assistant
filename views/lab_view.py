@@ -112,7 +112,9 @@ def _reference(win):
         st.error("The stored file is missing."); return
     if is_html:
         with st.container(key=f"lab_html_{wid}"):          # fills the window (page CSS)
-            components.html(htmlnotes.safe_html(path.read_text(encoding="utf-8", errors="replace")), height=600, scrolling=True)
+            from views import quiz_view                    # the note's Self-check shows the same questions as the course Quiz tab
+            components.html(htmlnotes.safe_html(path.read_text(encoding="utf-8", errors="replace"),
+                                                questions=quiz_view.book_questions(book)), height=600, scrolling=True)
         return
 
     def remember(page):

@@ -285,10 +285,10 @@ section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-h
 [class*="st-key-qcard_"] {{background: var(--qcard); border: 1px solid var(--qline); border-radius: 12px; padding: 1.1rem 1.3rem; gap: 0.9rem;}}
 [class*="st-key-qcard_"] [data-testid="stMarkdownContainer"] p {{font-size: 1.02rem;}}
 [class*="st-key-qopts_"] {{gap: 0.8rem !important;}}
-[class*="st-key-qopts_"] button {{background: transparent; border: 1px solid var(--qline); border-radius: 10px; min-height: 2.7rem;
-    padding: 0.35rem 1.1rem; box-shadow: none;}}
-[class*="st-key-qopts_"] button p {{font-size: 1.02rem; line-height: 1.35;}}
-[class*="st-key-qopts_"] button:hover {{border-color: var(--accent); background: rgba(76, 141, 255, 0.08);}}
+.stApp [class*="st-key-qopts_"] button[data-testid^="stBaseButton"] {{background: transparent !important; border: 1px solid var(--qline) !important;
+    border-radius: 10px !important; min-height: 2.7rem; padding: 0.35rem 1.1rem !important; box-shadow: none !important;}}
+.stApp [class*="st-key-qopts_"] button[data-testid^="stBaseButton"] p {{font-size: 1.02rem; line-height: 1.35;}}
+.stApp [class*="st-key-qopts_"] button[data-testid^="stBaseButton"]:hover {{border-color: var(--accent) !important; background: rgba(76, 141, 255, 0.08) !important;}}
 .qtag {{font-size: 0.76rem; letter-spacing: 0.04em; text-transform: uppercase; opacity: 0.55; margin-top: -0.3rem;}}
 .und-row {{display: grid; grid-template-columns: minmax(0, 3fr) minmax(80px, 2fr) 3rem 7.8rem; gap: 14px; align-items: center;
     padding: 6px 16px; border-bottom: 1px solid var(--border);}}
@@ -408,7 +408,9 @@ section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-h
 [class*="st-key-lab_pane_"] [data-testid="stHorizontalBlock"] button {{display: flex; align-items: center; justify-content: center;
     padding-top: 0; padding-bottom: 0; text-align: center;}}
 [class*="st-key-lab_pane_"] [data-testid="stHorizontalBlock"] button > div {{display: flex; align-items: center; justify-content: center; width: 100%;}}
-[class*="st-key-lab_pane_"] [data-testid="stHorizontalBlock"] button p {{margin: 0 !important; line-height: 1.2;}}
+[class*="st-key-lab_pane_"] [data-testid="stHorizontalBlock"] button p {{margin: 0 !important; padding: 0 !important; line-height: 1.2 !important;}}
+[class*="st-key-lab_pane_"] [data-testid="stHorizontalBlock"] button [data-testid="stMarkdownContainer"] {{display: flex; align-items: center;
+    justify-content: center; height: auto !important; min-height: 0 !important; margin: 0 !important; padding: 0 !important; line-height: 1.2 !important;}}
 .st-key-lab_toolbar button {{min-height: 1.9rem !important; padding: 0.1rem 0.5rem !important; font-size: 0.8rem !important;}}
 .st-key-lab_toolbar button p {{font-size: 0.8rem !important;}}
 /* Note Builder and File page */
