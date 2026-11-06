@@ -9,7 +9,7 @@ import sys
 import icons
 
 # The dev server caches imported modules between reruns; reload ours so edits apply without a restart.
-for _m in ("database", "crud", "settings", "icons", "pdfmeta", "covers", "reader", "outline", "htmlnotes", "claude_chat", "photos", "views.notes_view", "views.courses_view", "views.home_view",
+for _m in ("database", "notesfs", "crud", "settings", "icons", "pdfmeta", "covers", "reader", "outline", "htmlnotes", "claude_chat", "photos", "views.notes_view", "views.courses_view", "views.home_view",
            "navigation", "views.homework_view", "views.exam_mode_view", "views.recall_view", "views.library_view", "views.calendar_view", "views.file_view", "views.lab_view",
            "views.settings_view"):
     if _m in sys.modules:
@@ -422,6 +422,8 @@ section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-h
 .rd-cont {{position: relative; scroll-behavior: auto;}}
 .rd-pg {{margin: 0 auto 14px; background: #fff; box-shadow: 0 2px 10px #0008; overflow: hidden;}}
 .rd-pg img {{display: block; width: 100%; height: 100%; object-fit: contain; margin: 0; box-shadow: none; max-width: 100%;}}
+.rd-row {{display: flex; justify-content: center; align-items: flex-start; gap: 6px; margin-bottom: 14px;}}
+.rd-row .rd-pg {{margin: 0;}}
 .rd-live {{position: sticky; top: 0; z-index: 3; width: fit-content; margin: 0 0 -26px auto; font-size: 0.8rem; padding: 3px 10px;
     border-radius: 999px; background: rgba(20, 22, 28, 0.85); color: #e8e9ec; pointer-events: none;}}
 .rd-scroll.rd-fill {{height: calc(100vh - 175px);}}

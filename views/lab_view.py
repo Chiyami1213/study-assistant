@@ -4,9 +4,14 @@ the File page under its course. What is open is remembered between sessions."""
 import streamlit as st
 import streamlit.components.v1 as components
 
+import os
+import shutil
+import subprocess
+
 import claude_chat
 import crud
 import htmlnotes
+import notesfs
 import outline
 import reader
 import settings
@@ -295,9 +300,14 @@ def _notes():
 
     title_key = f"lab_title_{cid}"
     keys = {f: f"lab_{f}_{cid}" for f, _ in SECTIONS}
-    st.session_state.setdefault(title_key, ch["title"])
-    for f, _ in SECTIONS:
-        st.session_state.setdefault(keys[f], ch[f] or "")
+    if editing:                                          # while typing, the boxes keep what is typed
+        st.session_state.setdefault(title_key, ch["title"])
+        for f, _ in SECTIONS:
+            st.session_state.setdefault(keys[f], ch[f] or "")
+    else:                                                # otherwise they follow the files (edited in VS Code, say)
+        st.session_state[title_key] = ch["title"]
+        for f, _ in SECTIONS:
+            st.session_state[keys[f]] = ch[f] or ""
     if _dirty(ch) and editing:                           # typing is saved as it is committed, so nothing is lost
         _autosave(ch)
         ch = crud.get_chapter(cid)
@@ -330,17 +340,62 @@ def _notes():
             else:
                 st.caption(f"Nothing in {label} yet. Press Edit to start writing.")
     with tabs[-1]:
-        first = _first_reference()
-        ref = crud.get_book(first["book"]) if first else None
-        page = lab.get("pages", {}).get(str(first["book"]), 1) if ref else None
-        png = None
-        if ref and not ref["pdf_path"].lower().endswith((".html", ".htm")):
-            path = BASE_DIR / ref["pdf_path"]
-            if path.exists():
-                png = reader.page_png(str(path), path.stat().st_mtime, page - 1, 1400)
         course = courses[course_id]
-        _claude_tab({**ch, "title": f"{crud.label(course)} · {ch['title']}"},
-                    f"{ref['title']}, page {page}" if ref else None, png)
+        _vscode_guide(course, ch)
+        with st.expander("Use the Claude API instead (optional, paid)"):
+            first = _first_reference()
+            ref = crud.get_book(first["book"]) if first else None
+            page = lab.get("pages", {}).get(str(first["book"]), 1) if ref else None
+            png = None
+            if ref and not ref["pdf_path"].lower().endswith((".html", ".htm")):
+                path = BASE_DIR / ref["pdf_path"]
+                if path.exists():
+                    png = reader.page_png(str(path), path.stat().st_mtime, page - 1, 1400)
+            _claude_tab({**ch, "title": f"{crud.label(course)} · {ch['title']}"},
+                        f"{ref['title']}, page {page}" if ref else None, png)
+    _watch(course_id, cid)
+
+
+@st.fragment(run_every=2)
+def _watch(course_id, chapter_id):
+    """Refresh the page when the chapter's files change outside the app (Claude in VS Code, another editor)."""
+    course, ch = crud.get_course(course_id), crud.get_chapter(chapter_id)
+    if not course or not ch:
+        return
+    sig = notesfs.signature(course, ch)
+    key = f"_lab_sig_{chapter_id}"
+    prev = st.session_state.get(key)
+    st.session_state[key] = sig
+    if prev is not None and prev != sig and not st.session_state.get("lab_editing"):
+        st.rerun()
+
+
+def _open_folder(folder):
+    os.startfile(folder) if hasattr(os, "startfile") else subprocess.Popen(["xdg-open", str(folder)])
+
+
+def _open_vscode(folder):
+    code = shutil.which("code")
+    if code:
+        subprocess.Popen([code, str(BASE_DIR), "-g", str(folder / "notes.md")], shell=os.name == "nt")
+    else:
+        st.toast("VS Code's `code` command was not found. Open the folder by hand.")
+
+
+def _vscode_guide(course, ch):
+    """No API needed: the chapter is plain files, so Claude in VS Code can edit them and the app shows the result."""
+    folder = notesfs.chapter_dir(course, ch, create=True)
+    rel = folder.relative_to(BASE_DIR).as_posix()
+    st.markdown("**Build this chapter with Claude in VS Code.** Its files are plain text. Ask Claude there to edit them, "
+                "and this window updates within a couple of seconds.")
+    st.code(f"{rel}/notes.md\n{rel}/exercises.md", language="text")
+    st.caption("Copy a prompt like this into Claude in VS Code:")
+    st.code(f'Edit {rel}/notes.md for {crud.label(course)}, chapter "{ch["title"]}". '
+            f'Fill each section from the reference I have open, using $...$ for math. '
+            f'For an interactive version, write {rel}/notes.html as one self-contained page instead.', language="text")
+    a, b, _ = st.columns([1.3, 1.6, 4])
+    a.button("Open Folder", key="lab_open_folder", width="stretch", on_click=_open_folder, args=(folder,))
+    b.button("Open in VS Code", key="lab_open_code", width="stretch", on_click=_open_vscode, args=(folder,))
 
 
 def _esc(text):

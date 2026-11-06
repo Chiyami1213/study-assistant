@@ -106,17 +106,18 @@ def _bump(key):
 
 
 def _step_page(page_key, delta, total):
-    double = st.session_state.get(f"{page_key[:-5]}_view") == "double"      # a spread turns two pages at a time
+    double = st.session_state.get(f"{page_key[:-5]}_view") in ("double", "scroll2")     # a spread turns two pages at a time
     st.session_state[page_key] = min(total, max(1, st.session_state[page_key] + delta * (2 if double else 1)))
     _bump(page_key[:-5])
 
 
 MODES = {"page": ("single page", ":material/crop_portrait:"), "double": ("double page", ":material/auto_stories:"),
-         "scroll": ("continuous scrolling", ":material/view_day:")}
+         "scroll": ("continuous scrolling", ":material/view_day:"),
+         "scroll2": ("continuous double page", ":material/view_column_2:")}
 
 
 def _modes():
-    return ["page", "double", "scroll"] if scroll_available() else ["page", "double"]
+    return ["page", "double", "scroll", "scroll2"] if scroll_available() else ["page", "double"]
 
 
 def _toggle_mode(mode_key):
@@ -175,8 +176,8 @@ def pdf_reader(path, key, height=640, start=1, title=None, on_page=None):
         heading.markdown(f"<h3 class='lab-heading'>{html.escape(title)} · Page {page}</h3>", unsafe_allow_html=True)
     mtime = path.stat().st_mtime
     mode = st.session_state.get(mode_key, "page")
-    if mode == "scroll" and scroll_available():
-        _scrolling_view(path, key, page, zoom, total, height, mtime)
+    if mode in ("scroll", "scroll2") and scroll_available():
+        _scrolling_view(path, key, page, zoom, total, height, mtime, per_row=2 if mode == "scroll2" else 1)
         if on_page:
             on_page(page)
         return
@@ -195,17 +196,21 @@ def pdf_reader(path, key, height=640, start=1, title=None, on_page=None):
         on_page(page)
 
 
-def _scrolling_view(path, key, page, zoom, total, height, mtime):
+def _scrolling_view(path, key, page, zoom, total, height, mtime, per_row=1):
     """Every page stacked in one scrolling window. Images are page files under static/pages, drawn in the
     background around the current page; the page script retries any that are not ready yet."""
     sizes = _page_sizes(str(path), mtime)
     folder = _doc_dir(str(path), mtime)
     _write_page(str(path), mtime, page - 1)                 # the page you land on is ready at once
     _render_files(str(path), mtime, page - 1, total)
-    pages = "".join(
-        f'<div class="rd-pg" id="rdp-{key}-{n}" style="aspect-ratio:{w}/{h};width:{zoom}%">'
+    cells = [
+        f'<div class="rd-pg" id="rdp-{key}-{n}" style="aspect-ratio:{w}/{h};width:{zoom / per_row:g}%">'
         f'<img loading="lazy" decoding="async" alt="" src="/app/static/pages/{folder}/{n}.jpg"></div>'
-        for n, (w, h) in enumerate(sizes, 1))
+        for n, (w, h) in enumerate(sizes, 1)]
+    if per_row == 1:
+        pages = "".join(cells)
+    else:                                                   # spreads: pages 1-2, 3-4, ... side by side
+        pages = "".join(f'<div class="rd-row">{"".join(cells[i:i + per_row])}</div>' for i in range(0, len(cells), per_row))
     box = f' style="height:{height}px"' if height else ""
     token = st.session_state.get(f"{key}_tok", 0)
     st.markdown(f'<div class="rd-scroll rd-cont{"" if height else " rd-fill"}" data-key="{key}" data-goto="{page}" '
