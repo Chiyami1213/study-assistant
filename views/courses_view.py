@@ -8,6 +8,7 @@ import streamlit as st
 import base64
 
 import crud
+import eqsheet
 import syllabus
 import icons
 import photos
@@ -589,6 +590,37 @@ def _homework(course):
     st.markdown(f'<div class="dl-list">{rows}</div>', unsafe_allow_html=True)
 
 
+def _build_sheet(course, event, key):
+    st.session_state[f"eqs_done_{event['id']}"] = eqsheet.make(course, event, st.session_state.get(key) or [])
+
+
+def _equation_sheets(course, exams):
+    """One equation sheet per exam: pick the notes the exam covers; their formula sheets are put together on one printable page."""
+    if not exams:
+        return
+    st.subheader("Equation Sheets")
+    cands = eqsheet.candidates(course["id"])
+    if not cands:
+        st.caption("No notes with a formula sheet yet. A sheet is built from the Formula Sheet section of the course notes.")
+        return
+    labels = {b["id"]: (f"Lec {b['lecture']} · " if b.get("lecture") else "") + b["title"] for b, _ in cands}
+    st.caption("Choose the notes each exam covers, then build the sheet. It uses the formula sheet of each chosen note.")
+    for e in exams:
+        state = eqsheet.load(e["id"])
+        chosen = [i for i in (state.get("notes") or list(labels)) if i in labels]
+        with st.container(border=True, key=f"eqs_{e['id']}"):
+            head, pick, go = st.columns([2, 6, 2], vertical_alignment="center")
+            head.markdown(f"**{e['title']}**")
+            key = f"eqs_sel_{e['id']}"
+            pick.multiselect("Notes this exam covers", list(labels), default=chosen, format_func=labels.get, key=key, label_visibility="collapsed")
+            built = crud.get_book(state.get("book") or 0)
+            go.button("Update Sheet" if built else "Build Sheet", key=f"eqs_go_{e['id']}", icon=":material/functions:",
+                      on_click=_build_sheet, args=(course, e, key), width="stretch")
+            if built:
+                st.markdown(f'<a class="dl-solution" href="#" data-ol-book="{built["id"]}" data-ol-page="1" data-ol-tab="Exams" '
+                            f'title="open the equation sheet">Open {html.escape(built["title"])}</a>', unsafe_allow_html=True)
+
+
 def _exams(course):
     """Midterms and finals in date order with what they cover, the exam file, my graded paper and the score."""
     today = date.today().isoformat()
@@ -602,6 +634,7 @@ def _exams(course):
                              graded=_exam_book(course["id"], e["title"], "Graded Exam"), extra=_grade_html(e), tab="Exams")
                    for e in exams)
     st.markdown(f'<div class="dl-list">{rows}</div>', unsafe_allow_html=True)
+    _equation_sheets(course, exams)
 
 
 def _open_pdf_from_outline():

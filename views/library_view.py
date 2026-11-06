@@ -22,9 +22,9 @@ from pdfmeta import split_lecture, strip_notes_prefix
 from database import BASE_DIR, PDF_DIR
 
 COLUMNS = 6
-KINDS = ["Textbook", "Lecture Notes", "Notes", "Homework", "Homework Solution", "Exam", "Graded Homework", "Graded Exam", "Syllabus"]
+KINDS = ["Textbook", "Lecture Notes", "Notes", "Homework", "Homework Solution", "Exam", "Graded Homework", "Graded Exam", "Syllabus", "Equation Sheet"]
 HW_KINDS = ("Homework", "Homework Solution", "Graded Homework")          # kinds that carry a homework number
-PLURAL = {"Textbook": "Textbooks", "Homework Solution": "Homework Solutions", "Exam": "Exams", "Syllabus": "Syllabi"}
+PLURAL = {"Textbook": "Textbooks", "Homework Solution": "Homework Solutions", "Exam": "Exams", "Syllabus": "Syllabi", "Equation Sheet": "Equation Sheets"}
 
 
 @st.cache_data(show_spinner=False, max_entries=256)
@@ -76,6 +76,7 @@ def detect_course(filename, title=""):
 LECTURE_WORDS = re.compile(r"(?<![a-z])(lectures?|lec|slides?)(?![a-z])", re.I)
 NOTES_WORDS = re.compile(r"(?<![a-z])(notes?|handouts?|cheat[\s_\-]*sheets?|study[\s_\-]*guides?|"
                          r"summary|summaries|review|annotated|worksheet|recitation)(?![a-z])", re.I)
+SHEET_WORDS = re.compile(r"(?<![a-z])(equation|formula)[\s_\-]*sheets?(?![a-z])", re.I)
 SYLLABUS_WORDS = re.compile(r"(?<![a-z])(syllab(?:us|i)|course[\s_\-]*(?:information|policies|outline))(?![a-z])", re.I)
 EXAM_WORDS = re.compile(r"(?<![a-z])(exams?|mid[\s_\-]*terms?|final[\s_\-]*exams?)(?![a-z])", re.I)
 SOLUTION_WORDS = re.compile(r"(?<![a-z])(solutions?|soln?s?)(?![a-z])", re.I)
@@ -89,6 +90,8 @@ def detect_kind(filename, title=""):
         if not text:
             continue
         text = text.replace("_", " ")
+        if SHEET_WORDS.search(text):
+            return "Equation Sheet"
         if SYLLABUS_WORDS.search(text):
             return "Syllabus"
         if EXAM_WORDS.search(text) and not HOMEWORK_WORDS.search(text):

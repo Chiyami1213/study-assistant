@@ -94,7 +94,7 @@ def _reference(win):
         codes = " / ".join(courses[i]["code"] or courses[i]["name"] for i in b["course_ids"] if i in courses) or "No Course"
         return f"{codes} · {b['kind']} · {b['title']}"
 
-    kind_rank = {"Textbook": 0, "Lecture Notes": 1, "Notes": 2, "Homework": 3, "Homework Solution": 4, "Exam": 5, "Graded Homework": 6, "Graded Exam": 7, "Syllabus": 8}
+    kind_rank = {"Textbook": 0, "Lecture Notes": 1, "Notes": 2, "Homework": 3, "Homework Solution": 4, "Exam": 5, "Graded Homework": 6, "Graded Exam": 7, "Syllabus": 8, "Equation Sheet": 9}
     books = sorted(books, key=lambda b: (label(b).split(" · ")[0].lower(), kind_rank.get(b["kind"], 9), b["title"].lower()))
     ids = [b["id"] for b in books]
     by_id = {b["id"]: b for b in books}
@@ -110,7 +110,7 @@ def _reference(win):
     if st.session_state[ck] not in course_ids:
         st.session_state[ck] = own_course(cur)
     in_course = [b for b in books if own_course(b) == st.session_state[ck]]
-    kinds = [k for k in ("Textbook", "Lecture Notes", "Notes", "Homework", "Homework Solution", "Exam", "Graded Homework", "Graded Exam", "Syllabus") if any(b["kind"] == k for b in in_course)] or ["Notes"]
+    kinds = [k for k in ("Textbook", "Lecture Notes", "Notes", "Homework", "Homework Solution", "Exam", "Graded Homework", "Graded Exam", "Syllabus", "Equation Sheet") if any(b["kind"] == k for b in in_course)] or ["Notes"]
     kinds += sorted({b["kind"] for b in in_course} - set(kinds))
     st.session_state.setdefault(kk, cur["kind"] if cur["kind"] in kinds else kinds[0])
     if st.session_state[kk] not in kinds:
