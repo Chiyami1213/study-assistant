@@ -821,6 +821,8 @@ if (!win.__labResizeV1) {
     sink.dispatchEvent(new win.Event('input', {bubbles: true}));
     sink.dispatchEvent(new win.KeyboardEvent('keydown', {key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true}));
     sink.blur();
+    // the sizes are now set by the page itself: drop the temporary ones so later changes (a new window) lay out right
+    [900, 2500, 6000].forEach(ms => setTimeout(() => d.cs.forEach(c => ['flex', 'width', 'min-width'].forEach(k => c.style.removeProperty(k))), ms));
   }, true);
 }
 // Library cards: pass "action:id" to the hidden box (open the file, its Edit window, or the add window).

@@ -18,7 +18,6 @@ from database import BASE_DIR
 
 SECTIONS = [("notes", "Notes"), ("exercises", "Exercises")]
 HTML_START = ("<!doctype", "<html", "<div", "<section", "<main", "<body", "<style")
-PLACEHOLDER = "Write in Markdown. Use $...$ for math, for example $E = mc^2$."
 
 
 MAX_WINDOWS = 3
@@ -96,19 +95,6 @@ def _reference(win):
 
 
 # ---------- Notes window: the notes being built ----------
-def _dirty(ch):
-    cid = ch["id"]
-    return (st.session_state.get(f"lab_title_{cid}", ch["title"]) != ch["title"]
-            or any(st.session_state.get(f"lab_{f}_{cid}", ch[f] or "") != (ch[f] or "") for f, _ in SECTIONS))
-
-
-def _autosave(ch):
-    cid = ch["id"]
-    if _dirty(ch):
-        crud.update_chapter(cid, st.session_state.get(f"lab_title_{cid}", ch["title"]).strip() or "Untitled Chapter",
-                            {f: st.session_state.get(f"lab_{f}_{cid}", ch[f] or "") for f, _ in SECTIONS})
-
-
 def _is_html(text):
     return text.lstrip().lower().startswith(HTML_START)
 
@@ -133,9 +119,8 @@ def _set_chapter(course_id, chapter_id):
 
 
 def _add_blank(course_id):
-    """Callback: a new empty chapter, opened for editing."""
+    """Callback: a new chapter in the standard blank page format."""
     _set_chapter(course_id, crud.add_chapter(course_id, f"Chapter {len(crud.list_chapters(course_id)) + 1}"))
-    st.session_state["lab_editing"] = True
 
 
 def _create_from_library(course_id, book_id, whole=True):
@@ -150,9 +135,15 @@ def _create_from_library(course_id, book_id, whole=True):
         notes = source
     title = book["title"] if whole else (title or book["title"])
     _set_chapter(course_id, crud.add_chapter(course_id, title, notes, exercises))
-    st.session_state["lab_editing"] = False
-    st.session_state["lab_flash"] = ("Copied the note. Edit it here or ask Claude in VS Code to tailor it." if whole
-                                     else "Outline created. Press Edit to start tailoring it.")
+    st.session_state["lab_flash"] = ("Copied the note. Ask Claude in VS Code to tailor it (see the Claude tab)." if whole
+                                     else "Outline created. Ask Claude in VS Code to fill it in (see the Claude tab).")
+
+
+def _rename(chapter_id, title):
+    """Callback: change a chapter's title (its folder is renamed with it)."""
+    ch = crud.get_chapter(chapter_id)
+    if ch and title.strip():
+        crud.update_chapter(chapter_id, title.strip(), {f: ch[f] for f, _ in SECTIONS})
 
 
 def _remove_chapter(course_id, chapter_id):
@@ -197,10 +188,6 @@ def _notes():
     if wanted not in by_id:
         wanted = lab.get("chapters", {}).get(str(course_id))
         st.session_state["lab_chapter"] = wanted if wanted in by_id else ids[0]
-    prev = st.session_state.get("_lab_active")           # leaving a chapter keeps what was typed in it
-    if prev and prev != st.session_state["lab_chapter"] and crud.get_chapter(prev):
-        _autosave(crud.get_chapter(prev))
-        chapters = crud.list_chapters(course_id); by_id = {c["id"]: c for c in chapters}
     cid = ch_col.selectbox("Chapter", ids, key="lab_chapter", label_visibility="collapsed",
                            format_func=lambda i: by_id[i]["title"] or "Untitled Chapter")
     with add_col.popover("Add Chapter", width="stretch"):
@@ -220,7 +207,6 @@ def _notes():
                      help="remove this chapter"):
         st.session_state["lab_confirm_remove"] = cid
     _remember(course=course_id, chapters={**lab.get("chapters", {}), str(course_id): cid})
-    st.session_state["_lab_active"] = cid
     if st.session_state.get("lab_confirm_remove") == cid:
         st.warning(f"Remove “{by_id[cid]['title']}” for good?")
         yes, no, _ = st.columns([1.2, 1, 4])
@@ -229,51 +215,26 @@ def _notes():
             st.session_state.pop("lab_confirm_remove", None)
             st.rerun()
     ch = by_id[cid]
-    editing = st.session_state.setdefault("lab_editing", False)
     if st.session_state.get("lab_flash"):
         st.toast(st.session_state.pop("lab_flash"))
 
-    title_key = f"lab_title_{cid}"
-    keys = {f: f"lab_{f}_{cid}" for f, _ in SECTIONS}
-    if editing:                                          # while typing, the boxes keep what is typed
-        st.session_state.setdefault(title_key, ch["title"])
-        for f, _ in SECTIONS:
-            st.session_state.setdefault(keys[f], ch[f] or "")
-    else:                                                # otherwise they follow the files (edited in VS Code, say)
-        st.session_state[title_key] = ch["title"]
-        for f, _ in SECTIONS:
-            st.session_state[keys[f]] = ch[f] or ""
-    if _dirty(ch) and editing:                           # typing is saved as it is committed, so nothing is lost
-        _autosave(ch)
-        ch = crud.get_chapter(cid)
-
-    # Heading, then a slim toolbar on the right (Save Note, Edit, Export)
-    if editing:
-        st.text_input("Title", key=title_key, label_visibility="collapsed", placeholder="Chapter Title")
-    else:
-        st.markdown(f"<h3 class='lab-heading'>{_esc(st.session_state[title_key])}</h3>", unsafe_allow_html=True)
-    _, save, edit, export = st.columns([2.2, 1.7, 1.0, 1.2], vertical_alignment="center", gap="small")
-    if save.button("Save Note", type="primary", key="lab_save", icon=":material/save:", width="stretch"):
-        _autosave(ch)
-        st.toast("Note saved.")
-        st.rerun()
-    if edit.button("Done" if editing else "Edit", key="lab_edit", width="stretch"):
-        st.session_state["lab_editing"] = not editing
-        st.rerun()
+    st.markdown(f"<h3 class='lab-heading'>{_esc(ch['title'])}</h3>", unsafe_allow_html=True)
+    _, rename, export = st.columns([3.4, 1.3, 1.2], vertical_alignment="center", gap="small")
+    with rename.popover("Rename", width="stretch"):
+        new = st.text_input("Chapter Title", value=ch["title"], key=f"lab_rename_{cid}", label_visibility="collapsed")
+        st.button("Save Title", key=f"lab_rename_save_{cid}", type="primary", width="stretch", on_click=_rename,
+                  args=(cid, new))
     if export.button("Export", key="lab_export", width="stretch", help="send this chapter to the file page"):
-        _autosave(ch)
         crud.export_chapter(cid)
         st.toast("Exported to the File page.")
 
     tabs = st.tabs([label for _, label in SECTIONS] + ["Claude"])
     for tab, (field, label) in zip(tabs, SECTIONS):
         with tab:
-            if editing:
-                st.text_area(label, key=keys[field], height=400, label_visibility="collapsed", placeholder=PLACEHOLDER)
-            elif st.session_state[keys[field]].strip():
-                _show(st.session_state[keys[field]], field)
+            if (ch[field] or "").strip():
+                _show(ch[field], field)
             else:
-                st.caption(f"Nothing in {label} yet. Press Edit to start writing.")
+                st.caption(f"Nothing in {label} yet. Ask Claude in VS Code to write it (see the Claude tab).")
     with tabs[-1]:
         course = courses[course_id]
         _vscode_guide(course, ch)
@@ -290,7 +251,7 @@ def _watch(course_id, chapter_id):
     key = f"_lab_sig_{chapter_id}"
     prev = st.session_state.get(key)
     st.session_state[key] = sig
-    if prev is not None and prev != sig and not st.session_state.get("lab_editing"):
+    if prev is not None and prev != sig:
         st.rerun()
 
 
