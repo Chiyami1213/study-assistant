@@ -200,6 +200,17 @@ CREATE TABLE IF NOT EXISTS lab_chapters (
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Quiz attempts: one row per finished quiz (a chapter or lecture of a course).
+CREATE TABLE IF NOT EXISTS quiz_attempts (
+    id        INTEGER PRIMARY KEY AUTOINCREMENT,
+    course_id INTEGER NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+    book_id   INTEGER NOT NULL,
+    taken_at  TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    correct   INTEGER NOT NULL,
+    total     INTEGER NOT NULL,
+    answers   TEXT
+);
+
 -- Notes exported from the Note Builder; the File page lists them under their course.
 CREATE TABLE IF NOT EXISTS exported_notes (
     id             INTEGER PRIMARY KEY AUTOINCREMENT,

@@ -9,8 +9,8 @@ import sys
 import icons
 
 # The dev server caches imported modules between reruns; reload ours so edits apply without a restart.
-for _m in ("database", "notesfs", "crud", "settings", "icons", "pdfmeta", "covers", "reader", "outline", "htmlnotes", "photos", "views.notes_view", "views.courses_view", "views.home_view",
-           "navigation", "views.homework_view", "views.exam_mode_view", "views.recall_view", "views.library_view", "views.calendar_view", "views.file_view", "views.lab_view",
+for _m in ("database", "notesfs", "crud", "settings", "icons", "pdfmeta", "covers", "reader", "outline", "htmlnotes", "quizzes", "photos", "views.notes_view", "views.courses_view", "views.home_view",
+           "navigation", "views.homework_view", "views.exam_mode_view", "views.recall_view", "views.library_view", "views.quiz_view", "views.calendar_view", "views.file_view", "views.lab_view",
            "views.settings_view"):
     if _m in sys.modules:
         importlib.reload(sys.modules[_m])
@@ -281,6 +281,18 @@ section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-h
 .dl-row:last-child {{border-bottom: none;}}
 .dl-title {{font-weight: 600;}}
 .dl-when {{opacity: 0.8; font-size: 0.92rem;}}
+.und-row {{display: grid; grid-template-columns: minmax(0, 3fr) minmax(80px, 2fr) 3rem 7.8rem; gap: 14px; align-items: center;
+    padding: 6px 16px; border-bottom: 1px solid var(--border);}}
+.und-row:last-child {{border-bottom: none;}}
+.und-name {{font-weight: 600;}}
+.und-detail {{font-weight: 400; font-size: 0.82rem; opacity: 0.7; margin-top: 2px;}}
+.und-bar {{height: 8px; border-radius: 4px; background: var(--border); overflow: hidden;}}
+.und-bar i {{display: block; height: 100%; border-radius: 4px; background: var(--accent);}}
+.und-bar i.done {{background: #2f9e5f;}} .und-bar i.open {{background: #d9a21b;}} .und-bar i.late {{background: #d14343;}}
+.und-pct {{text-align: right; font-variant-numeric: tabular-nums; font-size: 0.9rem;}}
+.und-row .dl-pill {{justify-self: end; width: 100%; text-align: center; padding: 1px 6px;}}
+.und-score {{display: flex; align-items: center; gap: 16px; padding: 10px 0 6px;}}
+.und-score b {{font-size: 2rem;}} .und-score span:not(.dl-pill) {{font-size: 1.3rem; opacity: 0.8;}}
 .dl-sub {{opacity: 0.75; font-size: 0.85rem; margin-top: 3px;}}
 .dl-pill {{justify-self: end; font-size: 0.78rem; border-radius: 999px; padding: 1px 12px; border: 1px solid var(--border);}}
 .dl-pill.done {{border-color: #2f9e5f; color: #2f9e5f; background: rgba(47, 158, 95, 0.12);}}

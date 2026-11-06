@@ -10,7 +10,7 @@ import base64
 import crud
 import icons
 import photos
-from views import library_view
+from views import library_view, quiz_view
 
 COLUMNS = 5
 RESOURCE_COLUMNS = 6
@@ -345,7 +345,8 @@ def _row_html(title, when, status, css, detail=None):
 
 
 def _overview(course):
-    """Homework and midterms/finals of the course, in date order."""
+    """How well the materials are understood (quiz scores), then homework and midterms/finals in date order."""
+    quiz_view.understanding(course)
     today = date.today().isoformat()
     homework = sorted(crud.list_homework(course["id"]),
                       key=lambda h: (h["due_date"] or "9999-12-31", crud._natural_key(h["title"])))
@@ -457,10 +458,12 @@ def _manage(course):
     """The course page below the banner: Overview (deadlines), Outline (blank for now) and Resources."""
     remembered = st.session_state.get("course_tab")          # (course id, tab) set when a PDF was opened from here
     start = remembered[1] if remembered and remembered[0] == course["id"] else None
-    overview, outline, resources = st.tabs(["Overview", "Outline", "Resources"], default=start)
+    overview, outline, resources, quiz = st.tabs(["Overview", "Outline", "Resources", "Quiz"], default=start)
     with overview:
         _overview(course)
     with outline:
         _outline(course)
     with resources:
         _resources(course)
+    with quiz:
+        quiz_view.render(course)
