@@ -189,7 +189,7 @@ CREATE TABLE IF NOT EXISTS lab_notes (
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
--- Note Builder: one notebook per course, made of chapters.
+-- Note Reader: one notebook per course, made of chapters.
 CREATE TABLE IF NOT EXISTS lab_chapters (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
     course_id  INTEGER NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
@@ -215,7 +215,7 @@ CREATE TABLE IF NOT EXISTS quiz_attempts (
     hints_used INTEGER NOT NULL DEFAULT 0  -- questions where Hint was used
 );
 
--- Notes exported from the Note Builder; the File page lists them under their course.
+-- Notes exported from the Note Reader; the File page lists them under their course.
 CREATE TABLE IF NOT EXISTS exported_notes (
     id             INTEGER PRIMARY KEY AUTOINCREMENT,
     source_note_id INTEGER,

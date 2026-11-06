@@ -1,4 +1,4 @@
-"""Note Builder chapters as plain files, so Claude in VS Code (or any editor) can edit them directly.
+"""Note Reader chapters as plain files, so Claude in VS Code (or any editor) can edit them directly.
 
     notes/<course code>/<id>-<chapter title>/notes.html      (one interactive page; its last section is the exercises)
 

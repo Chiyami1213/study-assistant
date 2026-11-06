@@ -31,7 +31,7 @@ NAV_TOP = {
     "File": (":material/folder:", file_view.render),
     "Calendar": (":material/calendar_month:", calendar_view.render),
     "Library": (":material/library_books:", library_view.render),
-    "Note Builder": (":material/edit_note:", lab_view.render),
+    "Note Reader": (":material/auto_stories:", lab_view.render),
     "Courses": ("svg:course_cap", courses_view.render),
 }
 NAV_BOTTOM = {"Settings": (":material/settings:", settings_view.render)}
@@ -429,7 +429,7 @@ section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-h
 .rd-spread {{display: flex; justify-content: center; align-items: flex-start; gap: 6px;}}
 .rd-spread img {{margin: 0;}}
 
-/* Note Builder: the tabs share a row with Rename and Export (the toolbar ignores clicks except on its buttons) */
+/* Note Reader: the tabs share a row with Rename and Export (the toolbar ignores clicks except on its buttons) */
 .st-key-lab_toolbar [data-testid="stColumn"]:first-child {{min-width: 0;}}
 .st-key-lab_toolbar .lab-heading {{margin: 0;}}
 .lab-heading {{white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}}
@@ -441,7 +441,7 @@ section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-h
     justify-content: center; height: auto !important; min-height: 0 !important; margin: 0 !important; padding: 0 !important; line-height: 1.2 !important;}}
 .st-key-lab_toolbar button {{min-height: 1.9rem !important; padding: 0.1rem 0.5rem !important; font-size: 0.8rem !important;}}
 .st-key-lab_toolbar button p {{font-size: 0.8rem !important;}}
-/* Note Builder and File page */
+/* Note Reader and File page */
 [class*="st-key-lab_refname_"] [data-testid="stPopover"] button {{border: none !important; background: transparent !important; justify-content: flex-start;
     padding: 0.2rem 0.4rem; min-height: 0; width: 100%;}}
 [class*="st-key-lab_refname_"] [data-testid="stPopover"] button p {{font-size: 1.45rem; font-weight: 700; line-height: 1.25; letter-spacing: 0;
@@ -773,7 +773,7 @@ if (!win.__eyeRestV2) {
   }
   setInterval(tick, 1000);
 }
-// Note Builder window tabs: drag a tab to any place in the row; x closes a window; + adds one.
+// Note Reader window tabs: drag a tab to any place in the row; x closes a window; + adds one.
 if (!win.__switchV1) {
   win.__switchV1 = true;
   // a click on the sidebar menu or on a tab starts a switch; it ends once nothing is stale any more
@@ -884,7 +884,7 @@ if (!win.__rdScrollV1) {
     });
   }, 250);
 }
-// Note Builder: drag the border between two windows to change their widths (remembered).
+// Note Reader: drag the border between two windows to change their widths (remembered).
 if (!win.__labResizeV1) {
   win.__labResizeV1 = true;
   const columns = () => {
@@ -943,7 +943,7 @@ if (!win.__libNavV1) {
 }
 </script>""", height=0)
 
-if st.query_params.get("detached"):          # a Note Builder window dragged out into its own window
+if st.query_params.get("detached"):          # a Note Reader window dragged out into its own window
     lab_view.render_detached(st.query_params["detached"])
     st.stop()
 

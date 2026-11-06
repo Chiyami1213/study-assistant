@@ -15,8 +15,8 @@ document.addEventListener('click', function (e) {
 }, true);
 </script>"""
 
-# Clicking an erratum (a block of the Notes check list) asks the Note Builder to show it on the open PDF: it writes
-# "errata:<source>:<number>" into the hidden box of the page around this frame (only the Note Builder has one).
+# Clicking an erratum (a block of the Notes check list) asks the Note Reader to show it on the open PDF: it writes
+# "errata:<source>:<number>" into the hidden box of the page around this frame (only the Note Reader has one).
 _ERRATA = """<script>
 (function () {
   var SRC = "__SRC__", P = window.parent;

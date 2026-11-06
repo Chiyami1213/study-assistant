@@ -1,4 +1,4 @@
-"""File: notes exported from the Note Builder, in one section per active course."""
+"""File: notes exported from the Note Reader, in one section per active course."""
 import html
 
 import streamlit as st
@@ -66,7 +66,7 @@ def render():
     courses = crud.courses_by_status("Active") + [c for s in crud.STATUSES if s != "Active" for c in crud.courses_by_status(s)
                                                   if crud.list_exported_notes(c["id"])]      # others show once they have exports
     if not courses:
-        st.info("Courses appear here with the notes you export from the Note Builder."); return
+        st.info("Courses appear here with the notes you export from the Note Reader."); return
     for c in courses:
         items = crud.list_exported_notes(c["id"])
         color = crud.course_color(c)

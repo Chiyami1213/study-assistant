@@ -64,7 +64,7 @@ display:flex;align-items:center;justify-content:center;height:100vh"><div style=
 
 
 class Api:
-    """Called from the page: a Note Builder tab dragged out of the window opens as its own window."""
+    """Called from the page: a Note Reader tab dragged out of the window opens as its own window."""
 
     def open_window(self, url):
         import webview

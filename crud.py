@@ -539,7 +539,7 @@ def replace_outline(course_id, items):
         conn.commit()
 
 
-# ---------- Note Builder: one notebook per course, made of chapters ----------
+# ---------- Note Reader: one notebook per course, made of chapters ----------
 # A chapter's text lives in files under notes/ (see notesfs.py); the database keeps its title and order.
 def _chapter(row):
     if not row:

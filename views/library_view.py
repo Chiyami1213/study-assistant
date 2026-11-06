@@ -22,11 +22,11 @@ from pdfmeta import split_lecture, strip_notes_prefix
 from database import BASE_DIR, PDF_DIR
 
 COLUMNS = 6
-KINDS = ["Textbook", "Lecture Notes", "Notes", "Homework", "Homework Solution", "Graded Homework", "Practice Exam", "Exam", "Graded Exam",
-         "Syllabus", "Equation Sheet"]
+KINDS = ["Textbook", "Lecture Notes", "Notes", "Homework", "Homework Solution", "Graded Homework", "Practice Exam", "Exam", "Exam Solution",
+         "Graded Exam", "Syllabus", "Equation Sheet"]
 # One tab for each family; inside a tab the files order (and, with Sort: Type, group) by these categories.
 HW_GROUP = ("Homework", "Homework Solution", "Graded Homework")
-EXAM_GROUP = ("Practice Exam", "Exam", "Graded Exam")
+EXAM_GROUP = ("Practice Exam", "Exam", "Exam Solution", "Graded Exam")
 FILTERS = ["Textbook", "Lecture Notes", "Notes", "Homework", "Exam", "Syllabus", "Equation Sheet"]       # the pills after "All"
 FILTER_KINDS = {"Homework": HW_GROUP, "Exam": EXAM_GROUP}
 
@@ -35,7 +35,7 @@ def filter_for(kind):
     """The pill a file of this kind appears under (and what an older remembered filter means now)."""
     return "Homework" if kind in HW_GROUP else "Exam" if kind in EXAM_GROUP else kind
 HW_KINDS = ("Homework", "Homework Solution", "Graded Homework")          # kinds that carry a homework number
-PLURAL = {"Textbook": "Textbooks", "Homework Solution": "Homework Solutions", "Exam": "Exams", "Practice Exam": "Practice Exams", "Syllabus": "Syllabi", "Equation Sheet": "Equation Sheets"}
+PLURAL = {"Textbook": "Textbooks", "Homework Solution": "Homework Solutions", "Exam": "Exams", "Practice Exam": "Practice Exams", "Exam Solution": "Exam Solutions", "Syllabus": "Syllabi", "Equation Sheet": "Equation Sheets"}
 
 
 @st.cache_data(show_spinner=False, max_entries=256)
@@ -107,6 +107,8 @@ def detect_kind(filename, title=""):
         if SYLLABUS_WORDS.search(text):
             return "Syllabus"
         if EXAM_WORDS.search(text) and not HOMEWORK_WORDS.search(text):
+            if SOLUTION_WORDS.search(text):
+                return "Exam Solution"
             return "Practice Exam" if PRACTICE_WORDS.search(text) else "Exam"
         if HOMEWORK_WORDS.search(text):                       # "hw4 solution.pdf" is the solution, "hw4.pdf" the homework
             return "Homework Solution" if SOLUTION_WORDS.search(text) else "Homework"
@@ -309,7 +311,7 @@ def _grade_panel(book):
     data = gradereport.load(book["id"])
     exam = book["kind"] == "Graded Exam"
     problem_file = _sibling(book, ("Exam",) if exam else ("Homework",))
-    solution = None if exam else _sibling(book, ("Homework Solution",))
+    solution = _sibling(book, ("Exam Solution",) if exam else ("Homework Solution",))
     cols = st.columns(2)
     if problem_file:
         cols[0].button("Open Homework" if not exam else "Open Exam", key=f"gp{book['id']}_problem", icon=":material/description:",
@@ -537,10 +539,10 @@ def _course_order(book):
     by category (homework, solution, graded; practice exam, exam, graded exam) and then by number."""
     numbers = tuple(int(n) for n in re.findall(r"\d+", book.get("lecture") or ""))
     by_title = tuple(int(n) for n in re.findall(r"\d+", book["title"]))
-    rank = {"Homework": 1.50, "Homework Solution": 1.55, "Graded Homework": 1.60, "Practice Exam": 1.70, "Exam": 1.75, "Graded Exam": 1.80}
+    rank = {"Homework": 1.50, "Homework Solution": 1.55, "Graded Homework": 1.60, "Practice Exam": 1.70, "Exam": 1.75, "Exam Solution": 1.78, "Graded Exam": 1.80}
     if book["kind"] in ("Homework", "Homework Solution", "Graded Homework"):
         return (rank[book["kind"]], numbers, book["title"].lower())
-    if book["kind"] in ("Practice Exam", "Exam", "Graded Exam"):
+    if book["kind"] in ("Practice Exam", "Exam", "Exam Solution", "Graded Exam"):
         return (rank[book["kind"]], by_title, book["title"].lower())
     if book["kind"] == "Syllabus":
         return (-1, (), book["title"].lower())

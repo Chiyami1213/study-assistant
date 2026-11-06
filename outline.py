@@ -1,4 +1,4 @@
-"""Note Builder pages are self-contained interactive HTML. This module holds the standard format and builds the
+"""Note Reader pages are self-contained interactive HTML. This module holds the standard format and builds the
 starting page of a chapter: blank, or the outline of a Claude-generated HTML note from the Library.
 
 A page has a title, then one <section> per topic: key idea, equations (MathJax), step-through derivations and a

@@ -643,6 +643,7 @@ def _exams(course):
     rows = "".join(_row_html(e["title"], _when(e["date"], e.get("time")),
                              "Done" if e["date"] < today else "Upcoming", "done" if e["date"] < today else "open",
                              f"Covers {e['covers']}" if e.get("covers") else None, book=_exam_book(course["id"], e["title"]),
+                             solution=_exam_book(course["id"], e["title"], "Exam Solution"),
                              graded=_exam_book(course["id"], e["title"], "Graded Exam"), extra=_grade_html(e), tab="Exams")
                    for e in exams)
     st.markdown(f'<div class="dl-list">{rows}</div>', unsafe_allow_html=True)

@@ -3,7 +3,7 @@
 Personal Streamlit + SQLite study app (`python run.py`). Code is in `app.py`, `views/`, `crud.py`, `database.py`.
 Personal data (`data/`: database, settings, PDFs) is git-ignored. Never edit files under `data/` by hand.
 
-## Note Builder chapters are plain files: edit these when asked to build or change notes
+## Note Reader chapters are plain files: edit these when asked to build or change notes
 
     notes/<course code>/<id>-<chapter title>/notes.html    the whole chapter, one page
 
