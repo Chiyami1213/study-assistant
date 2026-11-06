@@ -164,8 +164,8 @@ section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-h
 /* Library card menu: plain "..." with no box edge or chevron */
 .stApp [data-testid="stPopover"] button {{border: none !important; background: transparent !important;
     box-shadow: none !important; padding: 0 4px; min-height: 0; justify-content: flex-end;}}
-[data-testid="stPopover"] button span[data-testid="stIconMaterial"] {{display: none;}}
 [data-testid="stPopoverButton"] > div > div[aria-hidden="true"] {{display: none !important;}}   /* no gap left where the arrow was */
+[class*="st-key-hw"][class*="_card"] [data-testid="stPopoverButton"] span[data-testid="stIconMaterial"] {{font-size: 1.4rem !important; color: #f2b84b !important;}}
 [data-testid="stPopoverButton"] > div {{gap: 0 !important; justify-content: center; width: 100%; margin: 0 !important;}}
 [data-testid="stPopoverButton"] > div > div {{margin: 0 !important; padding: 0 !important;}}
 [data-testid="stPopover"] button p {{font-size: 1.5rem; font-weight: 700; line-height: 0.8; letter-spacing: 1px;}}
