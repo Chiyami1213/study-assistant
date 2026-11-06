@@ -9,7 +9,7 @@ import sys
 import icons
 
 # The dev server caches imported modules between reruns; reload ours so edits apply without a restart.
-for _m in ("database", "notesfs", "crud", "settings", "icons", "pdfmeta", "covers", "reader", "outline", "htmlnotes", "quizzes", "photos", "views.notes_view", "views.courses_view", "views.home_view",
+for _m in ("database", "notesfs", "crud", "settings", "icons", "pdfmeta", "covers", "reader", "outline", "htmlnotes", "quizzes", "quizgen", "photos", "views.notes_view", "views.courses_view", "views.home_view",
            "navigation", "views.homework_view", "views.exam_mode_view", "views.recall_view", "views.library_view", "views.quiz_view", "views.calendar_view", "views.file_view", "views.lab_view",
            "views.settings_view"):
     if _m in sys.modules:
@@ -281,6 +281,10 @@ section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-h
 .dl-row:last-child {{border-bottom: none;}}
 .dl-title {{font-weight: 600;}}
 .dl-when {{opacity: 0.8; font-size: 0.92rem;}}
+/* Quiz cards: the same look as the Self-check in the notes */
+[class*="st-key-qcard_"] {{background: var(--card); border-radius: 10px;}}
+[class*="st-key-qopts_"] button {{border-radius: 8px; min-height: 2.1rem; padding: 0.15rem 0.8rem; background: var(--bg); border: 1px solid var(--border);}}
+[class*="st-key-qopts_"] button:hover {{border-color: var(--accent);}}
 .und-row {{display: grid; grid-template-columns: minmax(0, 3fr) minmax(80px, 2fr) 3rem 7.8rem; gap: 14px; align-items: center;
     padding: 6px 16px; border-bottom: 1px solid var(--border);}}
 .und-row:last-child {{border-bottom: none;}}

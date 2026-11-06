@@ -1,19 +1,27 @@
 """Course Quiz tab and the Understanding block of the Overview.
 
-Questions come from the Self-check sections of the course's HTML notes (one quiz per chapter or lecture).
-Each finished quiz is saved with its score, and the Overview shows the latest score per chapter."""
+A chapter's quiz joins two kinds of questions: conceptual checks written for each section of the HTML note
+(quizzes/<course>/<note>.json, see quizgen.py) and the note's own Self-check questions. Answers are given one per
+question and nothing is marked until the quiz is finished; then the score is shown, with the explanation for every
+question that was missed. Below 60% the quiz is failed.
+
+"Check Notes" opens the note at the question's section. Using it is recorded: an answer made with the notes open
+is documented as assisted and does not count towards the unaided score, which is the score the Overview shows."""
 import html
 import json
 import random
 
 import streamlit as st
+import streamlit.components.v1 as components
 
 import crud
+import htmlnotes
+import quizgen
 import quizzes
 from database import BASE_DIR
 from views import library_view
 
-STRONG, OKAY = 80, 60
+PASS, STRONG = 60, 80          # percent: below PASS the quiz is failed
 
 
 @st.cache_data(show_spinner=False, max_entries=64)
@@ -22,7 +30,7 @@ def _questions(path, mtime):
 
 
 def course_chapters(course):
-    """[{book, name, questions}] for the course's HTML notes that have self-check questions, in lecture order."""
+    """[{book, name, questions, path}] for the course's HTML notes that have questions, in lecture order."""
     out = []
     for b in sorted((b for b in crud.list_books() if course["id"] in b["course_ids"]
                      and b["kind"] in ("Notes", "Lecture Notes") and b["pdf_path"].lower().endswith((".html", ".htm"))),
@@ -30,9 +38,11 @@ def course_chapters(course):
         path = BASE_DIR / b["pdf_path"]
         if not path.exists():
             continue
-        qs = _questions(str(path), path.stat().st_mtime)
+        own = [{**q, "tag": "Self-check", "sec": None} for q in _questions(str(path), path.stat().st_mtime)]
+        made = quizgen.questions(quizgen.load(quizgen.path_for(course["code"] or course["name"], b["title"])))
+        qs = made + own
         if qs:
-            out.append({"book": b, "questions": qs,
+            out.append({"book": b, "questions": qs, "path": path, "made": len(made),
                         "name": (f"Lec {b['lecture']} · " if b.get("lecture") else "") + b["title"]})
     return out
 
@@ -42,7 +52,11 @@ def _pct(correct, total):
 
 
 def _level(pct):
-    return ("Strong", "done") if pct >= STRONG else ("Getting There", "open") if pct >= OKAY else ("Needs Review", "late")
+    return ("Strong", "done") if pct >= STRONG else ("Passed", "open") if pct >= PASS else ("Failed", "late")
+
+
+def _unaided(s):
+    return s["last_correct"] - s["last_assisted"]
 
 
 # ---------- Overview: how well the materials are understood ----------
@@ -54,18 +68,22 @@ def understanding(course):
     taken = [stats[c["book"]["id"]] for c in chapters if c["book"]["id"] in stats]
     st.subheader("Understanding")
     if taken:
-        avg = round(sum(_pct(s["last_correct"], s["last_total"]) for s in taken) / len(taken))
-        st.caption(f"{avg}% average of the latest scores · {len(taken)} of {len(chapters)} chapters quizzed. "
-                   f"Take a quiz in the Quiz tab.")
+        avg = round(sum(_pct(_unaided(s), s["last_total"]) for s in taken) / len(taken))
+        failed = sum(_pct(_unaided(s), s["last_total"]) < PASS for s in taken)
+        st.caption(f"{avg}% average unaided score · {len(taken)} of {len(chapters)} chapters quizzed"
+                   + (f" · {failed} failed (below {PASS}%)" if failed else "")
+                   + ". Answers that used the notes are recorded and do not count.")
     else:
         st.caption("No quizzes taken yet. Take one in the Quiz tab to see how well you know each chapter.")
     rows = ""
     for c in chapters:
         s = stats.get(c["book"]["id"])
         if s:
-            pct = _pct(s["last_correct"], s["last_total"])
+            pct = _pct(_unaided(s), s["last_total"])
             label, css = _level(pct)
-            detail = f"{s['last_correct']}/{s['last_total']} · best {s['best']}% · {s['attempts']} attempt{'s' if s['attempts'] != 1 else ''}"
+            notes = f" · {s['last_assisted']} with notes" if s["last_assisted"] else ""
+            detail = (f"{_unaided(s)}/{s['last_total']} unaided{notes} · best {s['best']}% · "
+                      f"{s['attempts']} attempt{'s' if s['attempts'] != 1 else ''}")
         else:
             pct, label, css, detail = 0, "Not Taken", "none", f"{len(c['questions'])} questions"
         rows += (f'<div class="und-row"><div class="und-name">{html.escape(c["name"])}'
@@ -79,18 +97,35 @@ def understanding(course):
 def _start(run_key, chapter):
     order = list(range(len(chapter["questions"])))
     random.shuffle(order)
-    st.session_state[run_key] = {"book": chapter["book"]["id"], "order": order, "phase": "answer", "mc": {}, "typed": {},
-                                 "got": {}, "stamp": random.random()}
+    st.session_state[run_key] = {"book": chapter["book"]["id"], "order": order, "phase": "run", "res": {},
+                                 "stamp": random.randint(1, 10 ** 9)}
 
 
 def _leave(run_key):
     st.session_state.pop(run_key, None)
 
 
+def _entry(run_key, qi):
+    return st.session_state[run_key]["res"].setdefault(qi, {"chosen": None, "notes": False})
+
+
+def _pick(run_key, qi, oi):
+    _entry(run_key, qi)["chosen"] = oi                  # the last option pressed is the answer
+
+
+def _use_notes(run_key, qi):
+    _entry(run_key, qi)["notes"] = True                 # recorded for the whole attempt
+
+
+def _self_grade(run_key, qi, got):
+    _entry(run_key, qi)["got"] = got
+
+
 def render(course):
     chapters = course_chapters(course)
     if not chapters:
-        st.info("No quiz questions yet. Quizzes come from the Self-check section of this course's HTML notes in the Library.")
+        st.info("No quiz questions yet. Quizzes come from the conceptual checks and the Self-check section of this "
+                "course's HTML notes in the Library.")
         return
     run_key = f"quiz_run_{course['id']}"
     run = st.session_state.get(run_key)
@@ -99,15 +134,17 @@ def render(course):
         _run(course, by_book[run["book"]], run, run_key)
         return
     stats = crud.quiz_stats(course["id"])
-    st.caption("Pick a chapter or lecture. The questions come from its Self-check section, in a new order each time.")
+    st.caption(f"Pick a chapter or lecture. Nothing is marked until you finish, and below {PASS}% the quiz is failed. "
+               f"Check Notes is allowed but recorded.")
     for c in chapters:
         s = stats.get(c["book"]["id"])
         name, meta, pill, go = st.columns([5, 2.6, 1.6, 1.3], vertical_alignment="center")
-        name.markdown(f"**{c['name']}**  \n{len(c['questions'])} questions")
+        name.markdown(f"**{c['name']}**  \n{len(c['questions'])} questions"
+                      + (f" ({c['made']} section checks)" if c["made"] else ""))
         if s:
-            pct = _pct(s["last_correct"], s["last_total"])
+            pct = _pct(_unaided(s), s["last_total"])
             label, css = _level(pct)
-            meta.markdown(f"Last {s['last_correct']}/{s['last_total']} ({pct}%)  \nBest {s['best']}% · {s['attempts']} attempts")
+            meta.markdown(f"Last {_unaided(s)}/{s['last_total']} unaided ({pct}%)  \nBest {s['best']}% · {s['attempts']} attempts")
             pill.markdown(f'<span class="dl-pill {css}">{label}</span>', unsafe_allow_html=True)
         else:
             meta.caption("Not taken yet")
@@ -115,88 +152,98 @@ def render(course):
                   width="stretch", on_click=_start, args=(run_key, c))
 
 
-def _finish(course, chapter, run, run_key):
-    qs, order = chapter["questions"], run["order"]
-    correct, review = 0, []
-    for qi in order:
-        q = qs[qi]
-        if q["kind"] == "mc":
-            chosen = run["mc"].get(qi)
-            ok = chosen == q["a"]
-        else:
-            chosen, ok = None, bool(run["got"].get(qi))
-        correct += ok
-        review.append({"q": qi, "chosen": chosen, "ok": ok})
-    crud.add_quiz_attempt(course["id"], chapter["book"]["id"], correct, len(order), json.dumps(review))
-    run.update(phase="done", correct=correct, review=review)
+def _is_right(q, res):
+    if not res:
+        return False
+    return res.get("chosen") == q["a"] if q["kind"] == "mc" else bool(res.get("got"))
+
+
+def _finish(course, chapter, run):
+    qs = chapter["questions"]
+    review = []
+    for qi in run["order"]:
+        res = run["res"].get(qi) or {}
+        review.append({"q": qi, "chosen": res.get("chosen"), "ok": _is_right(qs[qi], res), "notes": bool(res.get("notes"))})
+    correct = sum(r["ok"] for r in review)
+    assisted = sum(r["ok"] and r["notes"] for r in review)
+    crud.add_quiz_attempt(course["id"], chapter["book"]["id"], correct, len(review), json.dumps(review), assisted)
+    run.update(phase="done", correct=correct, assisted=assisted, review=review)
+
+
+def _note_panel(chapter, q):
+    """The note, opened at the question's section (or from the top for the note's own Self-check questions)."""
+    text = chapter["path"].read_text(encoding="utf-8", errors="replace")
+    components.html(htmlnotes.safe_html(text, q.get("sec")), height=420, scrolling=True)
 
 
 def _run(course, chapter, run, run_key):
-    qs, order, cid, bid = chapter["questions"], run["order"], course["id"], chapter["book"]["id"]
+    qs, order, cid = chapter["questions"], run["order"], course["id"]
     head, back = st.columns([6, 1.6], vertical_alignment="center")
     head.subheader(chapter["name"])
     back.button("Back To Quizzes" if run["phase"] == "done" else "Leave Quiz", key=f"quiz_back_{cid}", width="stretch",
                 on_click=_leave, args=(run_key,))
+    if run["phase"] == "done":
+        _done(chapter, run, run_key)
+        return
 
-    if run["phase"] == "answer":
-        with st.form(f"quiz_form_{cid}_{bid}_{run['stamp']}"):
-            for pos, qi in enumerate(order, 1):
-                q = qs[qi]
-                st.markdown(f"**{pos}.** {q['q']}")
-                if q["kind"] == "mc":
-                    st.radio("Answer", q["o"], index=None, key=f"qz_{cid}_{bid}_{qi}_{run['stamp']}", label_visibility="collapsed")
-                else:
-                    st.text_area("Your answer (optional)", key=f"qz_{cid}_{bid}_{qi}_{run['stamp']}", height=80)
-            sent = st.form_submit_button("Check Answers", type="primary")
-        if sent:
-            for qi in order:
-                q, val = qs[qi], st.session_state.get(f"qz_{cid}_{bid}_{qi}_{run['stamp']}")
-                if q["kind"] == "mc":
-                    run["mc"][qi] = q["o"].index(val) if val in q["o"] else None
-                else:
-                    run["typed"][qi] = val or ""
-            if any(qs[qi]["kind"] == "open" for qi in order):
-                run["phase"] = "grade"
+    res_all, styles = run["res"], ""
+    answered = sum(1 for qi in order if (res_all.get(qi) or {}).get("chosen") is not None or (res_all.get(qi) or {}).get("got") is not None)
+    used = sum(1 for qi in order if (res_all.get(qi) or {}).get("notes"))
+    st.caption(f"{answered} of {len(order)} answered · {used} with notes (recorded). Press an option to choose it; "
+               f"you can change it until you finish. Answers are marked at the end.")
+    for pos, qi in enumerate(order, 1):
+        q, res = qs[qi], res_all.get(qi) or {}
+        prefix = f"qo_{cid}_{run['stamp']}_{qi}"
+        with st.container(border=True, key=f"qcard_{cid}_{run['stamp']}_{qi}"):
+            st.markdown(f"**{pos}.** {q['q']}" + (f"  \n:gray[{q['tag']}]" if q.get("tag") else ""))
+            if q["kind"] == "mc":
+                with st.container(horizontal=True, key=f"qopts_{cid}_{run['stamp']}_{qi}"):
+                    for oi, text in enumerate(q["o"]):
+                        st.button(text, key=f"{prefix}_{oi}", on_click=_pick, args=(run_key, qi, oi))
+                if res.get("chosen") is not None:
+                    styles += (f".st-key-{prefix}_{res['chosen']} button {{border-color: var(--accent) !important; "
+                               f"background: rgba(76, 141, 255, 0.18) !important;}}")
             else:
-                _finish(course, chapter, run, run_key)
-            st.rerun()
-        return
+                st.caption("Think of your answer first, then check it against the model answer when you finish.")
+                a, b, _ = st.columns([1.2, 1.2, 5])
+                a.button("Got It", key=f"{prefix}_got", on_click=_self_grade, args=(run_key, qi, True))
+                b.button("Missed It", key=f"{prefix}_miss", on_click=_self_grade, args=(run_key, qi, False))
+                if res.get("got") is not None:
+                    st.caption("Marked as " + ("got it." if res["got"] else "missed."))
+            if res.get("notes"):
+                st.markdown(":orange[**Notes used for this question. This is recorded.**]")
+                _note_panel(chapter, q)
+            else:
+                st.button("Check Notes", key=f"{prefix}_notes", type="tertiary", icon=":material/menu_book:",
+                          on_click=_use_notes, args=(run_key, qi), help="opens the note here. it is recorded that you used it")
+    if styles:
+        st.markdown(f"<style>{styles}</style>", unsafe_allow_html=True)
+    if st.button("Finish And Score", key=f"quiz_finish_{cid}", type="primary"):
+        _finish(course, chapter, run)
+        st.rerun()
 
-    if run["phase"] == "grade":
-        st.caption("These questions are marked by you. Read the model answer, then say whether you had it.")
-        with st.form(f"quiz_grade_{cid}_{bid}_{run['stamp']}"):
-            for pos, qi in enumerate(order, 1):
-                q = qs[qi]
-                if q["kind"] != "open":
-                    continue
-                st.markdown(f"**{pos}.** {q['q']}")
-                if run["typed"].get(qi):
-                    st.caption("Your answer: " + run["typed"][qi])
-                st.info(q["e"])
-                st.radio("Did you have it?", ["Got it", "Missed it"], index=None, horizontal=True,
-                         key=f"qg_{cid}_{bid}_{qi}_{run['stamp']}")
-            sent = st.form_submit_button("Save Score", type="primary")
-        if sent:
-            for qi in order:
-                if qs[qi]["kind"] == "open":
-                    run["got"][qi] = st.session_state.get(f"qg_{cid}_{bid}_{qi}_{run['stamp']}") == "Got it"
-            _finish(course, chapter, run, run_key)
-            st.rerun()
-        return
 
-    # done: the score and a review of every question
-    total, correct = len(order), run["correct"]
-    pct = _pct(correct, total)
+def _done(chapter, run, run_key):
+    qs = chapter["questions"]
+    total, correct, assisted = len(run["order"]), run["correct"], run["assisted"]
+    unaided = correct - assisted
+    pct = _pct(unaided, total)
     label, css = _level(pct)
-    st.markdown(f'<div class="und-score"><b>{correct} / {total}</b><span>{pct}%</span><span class="dl-pill {css}">{label}</span></div>',
-                unsafe_allow_html=True)
-    st.button("Retake", key=f"quiz_again_{cid}", on_click=_start, args=(run_key, chapter))
+    st.markdown(f'<div class="und-score"><b>{unaided} / {total}</b><span>{pct}% unaided</span>'
+                f'<span class="dl-pill {css}">{label}</span></div>', unsafe_allow_html=True)
+    if assisted:
+        st.caption(f"{correct} / {total} correct in all. {assisted} correct answer{'s' if assisted != 1 else ''} used the notes "
+                   f"and {'are' if assisted != 1 else 'is'} recorded as assisted, so not counted.")
+    if pct < PASS:
+        st.error(f"Failed: {pct}% is below {PASS}%. Review the explanations below, then retake.")
+    st.button("Retake", key=f"quiz_again_{chapter['book']['id']}", on_click=_start, args=(run_key, chapter))
     for pos, r in enumerate(run["review"], 1):
         q = qs[r["q"]]
-        st.markdown(f"{'✅' if r['ok'] else '❌'} **{pos}.** {q['q']}")
-        if q["kind"] == "mc":
-            if not r["ok"]:
-                st.markdown("Your answer: " + (q["o"][r["chosen"]] if r["chosen"] is not None else "(none)"))
-            st.markdown("Answer: " + q["o"][q["a"]])
-        if q["e"]:
-            st.caption(q["e"]) if q["kind"] == "mc" else st.markdown(q["e"])
+        with st.container(border=True):
+            st.markdown(f"{'✅' if r['ok'] else '❌'} **{pos}.** {q['q']}" + ("  \n📖 :orange[notes used]" if r["notes"] else ""))
+            if q["kind"] == "mc":
+                if not r["ok"]:
+                    st.markdown("Your answer: " + (q["o"][r["chosen"]] if r["chosen"] is not None else "(none)"))
+                st.markdown("Answer: " + q["o"][q["a"]])
+            if not r["ok"] and q["e"]:                          # explanations are shown for what was missed
+                st.info(q["e"])

@@ -587,18 +587,18 @@ def delete_exported_note(export_id):
 
 
 # ---------- Quizzes ----------
-def add_quiz_attempt(course_id, book_id, correct, total, answers=None):
-    return _exec("INSERT INTO quiz_attempts(course_id,book_id,correct,total,answers) VALUES (?,?,?,?,?)",
-                 (course_id, book_id, correct, total, answers))
+def add_quiz_attempt(course_id, book_id, correct, total, answers=None, assisted=0):
+    return _exec("INSERT INTO quiz_attempts(course_id,book_id,correct,total,answers,assisted) VALUES (?,?,?,?,?,?)",
+                 (course_id, book_id, correct, total, answers, assisted))
 
 
 def quiz_stats(course_id):
-    """{book id: {attempts, last_correct, last_total, best (percent), last_at}} for the quizzes taken in a course."""
+    """{book id: {attempts, last_correct, last_total, last_assisted, best (best unaided percent), last_at}}."""
     rows = _all("SELECT * FROM quiz_attempts WHERE course_id=? ORDER BY id", (course_id,))
     out = {}
     for r in rows:
         s = out.setdefault(r["book_id"], {"attempts": 0, "best": 0})
         s["attempts"] += 1
-        s["best"] = max(s["best"], round(100 * r["correct"] / r["total"]) if r["total"] else 0)
-        s.update(last_correct=r["correct"], last_total=r["total"], last_at=r["taken_at"])
+        s["best"] = max(s["best"], round(100 * (r["correct"] - r["assisted"]) / r["total"]) if r["total"] else 0)
+        s.update(last_correct=r["correct"], last_total=r["total"], last_assisted=r["assisted"], last_at=r["taken_at"])
     return out

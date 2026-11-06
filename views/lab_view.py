@@ -5,9 +5,6 @@ import streamlit as st
 import streamlit.components.v1 as components
 
 import json
-import os
-import shutil
-import subprocess
 
 import crud
 import errata
@@ -280,7 +277,7 @@ def _notes():
             st.toast("Exported to the File page.")
 
     with st.container(key="lab_tabs_wrap"):
-        tabs = st.tabs([label for _, label in SECTIONS] + ["Claude"], key="lab_tabs", on_change="rerun")
+        tabs = st.tabs([label for _, label in SECTIONS], key="lab_tabs", on_change="rerun")
         for tab, (field, label) in zip(tabs, SECTIONS):
             with tab:
                 if not tab.open:
@@ -288,10 +285,7 @@ def _notes():
                 if (ch["notes"] or "").strip():
                     _show(ch["notes"], field)
                 else:
-                    st.caption("Nothing here yet. Ask Claude in VS Code to write it (see the Claude tab).")
-        with tabs[-1]:
-            course = courses[course_id]
-            _vscode_guide(course, ch)
+                    st.caption("Nothing here yet.")
     _watch(course_id, cid)
 
 
@@ -307,38 +301,6 @@ def _watch(course_id, chapter_id):
     st.session_state[key] = sig
     if prev is not None and prev != sig:
         st.rerun()
-
-
-def _open_folder(folder):
-    os.startfile(folder) if hasattr(os, "startfile") else subprocess.Popen(["xdg-open", str(folder)])
-
-
-def _open_vscode(folder):
-    code = shutil.which("code")
-    if code:
-        main = next((folder / n for n in ("notes.html", "notes.md") if (folder / n).exists()), folder / "notes.html")
-        subprocess.Popen([code, str(BASE_DIR), "-g", str(main)], shell=os.name == "nt")
-    else:
-        st.toast("VS Code's `code` command was not found. Open the folder by hand.")
-
-
-def _vscode_guide(course, ch):
-    """No API needed: the chapter is plain files, so Claude in VS Code can edit them and the app shows the result."""
-    folder = notesfs.chapter_dir(course, ch, create=True)
-    rel = folder.relative_to(BASE_DIR).as_posix()
-    names = [next((p.name for p in (folder / "notes.html", folder / "notes.md") if p.exists()), "notes.html")]
-    st.markdown("**Build this chapter with Claude in VS Code.** The chapter is one interactive HTML page (formulas, step-through "
-                "derivations, animations) with the exercises as its last section. Ask Claude there to edit the file, and this "
-                "window updates within a couple of seconds.")
-    st.code(chr(10).join(f"{rel}/{n}" for n in names), language="text")
-    st.caption("Copy a prompt like this into Claude in VS Code:")
-    st.code(f'Edit {rel}/{names[0]} for {crud.label(course)}, chapter "{ch["title"]}". '
-            f'Keep it one self-contained interactive HTML page like the starter. Fill each section from the reference I have open, '
-            f'with MathJax formulas, step-through derivations and an animation that shows the idea. '
-            f'Put the exercises in the section with id="exercises" at the end.', language="text")
-    a, b, _ = st.columns([1.3, 1.6, 4])
-    a.button("Open Folder", key="lab_open_folder", width="stretch", on_click=_open_folder, args=(folder,))
-    b.button("Open in VS Code", key="lab_open_code", width="stretch", on_click=_open_vscode, args=(folder,))
 
 
 def _esc(text):
