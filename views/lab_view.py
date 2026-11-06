@@ -8,7 +8,6 @@ import os
 import shutil
 import subprocess
 
-import claude_chat
 import crud
 import htmlnotes
 import notesfs
@@ -42,14 +41,6 @@ def _remember(**values):
     lab = settings.get_lab()
     if any(lab.get(k) != v for k, v in values.items()):
         settings.set_lab({**lab, **values})
-
-
-def _first_reference():
-    """Book of the first reference window (what Claude is told you are reading)."""
-    for w in _windows():
-        if w["type"] == "reference" and w.get("book"):
-            return w
-    return None
 
 
 # ---------- Reference window: a Library file, page by page ----------
@@ -164,77 +155,6 @@ def _remove_chapter(course_id, chapter_id):
     _set_chapter(course_id, left[0]["id"] if left else None)
 
 
-def _apply_chat(chapter_id, field, text, mode):
-    """Callback: put a Claude reply into a tab (append or replace) and save it."""
-    ch = crud.get_chapter(chapter_id)
-    sections = {f: ch[f] or "" for f, _ in SECTIONS}
-    sections[field] = text if mode == "replace" or not sections[field].strip() else sections[field].rstrip() + "\n\n" + text
-    crud.update_chapter(chapter_id, ch["title"], sections)
-    for f, _ in SECTIONS:                                   # the tabs reload from the saved chapter
-        st.session_state.pop(f"lab_{f}_{chapter_id}", None)
-    st.session_state["lab_flash"] = f"Added to {dict(SECTIONS)[field]}."
-
-
-def _code_block(text):
-    """The first fenced code block of a reply (an interactive HTML page), else the whole reply."""
-    import re
-    m = re.search(r"```(?:html|markdown|md)?\s*\n(.*?)```", text, re.S)
-    return m.group(1).strip() if m else text.strip()
-
-
-def _claude_tab(ch, ref_label, page_png):
-    cid = ch["id"]
-    if not claude_chat.available():
-        st.info("Add an Anthropic API key to chat with Claude here. It stays on this computer in data/settings.json.")
-        key = st.text_input("API Key", type="password", key="lab_api_key", placeholder="sk-ant-...")
-        if st.button("Save Key", key="lab_api_save", disabled=not key.strip()):
-            settings.set_api_key(key)
-            st.rerun()
-        return
-    chat_key = f"lab_chat_{cid}"
-    if chat_key not in st.session_state:
-        st.session_state[chat_key] = settings.get_chat(cid)
-    history = st.session_state[chat_key]
-    use_page = st.checkbox("Show Claude the page I am reading", key="lab_use_page", value=False,
-                           disabled=page_png is None, help="sends the current reference page as an image")
-    box = st.container(key="lab_chat_box")
-    with box:
-        if not history:
-            st.caption("Ask Claude to explain a derivation, draft a section, write exercises, or build an interactive note.")
-        for i, m in enumerate(history):
-            with st.chat_message(m["role"]):
-                st.markdown(m["content"])
-                if m["role"] == "assistant":
-                    a, b, c, _ = st.columns([1.3, 1.5, 1.3, 3])
-                    body = _code_block(m["content"])
-                    a.button("Add to Notes", key=f"cadd_n_{cid}_{i}", on_click=_apply_chat, args=(cid, "notes", body, "append"))
-                    b.button("Replace Notes", key=f"crep_n_{cid}_{i}", on_click=_apply_chat, args=(cid, "notes", body, "replace"))
-                    c.button("Add to Exercises", key=f"cadd_e_{cid}_{i}", on_click=_apply_chat, args=(cid, "exercises", body, "append"))
-    prompt = st.chat_input("Ask Claude", key="lab_chat_input")
-    if prompt:
-        history.append({"role": "user", "content": prompt})
-        with box:
-            with st.chat_message("user"):
-                st.markdown(prompt)
-            with st.chat_message("assistant"):
-                try:
-                    reply = st.write_stream(claude_chat.stream_reply(
-                        history, ch, ref_label, page_png if use_page else None))
-                except Exception as exc:                      # a wrong key, no network, rate limit ...
-                    reply = None
-                    st.error(f"Claude could not answer: {exc}")
-        if reply:
-            history.append({"role": "assistant", "content": reply})
-        else:
-            history.pop()
-        settings.set_chat(cid, history)
-        st.rerun()
-    if history and st.button("Clear Chat", key=f"lab_chat_clear_{cid}", type="tertiary"):
-        st.session_state[chat_key] = []
-        settings.set_chat(cid, [])
-        st.rerun()
-
-
 def _current_chapter():
     """(course, chapter) the notes window shows. Every active course has one notebook; None if none are active."""
     courses = {c["id"]: c for c in crud.courses_by_status("Active")}
@@ -342,17 +262,6 @@ def _notes():
     with tabs[-1]:
         course = courses[course_id]
         _vscode_guide(course, ch)
-        with st.expander("Use the Claude API instead (optional, paid)"):
-            first = _first_reference()
-            ref = crud.get_book(first["book"]) if first else None
-            page = lab.get("pages", {}).get(str(first["book"]), 1) if ref else None
-            png = None
-            if ref and not ref["pdf_path"].lower().endswith((".html", ".htm")):
-                path = BASE_DIR / ref["pdf_path"]
-                if path.exists():
-                    png = reader.page_png(str(path), path.stat().st_mtime, page - 1, 1400)
-            _claude_tab({**ch, "title": f"{crud.label(course)} · {ch['title']}"},
-                        f"{ref['title']}, page {page}" if ref else None, png)
     _watch(course_id, cid)
 
 

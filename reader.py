@@ -87,10 +87,6 @@ def page_image(path, mtime, page_index, width):
     return _render(str(path), mtime, page_index, width)
 
 
-def page_png(path, mtime, page_index, width):       # kept for callers that need a PNG (Claude page attachment)
-    return covers.render_page(path, page_index, width)
-
-
 def _prefetch(path, mtime, pages, width):
     def work():
         for i in pages:

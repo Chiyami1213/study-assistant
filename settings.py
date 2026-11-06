@@ -142,24 +142,3 @@ def set_lab(lab):
     data = _load()
     data["lab"] = lab
     _save(data)
-
-
-def get_api_key():
-    return _load().get("anthropic_api_key", "")
-
-
-def set_api_key(key):
-    data = _load()
-    data["anthropic_api_key"] = key.strip()
-    _save(data)
-
-
-def get_chat(note_id):
-    """Saved Claude conversation of a Note Builder note."""
-    return _load().get("lab_chats", {}).get(str(note_id), [])
-
-
-def set_chat(note_id, messages):
-    data = _load()
-    data.setdefault("lab_chats", {})[str(note_id)] = messages
-    _save(data)
