@@ -42,3 +42,32 @@ def score(kind, homework, events):
     if kind.startswith("event:"):
         return avg([e for e in events if e["title"].lower() == kind[6:].lower()])
     return None
+
+
+DEFAULT_SCALE = [("A", 90), ("B", 80), ("C", 70), ("D", 60)]
+
+
+def standing(data, homework, events):
+    """(percent, share of the course graded so far) from the graded parts, each weighted as the syllabus says; None when nothing
+    is graded. The weights of the graded parts are rescaled to 100%, so it is the grade you have if the rest goes the same way."""
+    got = weight = total = 0.0
+    for r in data.get("rows") or []:
+        total += r["percent"]
+        value = score(r.get("kind"), homework, events)
+        if value is not None:
+            got += r["percent"] * value
+            weight += r["percent"]
+    if not weight:
+        return None
+    return got / weight * 100, weight / total if total else 0
+
+
+def letter(percent, data):
+    """(letter, assumed): the letter for a percent from the syllabus scale; assumed is True when the syllabus gives none and the
+    usual 90 / 80 / 70 / 60 cutoffs are used."""
+    scale = [(r["grade"], r["min"]) for r in (data.get("scale") or []) if r.get("min") is not None]
+    assumed = not scale
+    for grade, low in sorted(scale or DEFAULT_SCALE, key=lambda x: -x[1]):
+        if percent >= low:
+            return grade, assumed
+    return "F" if assumed else "Below " + min(scale or DEFAULT_SCALE, key=lambda x: x[1])[0], assumed

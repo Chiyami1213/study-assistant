@@ -312,6 +312,9 @@ section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-h
 .und-score b {{font-size: 2rem;}} .und-score span:not(.dl-pill) {{font-size: 1.3rem; opacity: 0.8;}}
 .dl-solution {{font-size: 0.78rem; font-weight: 500; margin-left: 8px; opacity: 0.85;}}
 .st-key-lib_sort_box {{width: 150px; max-width: 100%; margin-left: auto;}}
+.stApp [class*="st-key-gpi_"] button {{justify-content: flex-start !important; text-align: left !important; height: auto; min-height: 0; padding: 2px 4px;}}
+.stApp [class*="st-key-gpi_"] button p {{text-align: left !important;}}
+.syl-info td:first-child {{font-weight: 600; width: 120px; opacity: 0.85;}} .syl-mail {{opacity: 0.7; font-size: 0.85rem; margin-left: 8px;}}
 .syl-open {{font-size: 0.95rem; font-weight: 600;}}
 .syl-table {{border-collapse: collapse; margin: 6px 0 10px; width: 100%; max-width: 640px; font-size: 0.92rem;}}
 .syl-table th, .syl-table td {{border-bottom: 1px solid var(--border); padding: 6px 10px; text-align: left;}}

@@ -64,7 +64,7 @@ def from_report(path, solution_pages=None):
             cur["items"][-1]["comment"] = int(ln)
             continue
         i += 1
-    page_of, question_of, first_page = {}, {}, {}
+    page_of, pos_of, question_of, first_page = {}, {}, {}, {}
     for pi in range(first, doc.page_count):
         page = doc[pi]
         mq = re.search(r"Question assigned to the following page: (\d+)", page.get_text())
@@ -76,10 +76,12 @@ def from_report(path, solution_pages=None):
                 for sp in ln["spans"]:
                     if sp["text"].strip().isdigit() and sp["size"] < 6:
                         page_of[int(sp["text"])] = pi - first + 1
-    out_comments = [{"id": cid, "text": t, "page": page_of.get(cid), "problem": question_of.get(page_of.get(cid))}
+                        pos_of[int(sp["text"])] = [round((sp["bbox"][0] + sp["bbox"][2]) / 2, 1), round((sp["bbox"][1] + sp["bbox"][3]) / 2, 1)]
+    out_comments = [{"id": cid, "text": t, "page": page_of.get(cid), "pos": pos_of.get(cid), "problem": question_of.get(page_of.get(cid))}
                     for cid, t in sorted(comments.items())]
     for pr in problems:
         pr["page"] = first_page.get(pr["n"])
+        pr["pages"] = sorted(pg for pg, q in question_of.items() if q == pr["n"])
         pr["solution_page"] = (solution_pages or {}).get(pr["n"])
     return {"source": "Gradescope grade report", "total": [float(total.group(1)), float(total.group(2))] if total else None,
             "problems": problems, "comments": out_comments, "general": []}

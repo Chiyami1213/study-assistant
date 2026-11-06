@@ -163,7 +163,7 @@ def _step_zoom(zoom_key, delta):
 
 
 @st.fragment
-def pdf_reader(path, key, height=640, start=1, title=None, on_page=None, marks=None, active=None):
+def pdf_reader(path, key, height=640, start=1, title=None, on_page=None, marks=None, active=None, marks_list=True):
     """Draw the reader for a PDF file. 100% fits the width of the window; height None fills the window (page CSS).
     `title` is drawn above the toolbar with the page number; `on_page(page)` is told whenever the page changes.
     `marks` are errata to draw on the pages (see errata.py); the numbers in `active` are drawn emphasised and scrolled to."""
@@ -200,7 +200,7 @@ def pdf_reader(path, key, height=640, start=1, title=None, on_page=None, marks=N
         cols[10].button("", key=f"{key}_mode", icon=MODES[cur][1], width="stretch", on_click=_toggle_mode,
                         args=(mode_key,), help=f"{MODES[cur][0]} view. click for {MODES[nxt][0]} view")
 
-        if marks:
+        if marks and marks_list:
             _errata_list(marks, key, page_key)
 
     page, zoom = st.session_state[page_key], st.session_state[zoom_key]

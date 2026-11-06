@@ -428,6 +428,22 @@ def _syllabus(course):
     if not data:
         st.caption("No syllabus yet. Add the syllabus file to the Library as a Syllabus.")
         return
+    info = ""
+    if data.get("instructor"):
+        who = html.escape(data["instructor"]) + (f' <span class="syl-mail">{html.escape(data["email"])}</span>' if data.get("email") else "")
+        info += f"<tr><td>Instructor</td><td>{who}</td></tr>"
+    meetings = crud.list_meetings(course["id"])
+    if meetings:
+        def clock(t):
+            h, m = int(t[:2]), t[3:5]
+            return f"{(h - 1) % 12 + 1}:{m} {'AM' if h < 12 else 'PM'}"
+        times = "<br>".join(f"{html.escape(crud.meeting_days_label(m))}, {clock(m['start_time'])} to {clock(m['end_time'])}" for m in meetings)
+        info += f"<tr><td>Class Time</td><td>{times}</td></tr>"
+        places = ", ".join(dict.fromkeys(m["location"] for m in meetings if m["location"]))
+        if places:
+            info += f"<tr><td>Location</td><td>{html.escape(places)}</td></tr>"
+    if info:
+        st.markdown(f"<table class='syl-table syl-info'><tbody>{info}</tbody></table>", unsafe_allow_html=True)
     book = crud.get_book(data.get("book") or 0)
     if book:
         page = data.get("page") or 1
@@ -453,6 +469,8 @@ def _syllabus(course):
         st.caption("The syllabus lists no letter-grade cutoffs.")
     if data.get("note"):
         st.caption(data["note"])
+    if data.get("curve"):
+        st.caption("Curving: " + data["curve"])
 
 
 def _overview(course):
@@ -463,11 +481,19 @@ def _overview(course):
     if hw_avg is None and ex_avg is None:
         st.caption("No grades yet. Homework and exam grades appear here.")
     else:
-        cols = st.columns(2)
+        data = syllabus.load(course["id"])
+        est = syllabus.standing(data, homework, exams) if data else None
+        cols = st.columns(3 if est else 2)
         cols[0].metric("Homework Average", f"{hw_avg:.0%}" if hw_avg is not None else "None",
                        help=f"{sum(1 for h in homework if h.get('score') is not None)} of {len(homework)} graded")
         cols[1].metric("Exam Average", f"{ex_avg:.0%}" if ex_avg is not None else "None",
                        help=f"{sum(1 for e in exams if e.get('score') is not None)} of {len(exams)} graded")
+        if est:
+            percent, share = est
+            grade, assumed = syllabus.letter(percent, data)
+            cols[2].metric("Estimated Letter Grade", f"{grade}  ({percent:.1f}%)",
+                           help=f"weighted by the syllabus, from the {share:.0%} of the course graded so far"
+                                + ("; the syllabus lists no cutoffs, so 90 / 80 / 70 / 60 is assumed" if assumed else ""))
     _syllabus(course)
     quiz_view.understanding(course)
 

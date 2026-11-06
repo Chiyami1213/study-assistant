@@ -191,9 +191,12 @@ def _viewer(book):
         return
     if book["kind"] in ("Graded Homework", "Graded Exam"):      # the paper on the left, why it got this grade on the right
         left, right = st.columns([3, 2], gap="medium")
+        sel = st.session_state.get(f"gp{book['id']}_sel")
+        marks = _grade_marks(book, path, sel)
         with left:
-            reader.pdf_reader(path, f"view_{book['id']}", height=820, start=st.session_state.pop(f"view_page_{book['id']}", 1))
-        with right:
+            reader.pdf_reader(path, f"view_{book['id']}", height=820, start=st.session_state.pop(f"view_page_{book['id']}", 1),
+                              marks=marks, active=[m["n"] for m in marks if m.get("active")], marks_list=False)
+        with right, st.container(height=860, border=False):       # scrolls on its own, like the paper beside it
             _grade_panel(book)
         return
     reader.pdf_reader(path, f"view_{book['id']}", height=820,
@@ -219,9 +222,61 @@ def _sibling(book, kinds):
     return None
 
 
+def _select_grade(book_id, sel, page):
+    """Callback: a problem, a rubric line or a comment was clicked: show its page and mark it on the paper."""
+    st.session_state[f"gp{book_id}_sel"] = sel
+    if page:
+        _go_page(book_id, page)
+
+
+def _page_sizes(path, pages):
+    import pymupdf
+    try:
+        doc = pymupdf.open(path)
+        return {pg: (doc[pg - 1].rect.width, doc[pg - 1].rect.height) for pg in pages if 1 <= pg <= doc.page_count}
+    except Exception:
+        return {}
+
+
+def _grade_marks(book, path, sel):
+    """Boxes to draw on the paper for the clicked problem: its heading, a bar on its other pages, and the places the grader marked.
+    The clicked one is emphasised."""
+    data = gradereport.load(book["id"])
+    if not data or not sel:
+        return []
+    comments = {c["id"]: c for c in data.get("comments") or []}
+    problems = {pr["n"]: pr for pr in data.get("problems") or []}
+    if sel.startswith("c") and int(sel[1:]) in comments:
+        pn = comments[int(sel[1:])].get("problem")
+    else:
+        pn = int(sel[1:]) if sel[1:].isdigit() else None
+    pr = problems.get(pn)
+    sizes = _page_sizes(path, {c.get("page") for c in comments.values() if c.get("page")} | set((pr or {}).get("pages") or []))
+    marks = []
+    if pr:
+        for pg in pr.get("pages") or []:
+            if pg not in sizes:
+                continue
+            W, H = sizes[pg]
+            first = pg == pr.get("page")
+            marks.append({"n": f"{pn}", "label": pr["title"] + ("" if first else " (continued)"), "md": "", "page": pg - 1,
+                          "size": (W, H), "sentence": not first, "active": sel == f"p{pn}",
+                          "rect": (W * 0.05, H * 0.05, W * 0.95, H * 0.17) if first else (6, 8, 22, H - 8)})
+    for c in comments.values():
+        if (pr and c.get("problem") != pn) or not c.get("pos") or c.get("page") not in sizes:
+            continue
+        if not pr and sel != f"c{c['id']}":
+            continue
+        W, H = sizes[c["page"]]
+        x, y = c["pos"]
+        marks.append({"n": f"{c['id']}", "label": c["text"][:70], "md": "", "page": c["page"] - 1, "size": (W, H), "sentence": True,
+                      "active": sel == f"c{c['id']}", "rect": (x - 20, y - 14, x + 20, y + 14)})
+    return marks
+
+
 def _grade_panel(book):
-    """Beside a graded file: the grade, the rubric of each problem with the points lost, and the grader's comments (with the page
-    each one belongs to). Canvas-only grades show what Canvas gave."""
+    """Beside a graded file: the grade, the rubric of each problem with the points lost, and the grader's comments. Clicking a
+    problem, a rubric line or a comment shows its page and marks it on the paper. Canvas-only grades show what Canvas gave."""
     st.subheader("Grade Explanation")
     data = gradereport.load(book["id"])
     exam = book["kind"] == "Graded Exam"
@@ -239,42 +294,42 @@ def _grade_panel(book):
         return
     got, of = data["total"]
     st.markdown(f"### {got:g} / {of:g} ({got / of:.0%})")
-    st.caption(f"Source: {data['source']}.")
+    st.caption(f"Source: {data['source']}. Click a problem, a line or a comment to see it marked on your paper.")
     for text in data.get("general") or []:
         st.markdown(f":red[{text}]")
     problems = data.get("problems") or []
     comments = data.get("comments") or []
+    by_id = {c["id"]: c for c in comments}
     if not problems and not comments and not data.get("general"):
         st.caption("Full marks." if got >= of else "Canvas shows only the total for this one, with no comments.")
     for pr in problems:
         cost = pr["max"] - pr["score"]
         with st.container(border=True, key=f"gp{book['id']}_p{pr['n']}"):
-            head, page, sol = st.columns([4, 1.4, 1.8], vertical_alignment="center")
-            head.markdown(f"**{pr['title']}**  " + (f":red[**{pr['score']:g} / {pr['max']:g}**]" if cost > 0
-                                                     else f":green[**{pr['score']:g} / {pr['max']:g}**]"))
-            if pr.get("page"):
-                page.button(f"Page {pr['page']}", key=f"gp{book['id']}_p{pr['n']}_page", type="tertiary", on_click=_go_page,
-                            args=(book["id"], pr["page"]), help="show this problem in your paper")
+            head, sol = st.columns([4, 2], vertical_alignment="center")
+            with head:
+                st.button(pr["title"], key=f"gpi_{book['id']}_p{pr['n']}", type="tertiary", on_click=_select_grade,
+                          args=(book["id"], f"p{pr['n']}", pr.get("page")), help="show this problem on your paper")
+                st.markdown((f":red[**{pr['score']:g} / {pr['max']:g}**]" if cost > 0 else f":green[**{pr['score']:g} / {pr['max']:g}**]"))
             if pr.get("solution_page") and solution:
                 sol.button(f"Solution p. {pr['solution_page']}", key=f"gp{book['id']}_p{pr['n']}_sol", type="tertiary",
                            on_click=_open_file_at, args=(solution["id"], pr["solution_page"]), help="open this problem in the solution")
-            for it in pr["items"]:
-                st.markdown((":red[" + it["text"] + "]") if it["lost"] else it["text"])
-                note = next((c for c in comments if c["id"] == it.get("comment")), None)
+            for k, it in enumerate(pr["items"]):
+                note = by_id.get(it.get("comment"))
+                label = (":red[" + it["text"] + "]") if it["lost"] else it["text"]
+                if note and note.get("page"):                # a line the grader commented on: go to where it was marked
+                    target = (f"c{note['id']}", note["page"])
+                else:                                        # otherwise the problem's own page
+                    target = (f"p{pr['n']}", pr.get("page"))
+                st.button(label, key=f"gpi_{book['id']}_p{pr['n']}_{k}", type="tertiary", on_click=_select_grade,
+                          args=(book["id"], target[0], target[1]), help="show this on your paper")
                 if note:
-                    t, b = st.columns([5, 1.4], vertical_alignment="center")
-                    t.markdown(f"> **Grader:** {note['text']}")
-                    if note.get("page"):
-                        b.button(f"Page {note['page']}", key=f"gp{book['id']}_c{note['id']}", type="tertiary", on_click=_go_page,
-                                 args=(book["id"], note["page"]), help="show where the grader marked this")
+                    st.markdown(f"> **Grader:** {note['text']}")
     for note in comments:                                  # Canvas comments, and report comments not tied to a rubric line
         if problems and any(it.get("comment") == note["id"] for pr in problems for it in pr["items"]):
             continue
-        t, b = st.columns([5, 1.4], vertical_alignment="center")
-        t.markdown(f"> **Grader:** {note['text']}")
-        if note.get("page"):
-            b.button(f"Page {note['page']}", key=f"gp{book['id']}_c{note['id']}", type="tertiary", on_click=_go_page,
-                     args=(book["id"], note["page"]), help="show where the grader marked this")
+        st.button(f"Page {note['page']}: {note['text']}" if note.get("page") else note["text"], key=f"gpi_{book['id']}_c{note['id']}",
+                  type="tertiary", on_click=_select_grade, args=(book["id"], f"c{note['id']}", note.get("page")),
+                  help="show where the grader marked this")
 
 
 def _open_note(note_id, section_id):
