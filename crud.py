@@ -3,6 +3,7 @@ import re
 from datetime import date, timedelta
 
 import notesfs
+import outline
 import settings
 from database import get_conn
 
@@ -544,6 +545,8 @@ def get_chapter(chapter_id):
 
 
 def add_chapter(course_id, title="Untitled Chapter", notes="", exercises=""):
+    if not notes and not exercises:                      # a new chapter starts as a standard interactive page
+        notes, exercises = outline.blank_pages(title)
     last = _one("SELECT MAX(position) AS p FROM lab_chapters WHERE course_id=?", (course_id,))["p"]
     cid = _exec("INSERT INTO lab_chapters(course_id,title,notes,exercises,position) VALUES (?,?,?,?,?)",
                 (course_id, title, notes, exercises, (last if last is not None else -1) + 1))

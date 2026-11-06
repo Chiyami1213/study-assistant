@@ -1,44 +1,137 @@
-"""Turn a Claude-generated HTML note (Library) into the Note Builder's standard starting format:
-a Notes outline (one block per section) and an Exercises skeleton, ready to be tailored."""
+"""Note Builder pages are self-contained interactive HTML. This module holds the standard format and builds the
+starting page of a chapter: blank, or the outline of a Claude-generated HTML note from the Library.
+
+A page has a title, then one <section> per topic: key idea, equations (MathJax), step-through derivations and a
+place for an animation. Everything is plain HTML, CSS and JavaScript in one file, so Claude (or you) can edit it."""
+import html as _html
 import re
 
+CSS = """
+:root{--bg:#fff;--panel:#f5f6fa;--ink:#161b29;--muted:#5b667c;--line:#d8dce6;--accent:#3646c7;--soft:#e4e7fa;--ok:#0c7f77}
+@media (prefers-color-scheme:dark){:root{--bg:#0e1117;--panel:#161c2a;--ink:#e6e9f2;--muted:#9aa4b8;--line:#2a3247;--accent:#8e9cff;--soft:#1e2549;--ok:#3cc3b5}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.65 "IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:860px;margin:0 auto;padding:28px 22px 80px}
+.eyebrow{font:500 12px "IBM Plex Mono",ui-monospace,monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+h1{font:600 2rem/1.2 Georgia,"Spectral",serif;margin:.3em 0 .6em}
+h2{font:600 1.35rem/1.3 Georgia,"Spectral",serif;margin:2.2em 0 .4em;padding-top:1.1em;border-top:1px solid var(--line)}
+h2 .num{display:block;font:500 12px "IBM Plex Mono",monospace;color:var(--muted);letter-spacing:.06em;margin-bottom:2px}
+h3{font-size:1.05rem;margin:1.6em 0 .3em}
+.key{background:var(--soft);border-left:4px solid var(--accent);border-radius:6px;padding:10px 14px;margin:1em 0}
+.eq{overflow-x:auto;padding:4px 0}
+.deriv,.demo,.example{border:1px solid var(--line);background:var(--panel);border-radius:10px;padding:12px 16px;margin:1em 0}
+.deriv-head{font-weight:600;display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.deriv ol{margin:.6em 0 0;padding-left:1.3em}
+.deriv li{margin:.5em 0}
+.deriv li.hidden{display:none}
+button{font:inherit;font-size:.85rem;padding:4px 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);cursor:pointer}
+button:hover{border-color:var(--accent);color:var(--accent)}
+.demo canvas{width:100%;height:220px;display:block;background:var(--bg);border:1px solid var(--line);border-radius:8px}
+.demo label{font-size:.85rem;color:var(--muted);display:flex;gap:10px;align-items:center;margin-top:8px}
+.demo input[type=range]{flex:1}
+details.problem{border:1px solid var(--line);border-radius:10px;padding:10px 14px;margin:1em 0;background:var(--panel)}
+details.problem summary{cursor:pointer;font-weight:600}
+.todo{color:var(--muted);font-style:italic}
+"""
 
-def _math(text):
-    """MathJax \\( ... \\) -> Markdown $ ... $ ; tidy spaces."""
-    text = re.sub(r"\\\((.+?)\\\)", lambda m: f"${m.group(1).strip()}$", text, flags=re.S)
-    return re.sub(r"\s+", " ", text).strip()
+MATHJAX = """<script>window.MathJax={tex:{inlineMath:[['\\\\(','\\\\)']],displayMath:[['\\\\[','\\\\]']]},svg:{fontCache:'global'}};</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-svg.js" async></script>"""
+
+# generic behaviour: "Step through" reveals a derivation one step at a time; the demo is a starting point for an animation
+JS = """<script>
+document.querySelectorAll('.deriv').forEach(function(d){
+  var steps=[].slice.call(d.querySelectorAll('li')), i=steps.length, b=d.querySelector('button.step');
+  if(!b) return;
+  b.onclick=function(){
+    if(i>=steps.length){i=0;steps.forEach(function(s){s.classList.add('hidden')});}
+    steps[i].classList.remove('hidden'); i++; b.textContent=i>=steps.length?'Restart':'Next step';
+  };
+});
+document.querySelectorAll('.demo').forEach(function(d){
+  var c=d.querySelector('canvas'), s=d.querySelector('input'); if(!c||!s) return;
+  var x=c.getContext('2d'), t=0, playing=true;
+  function draw(){
+    var w=c.width=c.clientWidth*devicePixelRatio, h=c.height=c.clientHeight*devicePixelRatio, a=+s.value;
+    x.clearRect(0,0,w,h); x.strokeStyle=getComputedStyle(document.body).color; x.lineWidth=2*devicePixelRatio; x.beginPath();
+    for(var px=0;px<w;px++){var u=px/w*6.28*2; var y=h/2-Math.sin(u*a+t)*h*0.3; px?x.lineTo(px,y):x.moveTo(px,y);} x.stroke();
+    if(playing){t+=0.03; requestAnimationFrame(draw);}
+  }
+  s.oninput=function(){if(!playing)draw();}; draw();
+  var b=d.querySelector('button.play'); if(b) b.onclick=function(){playing=!playing; b.textContent=playing?'Pause':'Play'; if(playing)draw();};
+});
+</script>"""
+
+
+def page(title, body, eyebrow=""):
+    """A complete interactive page in the standard format."""
+    head = (f'<!doctype html>\n<html lang="en"><head><meta charset="utf-8">\n'
+            f'<meta name="viewport" content="width=device-width,initial-scale=1">\n'
+            f'<title>{_html.escape(title)}</title>\n<style>{CSS}</style>\n{MATHJAX}\n</head>\n')
+    eb = f'<div class="eyebrow">{_html.escape(eyebrow)}</div>\n' if eyebrow else ""
+    return f'{head}<body>\n<main>\n{eb}<h1>{_html.escape(title)}</h1>\n{body}\n</main>\n{JS}\n</body></html>\n'
+
+
+def _section(i, name, subs):
+    out = [f'<section id="s{i}">', f'<h2><span class="num">§{i}</span>{name}</h2>',
+           '<div class="key"><b>Key idea.</b> <span class="todo">Write the main point of this section in a sentence or two.</span></div>',
+           '<div class="eq">\\[ \\text{Equation} \\]</div>']
+    for s in subs or ["Derivation"]:
+        out.append(f'<div class="deriv"><div class="deriv-head"><span>{s}</span><button class="step">Step through</button></div>'
+                   f'<ol><li>Step 1. <span class="todo">Start from what is known.</span></li>'
+                   f'<li>Step 2. <span class="todo">Apply the next result.</span></li>'
+                   f'<li>Step 3. <span class="todo">State the outcome.</span></li></ol></div>')
+    out += ['<div class="demo"><b>Animation</b> <span class="todo">Replace this starter wave with an animation of the idea.</span>'
+            '<canvas></canvas><label>Parameter <input type="range" min="1" max="6" step="0.1" value="2"> '
+            '<button class="play">Pause</button></label></div>',
+            '<div class="example"><b>Example.</b> <span class="todo">A worked example.</span></div>', "</section>"]
+    return "\n".join(out)
+
+
+def build_pages(title, sections, eyebrow=""):
+    """(notes_html, exercises_html) from [(section title, [sub titles])] (already HTML-safe)."""
+    notes = page(title, "\n".join(_section(i, n, s) for i, (n, s) in enumerate(sections, 1)), eyebrow)
+    problems = "\n".join(
+        f'<details class="problem"><summary>{i}. {n}</summary><p><b>Problem.</b> <span class="todo">State it.</span></p>'
+        f'<p><b>Solution.</b> <span class="todo">Work it out.</span></p></details>' for i, (n, _) in enumerate(sections, 1))
+    exercises = page(f"{title}: Exercises", problems or '<p class="todo">Add problems here.</p>', eyebrow)
+    return notes, exercises
+
+
+def blank_pages(title):
+    """(notes_html, exercises_html) for a new empty chapter."""
+    return build_pages(_html.escape(title, quote=False), [("First Topic", [])])
+
+
+def _clean(text):
+    """Heading text for HTML: tags removed, entities kept safe, MathJax \\( \\) left as it is."""
+    text = re.sub(r"<[^>]+>", "", text)
+    text = _html.unescape(text)
+    text = re.sub(r"\s+", " ", text).strip()
+    return _html.escape(text, quote=False)
 
 
 def outline_from_html(html_text):
-    """(title, notes_markdown, exercises_markdown) for a Claude-generated HTML note."""
+    """(title, notes_html, exercises_html) from a Claude-generated HTML note: its headings become the sections."""
     body = re.sub(r"<(script|style)\b.*?</\1>", "", html_text, flags=re.S | re.I)
-    sections = []                  # [title, [subheadings]]
-    title = ""
-    pos_titles = []        # (kind, text) in page order
+    eyebrow = ""
+    m = re.search(r'class="eyebrow"[^>]*>(.*?)</div>', body, re.S)
+    if m:
+        eyebrow = _html.unescape(re.sub(r"<[^>]+>", "", m.group(1))).strip()
+    title, sections = "", []
     for m in re.finditer(r"<(h1|h2|h3|h4)[^>]*>(.*?)</\1>|<div class=\"deriv-head\".*?<b>(.*?)</b>", body, re.S):
         if m.group(1):
-            inner = m.group(2)
-            inner = re.sub(r'<span class="num">.*?</span>', "", inner, flags=re.S)
-            text = _math(re.sub(r"<[^>]+>", "", inner))
-            text = re.sub(r"&amp;", "&", text)
-            pos_titles.append((m.group(1), text))
+            inner = re.sub(r'<span class="num">.*?</span>', "", m.group(2), flags=re.S)
+            kind, text = m.group(1), _clean(inner)
         else:
-            text = _math(re.sub(r"<[^>]+>", "", m.group(3)))
-            pos_titles.append(("deriv", re.sub(r"&amp;", "&", text)))
-    for kind, text in pos_titles:
+            kind, text = "deriv", _clean(m.group(3))
         if not text:
             continue
         if kind == "h1" and not title:
             title = text
         elif kind == "h2":
-            sections.append([text, []])
-        elif kind in ("h3", "h4", "deriv") and sections:
+            sections.append((text, []))
+        elif sections and kind in ("h3", "h4", "deriv"):
             sections[-1][1].append(("Derivation: " + text) if kind == "deriv" else text)
-    notes, exercises = [], []         # the chapter title is the page heading, so the bodies start at the sections
-    for i, (name, subs) in enumerate(sections, 1):
-        notes += [f"## {i}. {name}", "", "**Key Idea:** ", "", "**Equations**", "", "$$  $$", ""]
-        for s in subs:
-            notes += [f"### {s}", "", "- ", ""]
-        notes += ["**Example:** ", ""]
-        exercises += [f"## {i}. {name}", "", "**Problem:** ", "", "**Solution:** ", ""]
-    return title, "\n".join(notes).rstrip() + "\n", "\n".join(exercises).rstrip() + "\n"
+    plain_title = _html.unescape(title) or "Untitled Chapter"
+    notes, exercises = build_pages(title or "Untitled Chapter", sections, eyebrow)
+    return plain_title, notes, exercises
