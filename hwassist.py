@@ -104,19 +104,45 @@ def _inline_parts(pr):
     return out
 
 
+# parts of a note that summarize or cross-refer instead of teaching: never offered as "where to look"
+NOT_TEACHING = re.compile(r"equation sheet|formula sheet|assumptions list|cross-?reference|reference$", re.I)
+SUBSECTION = re.compile(r'<h3[^>]*id="(s\d+-\d+)"[^>]*>(.*?)</h3>', re.S)
+
+
 @lru_cache(maxsize=16)
 def _sections(paths_key):
-    """Every content section of the course's HTML notes: [{book, note, sec, title, num, text, html}]."""
+    """Every teaching part of the course's HTML notes: the numbered subsections (<h3 id="s2-1">) of the standard note format,
+    or the whole section for a note without them: [{book, sec, title, num, ssn, label, text, html, words, defs}]."""
     out = []
     for book_id, path, mtime in paths_key:
         text = open(path, encoding="utf-8", errors="replace").read()
+        defs = macros.from_html(text)
         for sec in quizgen.sections_of(text):
             m = re.search(r'<section id="' + re.escape(sec["id"]) + r'"[^>]*>(.*?)</section>', text, re.S)
-            out.append({"book": book_id, "sec": sec["id"], "title": sec["title"], "num": sec["num"], "label": sec.get("label"),
-                        "text": sec["text"],
-                        "html": m.group(1) if m else "", "words": _words(sec["title"] + " " + sec["text"]),
-                        "defs": macros.from_html(text)})
+            inner = m.group(1) if m else ""
+            if sec["id"].lower() in ("eqsheet", "sheet", "assumptions", "cheat") or NOT_TEACHING.search(sec["title"]):
+                continue
+            subs = list(SUBSECTION.finditer(inner))
+            if not subs:
+                out.append({"book": book_id, "sec": sec["id"], "title": sec["title"], "num": sec["num"], "label": sec.get("label"), "ssn": None,
+                            "text": sec["text"], "html": inner, "words": _words(sec["title"] + " " + sec["text"]), "defs": defs})
+                continue
+            for k, hm in enumerate(subs):
+                chunk = inner[hm.start(): subs[k + 1].start() if k + 1 < len(subs) else len(inner)]
+                ssn = re.search(r'class="ssn">\s*([\d.]+)', hm.group(2))
+                title = re.sub(r"\s+", " ", _html.unescape(re.sub(r"<[^>]+>", " ", re.sub(r'<span class="ssn">.*?</span>', "", hm.group(2), flags=re.S)))).strip()
+                body = quizgen._text(chunk)
+                out.append({"book": book_id, "sec": hm.group(1), "title": title, "num": sec["num"], "label": None, "ssn": ssn.group(1) if ssn else None,
+                            "text": body, "html": chunk, "words": _words(title + " " + body), "defs": defs})
     return out
+
+
+def section_label(section, book):
+    """How a part of a note is named on a button: "Lec 6 §2.1" for a subsection, "6.2" (lecture.section) for a whole section."""
+    lec = book.get("lecture") if book else None
+    if section.get("ssn"):
+        return (f"Lec {lec} " if lec else "") + f"§{section['ssn']}"
+    return section.get("label") or ((f"{lec}." if lec else "§") + str(section["num"]))
 
 
 EXAMPLE = re.compile(r'<details class="example"([^>]*)>\s*<summary>(.*?)</summary>(.*?)</details>', re.S)
@@ -205,7 +231,7 @@ def hint_for(section, books):
     """A hint built from a matching section: where to look, its main idea and its first formulas."""
     book = next((b for b in books if b["id"] == section["book"]), None)
     lec = book.get("lecture") if book else None
-    where = (section.get("label") or ((f"{lec}." if lec else "§") + str(section["num"]))) + " · " + tex(section["title"], section["defs"])
+    where = section_label(section, book) + " · " + tex(section["title"], section["defs"])
     md = f"**Where to look:** {where}"
     first = re.sub(r"\s+", " ", re.sub(r"<(?!/?su[pb]\b)[^>]+>", " ", re.search(r"<p[^>]*>(.*?)</p>", section["html"], re.S).group(1))).strip() \
         if re.search(r"<p[^>]*>(.*?)</p>", section["html"], re.S) else ""
@@ -306,8 +332,7 @@ def analyze(book, course, books):
 
     def tag(sec):
         b = by_book.get(sec["book"], {})
-        return ((sec.get("label") or ((f"{b.get('lecture')}." if b.get("lecture") else "§") + str(sec["num"])))
-                + " · " + tex(sec["title"], sec.get("defs")), sec["book"], sec["sec"])
+        return (section_label(sec, b) + " · " + tex(sec["title"], sec.get("defs")), sec["book"], sec["sec"])
 
     out = []
     for pr in problems:
