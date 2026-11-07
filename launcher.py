@@ -43,8 +43,50 @@ def port_open(port):
         return s.connect_ex(("127.0.0.1", port)) == 0
 
 
-def run_server(port):
+def stop_server(server):
+    """Stop the server this program started and anything it started (the page renderers): a normal terminate, no taskkill."""
+    if not server or server.poll() is not None:
+        return
+    try:
+        import psutil
+        procs = psutil.Process(server.pid).children(recursive=True)
+    except Exception:
+        procs = []
+    server.terminate()
+    for p in procs:
+        try:
+            p.terminate()
+        except Exception:
+            pass
+    try:
+        server.wait(timeout=5)
+    except Exception:
+        server.kill()
+
+
+def watch_parent(parent_pid):
+    """If the window program disappears without cleaning up (a crash), the server and its renderers stop themselves."""
+    def loop():
+        try:
+            import psutil
+        except Exception:
+            return
+        while True:
+            time.sleep(3)
+            if not psutil.pid_exists(parent_pid):
+                try:
+                    for p in psutil.Process().children(recursive=True):
+                        p.terminate()
+                finally:
+                    os._exit(0)
+
+    threading.Thread(target=loop, daemon=True).start()
+
+
+def run_server(port, parent_pid=None):
     """Child mode: run the Streamlit server in this process (needs the main thread for its signal handlers)."""
+    if parent_pid:
+        watch_parent(parent_pid)
     project = find_project()
     os.chdir(project)
     sys.path.insert(0, str(project))
@@ -78,8 +120,8 @@ def main():
     server = None
     if not port_open(PORT):        # a copy that is already running keeps serving; this window just attaches to it
         creation = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
-        cmd = [sys.executable, "--server", str(PORT)] if getattr(sys, "frozen", False) \
-            else [sys.executable, str(Path(__file__).resolve()), "--server", str(PORT)]
+        cmd = [sys.executable, "--server", str(PORT), "--parent", str(os.getpid())] if getattr(sys, "frozen", False) \
+            else [sys.executable, str(Path(__file__).resolve()), "--server", str(PORT), "--parent", str(os.getpid())]
         quiet = getattr(sys, "frozen", False)      # from the exe the server is silent; from `python run.py` it prints here
         server = subprocess.Popen(cmd, cwd=project, creationflags=creation if quiet else 0,
                                   stdout=subprocess.DEVNULL if quiet else None,
@@ -106,14 +148,12 @@ def main():
         webview.settings["ALLOW_DOWNLOADS"] = True        # the File page's Download buttons (quizzes, notes) save files
         webview.start(storage_path=str(storage), private_mode=False)
     finally:
-        if server and server.poll() is None:         # closing the window stops the server it started
-            subprocess.run(["taskkill", "/PID", str(server.pid), "/T", "/F"], capture_output=True,
-                           creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        stop_server(server)                          # closing the window stops the server it started
 
 
 if __name__ == "__main__":
     if len(sys.argv) > 2 and sys.argv[1] == "--server":
-        run_server(int(sys.argv[2]))
+        run_server(int(sys.argv[2]), int(sys.argv[4]) if len(sys.argv) > 4 and sys.argv[3] == "--parent" else None)
     elif len(sys.argv) > 2 and sys.argv[1] == "--render":          # page renderer for the scrolling PDF view
         import pagerender
         pagerender.main(sys.argv[2:])
