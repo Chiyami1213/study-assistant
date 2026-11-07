@@ -353,8 +353,9 @@ def _homework_book(course_id, hw_title, kind="Homework"):
     return None
 
 
-def _exam_book(course_id, event_title, kind="Exam"):
-    """The Library exam file of this course for an event like "Midterm 2" or "Final Exam" (same kind of exam, same number)."""
+def _exam_book(course_id, event_title, kind="Exam", word=None):
+    """The Library exam file of this course for an event like "Midterm 2" or "Final Exam" (same kind of exam, same number);
+    with `word`, only a file whose title contains it ("Reflection", "Statistics")."""
     def key(text):
         t = (text or "").lower()
         kind = "midterm" if re.search(r"mid[\s_\-]*term", t) else "final" if "final" in t else "exam"
@@ -363,7 +364,8 @@ def _exam_book(course_id, event_title, kind="Exam"):
 
     want = key(event_title)
     for b in crud.list_books():
-        if b["kind"] == kind and course_id in b["course_ids"] and key(b["title"]) == want and "practice" not in b["title"].lower():
+        if (b["kind"] == kind and course_id in b["course_ids"] and key(b["title"]) == want and "practice" not in b["title"].lower()
+                and (word is None or word.lower() in b["title"].lower())):
             return b
     return None
 
@@ -380,7 +382,7 @@ def _grade_html(item):
     return out
 
 
-def _row_html(title, when, status, css, detail=None, book=None, solution=None, extra="", graded=None, tab="Overview", guide=None, reflection=None):
+def _row_html(title, when, status, css, detail=None, book=None, solution=None, extra="", graded=None, tab="Overview", guide=None, reflection=None, stats=None):
     sub = (f'<div class="dl-sub">{html.escape(detail)}</div>' if detail else "") + extra
     name = html.escape(title)
     if book:                                              # opens the homework PDF, and Back returns to the Overview
@@ -391,6 +393,9 @@ def _row_html(title, when, status, css, detail=None, book=None, solution=None, e
     if guide:                                             # how to prepare for an upcoming exam
         name += (f' <a class="dl-solution" href="#" data-ol-book="{guide["id"]}" data-ol-page="1" data-ol-tab="{tab}" '
                  f'title="open the preparation document">Preparation</a>')
+    if stats:                                             # the class's results, as the professor released them
+        name += (f' <a class="dl-solution" href="#" data-ol-book="{stats["id"]}" data-ol-page="1" data-ol-tab="{tab}" '
+                 f'title="open the class statistics">Class Stats</a>')
     if reflection:                                        # what a finished exam teaches for the next one
         name += (f' <a class="dl-solution" href="#" data-ol-book="{reflection["id"]}" data-ol-page="1" data-ol-tab="{tab}" '
                  f'title="open the reflection document">Reflection</a>')
@@ -677,7 +682,8 @@ def _exams(course):
                          book=_exam_book(course["id"], e["title"]), solution=_exam_book(course["id"], e["title"], "Exam Solution"),
                          graded=_exam_book(course["id"], e["title"], "Graded Exam"), extra=_grade_html(e), tab="Exams",
                          guide=None if done else _exam_book(course["id"], e["title"], "Exam Preparation"),
-                         reflection=_exam_book(course["id"], e["title"], "Exam Reflection") if done else None)
+                         reflection=_exam_book(course["id"], e["title"], "Exam Reflection", "Reflection") if done else None,
+                         stats=_exam_book(course["id"], e["title"], "Exam Reflection", "Statistics") if done else None)
 
     if not exams:
         st.subheader("Exams")
