@@ -380,7 +380,7 @@ def _grade_html(item):
     return out
 
 
-def _row_html(title, when, status, css, detail=None, book=None, solution=None, extra="", graded=None, tab="Overview", guide=None):
+def _row_html(title, when, status, css, detail=None, book=None, solution=None, extra="", graded=None, tab="Overview", guide=None, reflection=None):
     sub = (f'<div class="dl-sub">{html.escape(detail)}</div>' if detail else "") + extra
     name = html.escape(title)
     if book:                                              # opens the homework PDF, and Back returns to the Overview
@@ -388,9 +388,12 @@ def _row_html(title, when, status, css, detail=None, book=None, solution=None, e
     if solution:                                          # a second link when the solution file is in the Library
         name += (f' <a class="dl-solution" href="#" data-ol-book="{solution["id"]}" data-ol-page="1" data-ol-tab="{tab}" '
                  f'title="open the solution">Solution</a>')
-    if guide:                                             # the study guide of an upcoming exam
+    if guide:                                             # how to prepare for an upcoming exam
         name += (f' <a class="dl-solution" href="#" data-ol-book="{guide["id"]}" data-ol-page="1" data-ol-tab="{tab}" '
-                 f'title="open the study guide">Study Guide</a>')
+                 f'title="open the preparation document">Preparation</a>')
+    if reflection:                                        # what a finished exam teaches for the next one
+        name += (f' <a class="dl-solution" href="#" data-ol-book="{reflection["id"]}" data-ol-page="1" data-ol-tab="{tab}" '
+                 f'title="open the reflection document">Reflection</a>')
     if graded:                                            # my own submission with the grading marked on it
         name += (f' <a class="dl-solution" href="#" data-ol-book="{graded["id"]}" data-ol-page="1" data-ol-tab="{tab}" '
                  f'title="open my graded submission">Graded</a>')
@@ -576,21 +579,38 @@ def _overview(course):
 
 
 def _homework(course):
-    """Homework in date order: the problem file, its solution, my graded submission and the grade with comments."""
+    """Homework in two lists, upcoming (due today or later, or no date) and past, each in date order: the problem file, its
+    solution, my graded submission and the grade with comments."""
     today = date.today().isoformat()
     homework = _homework_items(course)
-    st.subheader(f"Homework ({len(homework)})")
     if not homework:
+        st.subheader("Homework")
         st.caption("No homework yet.")
-    rows = ""
-    for h in homework:
-        status, css = _homework_status(h, today)
-        rows += _row_html(h["title"], _when(h["due_date"], h.get("due_time")), status, css,
-                          book=_homework_book(course["id"], h["title"]),
-                          solution=_homework_book(course["id"], h["title"], "Homework Solution"),
-                          graded=_homework_book(course["id"], h["title"], "Graded Homework"),
-                          extra=_grade_html(h), tab="Homework")
-    st.markdown(f'<div class="dl-list">{rows}</div>', unsafe_allow_html=True)
+        return
+    upcoming = [h for h in homework if not h["due_date"] or h["due_date"] >= today]
+    past = [h for h in homework if h["due_date"] and h["due_date"] < today]
+
+    def rows(items):
+        out = ""
+        for h in items:
+            status, css = _homework_status(h, today)
+            out += _row_html(h["title"], _when(h["due_date"], h.get("due_time")), status, css,
+                             book=_homework_book(course["id"], h["title"]),
+                             solution=_homework_book(course["id"], h["title"], "Homework Solution"),
+                             graded=_homework_book(course["id"], h["title"], "Graded Homework"),
+                             extra=_grade_html(h), tab="Homework")
+        return out
+
+    st.subheader(f"Upcoming Homework ({len(upcoming)})")
+    if upcoming:
+        st.markdown(f'<div class="dl-list">{rows(upcoming)}</div>', unsafe_allow_html=True)
+    else:
+        st.caption("Nothing due.")
+    st.subheader(f"Past Homework ({len(past)})")
+    if past:
+        st.markdown(f'<div class="dl-list">{rows(list(reversed(past)))}</div>', unsafe_allow_html=True)      # the most recent first
+    else:
+        st.caption("None yet.")
 
 
 def _practice_exams(course):
@@ -644,25 +664,37 @@ def _equation_sheets(course, exams):
 
 
 def _exams(course):
-    """Midterms and finals in date order with what they cover, the exam file, my graded paper and the score."""
+    """Midterms and finals in two lists. Upcoming: date, what it covers, the exam file and the preparation document. Past: the exam,
+    its solution, my graded paper, the score and the reflection document."""
     today = date.today().isoformat()
     exams = _exam_items(course)
-    st.subheader(f"Exams ({len(exams)})")
+    upcoming = [e for e in exams if e["date"] >= today]
+    past = [e for e in exams if e["date"] < today]
+
+    def row(e, done):
+        return _row_html(e["title"], _when(e["date"], e.get("time")), "Done" if done else "Upcoming", "done" if done else "open",
+                         f"Covers {e['covers']}" if e.get("covers") else None,
+                         book=_exam_book(course["id"], e["title"]), solution=_exam_book(course["id"], e["title"], "Exam Solution"),
+                         graded=_exam_book(course["id"], e["title"], "Graded Exam"), extra=_grade_html(e), tab="Exams",
+                         guide=None if done else _exam_book(course["id"], e["title"], "Exam Preparation"),
+                         reflection=_exam_book(course["id"], e["title"], "Exam Reflection") if done else None)
+
     if not exams:
+        st.subheader("Exams")
         st.caption("No midterms or finals yet.")
-    rows = ""
-    for e in exams:
-        original = _exam_book(course["id"], e["title"])
-        solution = _exam_book(course["id"], e["title"], "Exam Solution")
-        graded = _exam_book(course["id"], e["title"], "Graded Exam")
-        main_file = original
-        rows += _row_html(e["title"], _when(e["date"], e.get("time")),
-                          "Done" if e["date"] < today else "Upcoming", "done" if e["date"] < today else "open",
-                          f"Covers {e['covers']}" if e.get("covers") else None, book=main_file, solution=solution, graded=graded, extra=_grade_html(e), tab="Exams",
-                          guide=_exam_book(course["id"], e["title"], "Study Guide"))
-    st.markdown(f'<div class="dl-list">{rows}</div>', unsafe_allow_html=True)
+    else:
+        st.subheader(f"Upcoming Exams ({len(upcoming)})")
+        if upcoming:
+            st.markdown(f'<div class="dl-list">{"".join(row(e, False) for e in upcoming)}</div>', unsafe_allow_html=True)
+        else:
+            st.caption("No exams left this term.")
+        st.subheader(f"Past Exams ({len(past)})")
+        if past:
+            st.markdown(f'<div class="dl-list">{"".join(row(e, True) for e in reversed(past))}</div>', unsafe_allow_html=True)
+        else:
+            st.caption("None yet.")
     _practice_exams(course)
-    _equation_sheets(course, exams)
+    _equation_sheets(course, upcoming or exams)
 
 
 def _open_pdf_from_outline():
