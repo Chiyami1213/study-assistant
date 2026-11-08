@@ -1,5 +1,6 @@
 """User preferences (appearance) persisted to data/settings.json and the Streamlit theme config."""
 import json
+from datetime import datetime
 
 from database import BASE_DIR
 
@@ -106,6 +107,19 @@ def get_appearance():
 def set_appearance(choice):
     data = _load()
     data["appearance"] = choice
+    _save(data)
+
+
+def get_recent_courses():
+    """When each course page was last opened: {course id (str): ISO time}."""
+    return _load().get("recent_courses", {})
+
+
+def touch_course(course_id):
+    data = _load()
+    recent = data.get("recent_courses", {})
+    recent[str(course_id)] = datetime.now().isoformat(timespec="seconds")
+    data["recent_courses"] = recent
     _save(data)
 
 

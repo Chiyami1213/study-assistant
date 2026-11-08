@@ -9,6 +9,7 @@ import base64
 
 import crud
 import eqsheet
+import settings
 import syllabus
 import icons
 import photos
@@ -199,6 +200,9 @@ def render():
     open_id = st.session_state.get("open_course")
     course = crud.get_course(open_id) if open_id else None
     if course:
+        if st.session_state.get("_recent_touched") != course["id"]:          # opened now: remember it for the Recent list
+            st.session_state["_recent_touched"] = course["id"]
+            settings.touch_course(course["id"])
         if st.button("← All Courses", key="course_back"):
             st.session_state["open_course"] = None
             st.session_state.pop("course_tab", None)
@@ -207,13 +211,17 @@ def render():
         _manage(course)
         return
 
+    st.session_state.pop("_recent_touched", None)
     head, btn = st.columns([6, 1.3], vertical_alignment="center")
     head.title("Courses")
     if btn.button("Add Course", key="add_course_open"):
         _add_course_dialog()
     st.session_state.setdefault("courses_filter", "Active")
     groups = {s: crud.courses_by_status(s) for s in crud.STATUSES}
-    groups = {"All": [c for s in crud.STATUSES for c in groups[s]], **groups}
+    everyone = [c for s in crud.STATUSES for c in groups[s]]
+    opened = settings.get_recent_courses()
+    recent = sorted((c for c in everyone if str(c["id"]) in opened), key=lambda c: opened[str(c["id"])], reverse=True)   # opened most lately first
+    groups = {"Recent": recent, "All": everyone, **groups}
     f1, f2, f3 = st.columns([3, 1.3, 1.3], vertical_alignment="center")
     with f1:
         choice = st.segmented_control(
@@ -230,7 +238,11 @@ def render():
         courses = [c for c in courses if c.get("category") == category]
 
     if not courses:
-        st.info(f"No {choice.lower()} courses" + ("" if category == "All Categories" else f" in {category}") + ".")
+        st.info("No courses opened yet." if choice == "Recent" and category == "All Categories"
+                else f"No {choice.lower()} courses" + ("" if category == "All Categories" else f" in {category}") + ".")
+    if choice == "Recent":                                       # one list, the course opened most lately first
+        _tile_grid(courses)
+        return
     for title, items in _sorted_groups(courses, sort_by):
         if title:
             st.markdown(f"#### {title} ({len(items)})")
@@ -543,9 +555,9 @@ def _goals(data, homework, events, assumed):
                  f"<td class='n'>{show(exams_only)}</td></tr>")
     if not rows:
         return
-    st.markdown(f"<table class='syl-table'><thead><tr><th>To Finish With</th><th class='n'>Least on Every Remaining Item</th>"
+    st.markdown(f"<div class='syl-scroll'><table class='syl-table syl-goals'><thead><tr><th>To Finish With</th><th class='n'>Least on Every Remaining Item</th>"
                 f"<th class='n'>Least on Remaining Exams{f' if Homework Stays at {hw_avg:.0%}' if hw_avg is not None else ''}</th></tr></thead>"
-                f"<tbody>{rows}</tbody></table>", unsafe_allow_html=True)
+                f"<tbody>{rows}</tbody></table></div>", unsafe_allow_html=True)
     st.caption(f"Still to come: {left_hw} homework, {left_ex} exam{'' if left_ex == 1 else 's'}, and any other part of the grade not yet graded. "
                "Each remaining item counts the same within its part."
                + (" The syllabus lists no cutoffs, so 90 / 80 is assumed." if assumed else ""))

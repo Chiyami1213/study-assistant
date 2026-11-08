@@ -16,6 +16,7 @@ import solcrop
 import hwassist
 import reader
 import crud
+import syllabus
 import navigation
 import pdfmeta
 from pdfmeta import split_lecture, strip_notes_prefix
@@ -187,8 +188,10 @@ def _add_dialog(default_course=None):
         ext = ".pdf" if up.name.lower().endswith(".pdf") else ".html"
         dest = PDF_DIR / f"book_{uuid.uuid4().hex[:10]}{ext}"
         dest.write_bytes(up.getvalue())
-        crud.add_book(title.strip(), author.strip(), edition.strip(), str(dest.relative_to(BASE_DIR)),
-                      info["pages"], course_ids, kind, year.strip(), lecture.strip())
+        new_id = crud.add_book(title.strip(), author.strip(), edition.strip(), str(dest.relative_to(BASE_DIR)),
+                               info["pages"], course_ids, kind, year.strip(), lecture.strip())
+        if kind == "Syllabus" and ext == ".pdf":
+            syllabus.auto_build(course_ids, new_id, dest)          # the syllabus section of the course page
         st.rerun()
 
 
@@ -721,6 +724,8 @@ def _edit_dialog(book):
     if a.button("Save", type="primary", key=f"save_book_{book['id']}"):
         crud.update_book(book["id"], title.strip() or book["title"], author.strip(), edition.strip(), kind,
                          course_ids, year.strip(), lecture.strip())
+        if kind == "Syllabus" and book["pdf_path"].lower().endswith(".pdf"):
+            syllabus.auto_build(course_ids, book["id"], BASE_DIR / book["pdf_path"])
         st.rerun()
     if b.button("Preview", key=f"open_book_{book['id']}"):
         st.session_state["open_book"] = book["id"]

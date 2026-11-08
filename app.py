@@ -329,6 +329,11 @@ section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-h
 .syl-table th, .syl-table td {{border-bottom: 1px solid var(--border); padding: 6px 10px; text-align: left;}}
 .syl-table th {{font-weight: 600; opacity: 0.8; font-size: 0.82rem;}}
 .syl-table .n {{text-align: right;}} .syl-table .none {{opacity: 0.6;}}
+/* the "to finish with" table is as wide as its text needs (one line per cell); a very narrow window scrolls it */
+.syl-scroll {{overflow-x: auto;}}
+.syl-goals {{width: auto; min-width: 100%; max-width: none;}}
+.syl-goals th, .syl-goals td {{white-space: nowrap;}}
+.syl-goals td:first-child, .syl-goals th:first-child {{padding-right: 24px;}}
 .dl-grade {{font-size: 0.85rem; margin-top: 3px;}} .dl-grade b {{color: #2f9e5f;}} .dl-grade.none {{opacity: 0.6;}}
 .dl-sub {{opacity: 0.75; font-size: 0.85rem; margin-top: 3px;}}
 .dl-pill {{justify-self: end; white-space: nowrap; font-size: 0.78rem; border-radius: 999px; padding: 1px 12px; border: 1px solid var(--border);}}
