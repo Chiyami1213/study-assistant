@@ -109,6 +109,25 @@ def set_appearance(choice):
     _save(data)
 
 
+DEFAULT_EYE_REST = {"rest_seconds": 20, "sound": True, "max_skips": 3, "required_minutes": 5}
+
+
+def get_eye_rest():
+    """Eye rest reminders: seconds of rest each time, sound on/off, skips allowed in a row, length (minutes) of the required rest after that."""
+    saved = _load().get("eye_rest", {})
+    out = dict(DEFAULT_EYE_REST)
+    for k, v in saved.items():
+        if k in out and type(v) is type(out[k]):
+            out[k] = v
+    return out
+
+
+def set_eye_rest(**values):
+    data = _load()
+    data["eye_rest"] = {**get_eye_rest(), **values}
+    _save(data)
+
+
 DEFAULT_SEMESTER = {"start": "2026-08-24", "end": "2026-12-08", "exam_end": "2026-12-18"}
 
 

@@ -4,6 +4,7 @@ import streamlit.components.v1 as components
 
 import crud
 import importlib
+import json
 import sys
 
 import icons
@@ -676,31 +677,34 @@ if (!win.__olNavV1) {
 // 20-20-20 rule: after every 20 minutes of using the app, ask for a 20-second look at something 20 feet away.
 // Turning that down is allowed, but after 2 refusals in a row there is a warning, and the 3rd prompt (1 hour of
 // non-stop use) becomes a required 5-minute rest.
+win.__eyeCfg = __EYE_CFG__;                      // from Settings; a change reloads this script, the running timer reads the new values
 if (!win.__eyeRestV2) {
   win.__eyeRestV2 = true;
   const KEY = 'sa_eye_rest', num = (k, d) => +localStorage.getItem(k) || d;
+  const cfg = () => win.__eyeCfg;
   const load = () => { try { return JSON.parse(localStorage.getItem(KEY)) || null; } catch (e) { return null; } };
   const save = v => { try { localStorage.setItem(KEY, JSON.stringify(v)); } catch (e) {} };
   const interval = () => num('sa_study_interval', 1200) * 1000;       // 20 minutes
-  const restLen = () => num('sa_rest_seconds', 20);                   // 20 seconds
-  const forceLen = () => num('sa_force_seconds', 300);                // 5 minutes
+  const restLen = () => cfg().rest_seconds;                           // seconds of rest each time
+  const forceLen = () => cfg().required_minutes * 60;                 // the required rest
+  const maxSkips = () => cfg().max_skips;                             // skips allowed in a row
   const idleReset = () => num('sa_idle_reset', 300) * 1000;           // away 5+ minutes counts as a rest
   const fmt = n => Math.floor(n / 60) + ':' + String(n % 60).padStart(2, '0');
   let st = load(), card = null, forced = null;
   const fresh = () => ({next: Date.now() + interval(), seen: Date.now(), refused: 0, forceEnd: 0});
   if (!st || Date.now() - st.seen > idleReset()) st = fresh();
   save(st);
-  const beep = () => { try { const c = new (win.AudioContext || win.webkitAudioContext)(), o = c.createOscillator(), g = c.createGain();
+  const beep = () => { if (!cfg().sound) return; try { const c = new (win.AudioContext || win.webkitAudioContext)(), o = c.createOscillator(), g = c.createGain();
     o.connect(g); g.connect(c.destination); o.frequency.value = 660; g.gain.value = 0.08; o.start(); o.stop(c.currentTime + 0.25); } catch (e) {} };
   function closeCard() { if (card) { card.el.remove(); card = null; } }
   function refuse() {
     closeCard(); st.refused = (st.refused || 0) + 1; save(st);
-    if (st.refused === 2) warn();
+    if (st.refused === maxSkips() && maxSkips() > 0) warn();
   }
   function warn() {
     const el = doc.createElement('div'); el.id = 'sa-rest'; el.className = 'warn';
-    el.innerHTML = '<h3>Rest Warning</h3><p>You have skipped 2 eye rests in a row. If you keep studying without a break, ' +
-      'a required 5-minute rest starts after 1 hour of non-stop use.</p><button type="button">Understood</button>';
+    el.innerHTML = '<h3>Rest Warning</h3><p>You have skipped ' + maxSkips() + ' eye rest' + (maxSkips() === 1 ? '' : 's') + ' in a row. If you keep studying without a break, ' +
+      'a required ' + cfg().required_minutes + '-minute rest starts at the next reminder.</p><button type="button">Understood</button>';
     doc.body.appendChild(el); card = {el, phase: 'warn'};
     el.querySelector('button').onclick = closeCard;
     setTimeout(() => { if (card && card.el === el) closeCard(); }, 15000);
@@ -725,8 +729,8 @@ if (!win.__eyeRestV2) {
     if (!st.forceEnd || st.forceEnd < Date.now() - 1000) { st.forceEnd = Date.now() + forceLen() * 1000; save(st); }
     closeCard();
     const el = doc.createElement('div'); el.id = 'sa-force';
-    el.innerHTML = '<div id="sa-rest"><h3>Required Rest</h3><p>You have used the app for 1 hour without taking an eye rest. ' +
-      'Step away from the screen and rest your eyes for 5 minutes.</p><div class="count"></div><div class="bar"><i></i></div>' +
+    el.innerHTML = '<div id="sa-rest"><h3>Required Rest</h3><p>You have used the app for ' + Math.round((maxSkips() + 1) * interval() / 60000) + ' minutes without taking an eye rest. ' +
+      'Step away from the screen and rest your eyes for ' + cfg().required_minutes + ' minutes.</p><div class="count"></div><div class="bar"><i></i></div>' +
       '<button type="button" disabled>Resume Studying</button></div>';
     doc.body.appendChild(el); forced = {el, done: false}; beep();
     el.querySelector('button').onclick = () => {          // the 20 minutes start again from the moment studying resumes
@@ -752,7 +756,7 @@ if (!win.__eyeRestV2) {
     if (!card || card.phase === 'warn') {
       if (now >= st.next) {
         st.next = now + interval(); save(st);                                  // the next prompt is 20 minutes after this one
-        if (st.refused >= 2) force(); else { closeCard(); ask(); }
+        if (st.refused >= maxSkips()) force(); else { closeCard(); ask(); }
       }
     }
     if (card && card.phase === 'rest') {
@@ -941,7 +945,13 @@ if (!win.__labResizeV1) {
     sink.dispatchEvent(new win.Event('input', {bubbles: true}));
     sink.dispatchEvent(new win.KeyboardEvent('keydown', {key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true}));
     sink.blur();
-    [900, 2500, 6000].forEach(ms => setTimeout(() => cs.forEach(c => ['flex', 'width', 'min-width'].forEach(k => c.style.removeProperty(k))), ms));
+    // drop the temporary pixel sizes only once the app has drawn the new widths (the tab strip carries them in data-w); never before
+    const want = widths.map(w => w / total), t0 = Date.now();
+    const timer = setInterval(() => {
+      const strip = doc.querySelector('.lab-tabs'), have = strip && (strip.dataset.w || '').split(',').map(Number);
+      const done = have && have.length === want.length && have.every((v, k) => Math.abs(v - want[k]) < 0.01);
+      if (done || Date.now() - t0 > 60000) { clearInterval(timer); cs.forEach(c => ['flex', 'width', 'min-width'].forEach(k => c.style.removeProperty(k))); }
+    }, 200);
   };
   doc.addEventListener('mouseup', () => {
     if (!drag) return;
@@ -979,7 +989,7 @@ if (!win.__libNavV1) {
     inp.blur();
   }, true);
 }
-</script>""", height=0)
+</script>""".replace("__EYE_CFG__", json.dumps(settings.get_eye_rest())), height=0)
 
 if st.query_params.get("detached"):          # a Note Reader window dragged out into its own window
     lab_view.render_detached(st.query_params["detached"])

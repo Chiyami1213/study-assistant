@@ -351,7 +351,7 @@ def _tab_strip(wins):
     st.markdown(f'<style>.stMainBlockContainer {{padding: 0.5rem 2.8rem 0 0.8rem !important; max-width: none !important;}}'
                 f'.stMainBlockContainer > [data-testid="stVerticalBlock"] {{gap: 0.25rem;}}'
                 f'[data-testid="stHeader"] {{height: 0; min-height: 0; visibility: hidden;}}</style>'
-                f'<div class="lab-tabs" style="grid-template-columns: {" ".join(f"minmax(0, {w:g}fr)" for w in _weights(wins))}">{tabs}{plus}</div>',
+                f'<div class="lab-tabs" data-w="{",".join(f"{w:g}" for w in _weights(wins))}" style="grid-template-columns: {" ".join(f"minmax(0, {w:g}fr)" for w in _weights(wins))}">{tabs}{plus}</div>',
                 unsafe_allow_html=True)
 
 
