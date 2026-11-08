@@ -24,6 +24,9 @@ from views import calendar_view, courses_view, home_view, lab_view, library_view
 st.set_page_config(page_title="Study Assistant", page_icon=":material/book:", layout="wide",
                    initial_sidebar_state="expanded")
 init_db()
+if "_titles_fixed" not in st.session_state:          # course codes in file names read "AE 333", not "AE333" or "ae 333"
+    crud.fix_book_titles()
+    st.session_state["_titles_fixed"] = True
 photos.organize_photos()
 
 # (label, material icon, renderer)
@@ -555,7 +558,8 @@ section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-h
 .lib-author {{font-size: 0.875rem; opacity: 0.6;}}
 .lib-add {{aspect-ratio: 2 / 3; border: 2px dashed rgba(140, 146, 160, 0.6); border-radius: 6px; display: flex;
     align-items: center; justify-content: center; font-size: 2.2rem; cursor: pointer;}}
-.lib-add:hover {{border-color: var(--accent);}}
+.lib-add:hover, .lib-add.drop {{border-color: var(--accent);}}
+.lib-add.drop {{background: rgba(76, 141, 255, 0.12);}}
 @media (max-width: 1100px) {{.lib-grid {{grid-template-columns: repeat(4, minmax(0, 1fr));}}}}
 .lib-title {{font-family: Georgia, "Roboto Slab", serif; font-weight: 700;}}
 .book-cover {{aspect-ratio: 2 / 3; border-radius: 6px; display: flex; align-items: flex-end; padding: 14px;
@@ -1233,6 +1237,28 @@ if (!win.__annotV1) {
       });
     });
   }, 400);
+}
+// Library: drop a pdf or html file on the + tile to add it. The Add File window opens as it does on a click and the file is handed to its uploader.
+if (!win.__libDropV1) {
+  win.__libDropV1 = true;
+  const tile = e => e.target.closest && e.target.closest('.lib-add');
+  const hasFiles = e => e.dataTransfer && [...(e.dataTransfer.types || [])].includes('Files');
+  doc.addEventListener('dragover', e => { const t = tile(e); if (t && hasFiles(e)) { e.preventDefault(); t.classList.add('drop'); } });
+  doc.addEventListener('dragleave', e => { const t = tile(e); if (t) t.classList.remove('drop'); });
+  doc.addEventListener('drop', e => {
+    const t = tile(e); if (!t) return;
+    e.preventDefault(); t.classList.remove('drop');
+    const file = [...e.dataTransfer.files].find(f => /[.](pdf|html?)$/i.test(f.name)); if (!file) return;
+    t.click();                                           // opens the Add File window
+    let tries = 0;
+    const timer = setInterval(() => {
+      const inp = doc.querySelector('[role="dialog"] input[type="file"]');
+      if (!inp && ++tries < 80) return;
+      clearInterval(timer); if (!inp) return;
+      const dt = new win.DataTransfer(); dt.items.add(file);
+      inp.files = dt.files; inp.dispatchEvent(new win.Event('change', {bubbles: true}));
+    }, 150);
+  });
 }
 // Library cards: pass "action:id" to the hidden box (open the file, its Edit window, or the add window).
 if (!win.__libNavV1) {

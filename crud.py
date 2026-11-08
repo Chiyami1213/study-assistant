@@ -370,8 +370,35 @@ def get_book(book_id):
     return _attach_courses([row])[0] if row else None
 
 
+_SUBJECTS = {"AE", "AAE", "ME", "MA", "PHYS", "ECON", "NUCL", "CHM", "EDPS", "ENGL", "ENGR", "LING", "CS", "SCLA", "EAPS", "EBEC", "STAT",
+             "CGT", "JPNS", "BIOL", "MUS", "CHEM", "MATH", "ECE", "CEE", "ISYE", "BMED", "MSE", "PSYC", "COM", "SA"}
+
+
+def _subjects():
+    return _SUBJECTS | {re.match(r"[A-Za-z]+", c["code"]).group(0).upper() for c in list_courses(section=None) if c.get("code") and re.match(r"[A-Za-z]+", c["code"])}
+
+
+def fix_course_ids(text, subjects=None):
+    """A course code in a file name written without a space or in small letters ("AE333", "ae 333", "aae532") is written as "AE 333".
+    Only subjects of the app's courses (and common ones) count, so "Fall 2024" and "Lec 5" are left alone."""
+    subjects = subjects or _subjects()
+    return re.sub(r"\b([A-Za-z]{2,5})\s?(\d{3,5})\b", lambda m: f"{m.group(1).upper()} {m.group(2)}" if m.group(1).upper() in subjects else m.group(0), text or "")
+
+
+def fix_book_titles():
+    """Correct the course codes in the title of every Library file; returns [(id, old, new)] of the titles that were changed."""
+    changed, subjects = [], _subjects()
+    for b in list_books():
+        new = fix_course_ids(b["title"], subjects)
+        if new != b["title"]:
+            _exec("UPDATE books SET title=? WHERE id=?", (new, b["id"]))
+            changed.append((b["id"], b["title"], new))
+    return changed
+
+
 def add_book(title, author, edition, pdf_path, total_pages, course_ids=None, kind="Textbook", year=None,
              lecture=None):
+    title = fix_course_ids(title)
     book_id = _exec("INSERT INTO books(title,author,edition,year,lecture,pdf_path,total_pages,kind) "
                     "VALUES (?,?,?,?,?,?,?,?)",
                     (title, author or None, edition or None, year or None, lecture or None, pdf_path, total_pages, kind))
@@ -380,6 +407,7 @@ def add_book(title, author, edition, pdf_path, total_pages, course_ids=None, kin
 
 
 def update_book(book_id, title, author, edition, kind="Textbook", course_ids=None, year=None, lecture=None):
+    title = fix_course_ids(title)
     _exec("UPDATE books SET title=?, author=?, edition=?, year=?, lecture=?, kind=? WHERE id=?",
           (title, author or None, edition or None, year or None, lecture or None, kind, book_id))
     set_book_courses(book_id, course_ids)

@@ -134,6 +134,23 @@ def _course_options():
     return {c["id"]: crud.label(c) for c in crud.list_courses(section=None)}
 
 
+def _auto(name, value):
+    """The session key of a box of the Add File window. The box follows what was detected (from the file or its type) until something is typed in
+    it; after that, choosing another file or type leaves what was typed alone."""
+    key = f"bk_{name}"
+    seen = st.session_state.setdefault("_bk_auto", {})
+    if key not in st.session_state or st.session_state[key] == seen.get(key):
+        st.session_state[key] = value
+    seen[key] = value
+    return key
+
+
+def _reset_add_boxes():
+    """A fresh Add File window: nothing typed before is kept."""
+    for k in [k for k in st.session_state if str(k).startswith("bk_")] + ["_bk_auto"]:
+        st.session_state.pop(k, None)
+
+
 @st.dialog("Add File", width="large")
 def _add_dialog(default_course=None):
     with st.container(key="library_file_box"):
@@ -149,9 +166,8 @@ def _add_dialog(default_course=None):
         found = [n for n in ("title", "author", "edition", "year") if info[n]]
         st.caption("Detected " + (", ".join(found) if found else "nothing") +
                    f" from {info['source']} - edit anything that looks wrong.")
-    k = up.file_id if up else "none"  # reset the fields whenever a different file is chosen
     kind_guess = detect_kind(up.name, info["title"]) if up else None
-    kind = st.segmented_control("Type", KINDS, default=kind_guess or "Textbook", key=f"bk_kind_{k}") or "Textbook"
+    kind = st.segmented_control("Type", KINDS, key=_auto("kind", kind_guess or "Textbook")) or "Textbook"
     if kind_guess:
         st.caption(f"Type detected from the file name: {kind_guess}")
     is_hw = kind in HW_KINDS
@@ -160,27 +176,24 @@ def _add_dialog(default_course=None):
     lec_guess, clean_title = split_lecture(info["title"])
     if not lec_guess and up:
         lec_guess = split_lecture(up.name.rsplit(".", 1)[0].replace("_", " "))[0]
-    title = st.text_input("Title", value=strip_notes_prefix(clean_title) if is_notes else info["title"],
-                          key=f"bk_title_{k}_{int(is_notes)}")
+    title = st.text_input("Title", key=_auto("title", crud.fix_course_ids(strip_notes_prefix(clean_title) if is_notes else info["title"])))     # "AE333" -> "AE 333"
     lecture = ""
     if is_hw:                                                        # "hw4.pdf" -> homework number 4, title "HW 4"
         num = (re.search(r"\d+", up.name) or re.search(r"\d+", info["title"] or "")) if up else None
-        lecture = st.text_input("Homework Number", value=num.group() if num else "", key=f"bk_hw_{k}", placeholder="4")
+        lecture = st.text_input("Homework Number", key=_auto("hw", num.group() if num else ""), placeholder="4")
         if lecture.strip() and not title.strip().lower().startswith("hw"):
             title = f"HW {lecture.strip()}" + {"Homework Solution": " Solution", "Graded Homework": " Graded", "Homework Helper": " Helper", "Grade Explanation": " Grade Explanation"}.get(kind, "")
     elif is_notes:
-        lecture = st.text_input("Lecture", value=lec_guess, key=f"bk_lec_{k}", placeholder="3 or 3-4")
+        lecture = st.text_input("Lecture", key=_auto("lec", lec_guess), placeholder="3 or 3-4")
     c1, c2, c3 = st.columns([3, 2, 1.2])
-    author = c1.text_input("Author", value=info["author"], key=f"bk_author_{k}")
-    edition = c2.text_input("Edition", value=info["edition"], key=f"bk_edition_{k}", placeholder="7th Edition")
+    author = c1.text_input("Author", key=_auto("author", info["author"]))
+    edition = c2.text_input("Edition", key=_auto("edition", info["edition"]), placeholder="7th Edition")
     # Your own notes default to the current year; a textbook keeps the year found in the file (if any).
-    year = c3.text_input("Year", value=str(date.today().year) if is_notes else info["year"],
-                         key=f"bk_year_{k}_{int(is_notes)}", placeholder="2019")
+    year = c3.text_input("Year", key=_auto("year", str(date.today().year) if is_notes else info["year"]), placeholder="2019")
     courses = _course_options()
     guess = detect_course(up.name, info["title"]) if up else None
     start = guess if guess in courses else (default_course if default_course in courses else None)
-    course_ids = st.multiselect("Courses (Optional)", list(courses), default=[start] if start else [],
-                                format_func=courses.get, key=f"bk_course_{k}")
+    course_ids = st.multiselect("Courses (Optional)", list(courses), format_func=courses.get, key=_auto("course", [start] if start else []))
     if guess:
         st.caption(f"Course detected from the file name: {crud.label(crud.get_course(guess))}")
     if st.button("Add to Library", type="primary", disabled=not (up and title.strip())):
@@ -192,6 +205,7 @@ def _add_dialog(default_course=None):
                                info["pages"], course_ids, kind, year.strip(), lecture.strip())
         if kind == "Syllabus" and ext == ".pdf":
             syllabus.auto_build(course_ids, new_id, dest)          # the syllabus section of the course page
+        _reset_add_boxes()
         st.rerun()
 
 
@@ -825,7 +839,7 @@ def _tile_grid(tiles, has_books, courses, default_course=None):
     cells = []
     for tile in tiles:
         if tile == "add":
-            tip = "" if has_books else ' title="click to add pdf"'
+            tip = ' title="click, or drop a pdf or html file here, to add it"'
             cells.append(f'<div class="lib-card"><div class="lib-add" data-lib-act="add:{default_course or 0}"{tip}>+</div></div>')
         else:
             cells.append(_book_card(tile, courses))
@@ -849,6 +863,7 @@ def _handle_click():
     elif action == "edit" and crud.get_book(ident):
         _edit_dialog(crud.get_book(ident))
     elif action == "add":
+        _reset_add_boxes()
         _add_dialog(ident or None)
 
 
