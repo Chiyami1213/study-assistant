@@ -1004,6 +1004,14 @@ if (!win.__labResizeV2) {
     }
   }, true);
 }
+// Note Reader full screen: Esc leaves it (the note's own page does the same while the pointer or focus is inside the note).
+if (!win.__fullEscV1) {
+  win.__fullEscV1 = true;
+  doc.addEventListener('keydown', e => {
+    if (e.key !== 'Escape' || e.defaultPrevented) return;
+    const b = doc.querySelector('.st-key-lab_full_close button'); if (b) b.click();
+  });
+}
 // Library cards: pass "action:id" to the hidden box (open the file, its Edit window, or the add window).
 if (!win.__libNavV1) {
   win.__libNavV1 = true;

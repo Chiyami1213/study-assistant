@@ -129,6 +129,14 @@ _EQSRC = r"""<script>
 })();
 </script>"""
 
+# Esc inside a note shown full screen in the Note Reader clicks the page's Exit Full Screen button (unless the find bar used the key).
+_ESC = """<script>
+document.addEventListener('keydown', function (e) {
+  if (e.key !== 'Escape' || e.defaultPrevented) return;
+  try { var b = window.parent.document.querySelector('.st-key-lab_full_close button'); if (b) b.click(); } catch (err) {}
+});
+</script>"""
+
 # A helper or grade explanation written outside the app links to notes sections as web addresses of the page it was written
 # against ("...#s2-2", with the text "Lec 1 §2.2 · ..."). A click writes "note:<lecture>:<id>" (or "doc:<the link text>", e.g. "Midterm 2 Preparation")
 # into the hidden box of the Library page around this frame, which opens that lecture's notes at that section.
@@ -383,7 +391,7 @@ window.addEventListener('message', function (e) { if (e.data && e.data.study ===
 })();</script>"""
 
 
-def safe_html(text, goto=None, questions=None, errata_source=None, resume=None, links=False, marks=False, slides=None):
+def safe_html(text, goto=None, questions=None, errata_source=None, resume=None, links=False, marks=False, slides=None, esc_exit=False):
     """The note's HTML with the link guard added just before the closing body tag (or at the end). `goto` is the id of
     a section to scroll to once the page has loaded (the Exercises tab opens the page at #exercises). `questions` (the
     app's question dicts) replace the note's own Self-check, so the note and the course Quiz tab agree."""
@@ -394,6 +402,8 @@ def safe_html(text, goto=None, questions=None, errata_source=None, resume=None, 
         script += _MARKS
     if slides:                                           # the id of this note: its slide numbers open the lecture slides (Note Reader)
         script += _SLIDES.replace("__CFG__", str(slides)) + _EQSRC.replace("__CFG__", str(slides))
+    if esc_exit:
+        script += _ESC
     if errata_source:
         script += _ERRATA.replace("__SRC__", errata_source)
     if questions:

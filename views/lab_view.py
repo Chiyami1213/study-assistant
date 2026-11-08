@@ -229,7 +229,9 @@ def _notes():
         st.info("Add a course first."); return
     lab = settings.get_lab()
 
-    c_col, n_col = st.columns([1.5, 4], vertical_alignment="center", gap="small")
+    c_col, n_col, f_col = st.columns([1.5, 4, 0.5], vertical_alignment="center", gap="small")
+    f_col.button("", icon=":material/fullscreen:", key="lab_full_open", help="show the notes full screen", width="stretch",
+                 on_click=lambda: st.session_state.update(lab_full=True))
     course_id = c_col.selectbox("Course", list(courses), key="lab_course", label_visibility="collapsed",
                                 format_func=lambda i: courses[i]["code"] or courses[i]["name"])
     notes = _course_notes(course_id)
@@ -513,7 +515,40 @@ def _tab_strip(wins):
                 unsafe_allow_html=True)
 
 
+def _full_screen():
+    """The note the Note Reader shows, alone and as wide as the screen (like a note opened from a homework helper); Exit Full Screen goes back."""
+    st.markdown("<style>.stMainBlockContainer {padding: 0.5rem 1.2rem 0 !important; max-width: none !important;}"
+                ".stMainBlockContainer > [data-testid='stVerticalBlock'] {gap: 0.3rem !important;}"
+                "[data-testid='stHeader'] {height: 0; min-height: 0; visibility: hidden;}"
+                "[class*='st-key-lab_full_html'], [class*='st-key-lab_full_html'] [data-testid='stElementContainer'], "
+                "[class*='st-key-lab_full_html'] iframe {height: calc(100vh - 75px) !important; width: 100% !important;}"
+                "</style>", unsafe_allow_html=True)
+    lab = settings.get_lab()
+    courses, course_id = _current_chapter()
+    notes = _course_notes(course_id) if courses else []
+    book = next((b for b in notes if b["id"] == st.session_state.get("lab_note")), None) or \
+        next((b for b in notes if b["id"] == lab.get("notes", {}).get(str(course_id))), None) or (notes[0] if notes else None)
+    path = BASE_DIR / book["pdf_path"] if book else None
+    head, back = st.columns([8, 1.6], vertical_alignment="center")
+    head.markdown(f"<div class='lab-detached-title'>{_esc(book['title']) if book else 'Notes'}</div>", unsafe_allow_html=True)
+    if back.button("Exit Full Screen", icon=":material/fullscreen_exit:", key="lab_full_close", width="stretch"):
+        st.session_state["lab_full"] = False
+        st.rerun()
+    if not book or not path.exists():
+        st.info("There is no note to show."); return
+    text = path.read_text(encoding="utf-8", errors="replace")
+    part = next((p for p in outline.parts(text) if p["label"] == lab.get("tabs", {}).get(str(book["id"]))), None)     # the tab the note was left on
+    with st.container(key="lab_full_html"):
+        from views import quiz_view
+        questions = None if 'id="qBox"' in text else quiz_view.book_questions(book)
+        components.html(htmlnotes.safe_html(text, part["section"] if part else None, questions=questions, resume=f"full:{book['id']}", esc_exit=True),
+                        height=900, scrolling=True)
+
+
 def render():
+    if st.session_state.get("lab_full"):
+        _full_screen()
+        return
     wins = _windows()
     _tab_strip(wins)
     for col, win in zip(st.columns(_weights(wins), gap="small"), wins):
