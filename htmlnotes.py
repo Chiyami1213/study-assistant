@@ -94,6 +94,41 @@ _SLIDES = r"""<script>
 })();
 </script>"""
 
+# A click on an equation (<div class="eqb">) takes the reader to its source: the lecture slides or lecture notes named by the
+# "source" line (<div class="src">) above it, or with Shift the textbook named there. The message is
+# "eq:<url-encoded json>" in the hidden box of the Note Reader (the json holds the source line, the textbook line, the equation number
+# and the words around the equation, which pick the slide inside a range of slides).
+_EQSRC = r"""<script>
+(function () {
+  var CFG = "__CFG__".split('|'), BOOK = CFG[0], P = window.parent;
+  var css = document.createElement('style');
+  css.textContent = '.eqb{cursor:pointer}.eqb:hover{outline:2px solid #4c8dff;outline-offset:3px;border-radius:6px}';
+  document.head.appendChild(css);
+  var cur = null, head = null;
+  [].forEach.call(document.querySelectorAll('h2,h3,.src,.eqb'), function (el) {
+    if (el.classList.contains('src')) cur = el;
+    else if (el.classList.contains('eqb')) { el._src = cur; el._head = head; el.title = 'open this equation in its source (shift: textbook)'; }
+    else head = el;
+  });
+  function text(el) { return el ? (el.textContent || '').replace(/\s+/g, ' ').trim() : ''; }
+  document.addEventListener('click', function (e) {
+    var eq = e.target.closest && e.target.closest('.eqb'); if (!eq) return;
+    if (e.target.closest('a,button,input,textarea,select')) return;
+    if (window.getSelection && String(window.getSelection()).length > 2) return;
+    var src = eq._src, spans = src ? src.querySelectorAll('span') : [], ctx = text(eq._head), p = eq.previousElementSibling, n = 0;
+    while (p && n < 3) { if (p.tagName === 'P') { ctx += ' ' + text(p); break; } p = p.previousElementSibling; n++; }
+    var payload = {note: BOOK, src: spans.length ? text(spans[0]) : '', vk: src && src.querySelector('.vk') ? text(src.querySelector('.vk')) : '',
+                   eq: text(eq.querySelector('.eqn')), ctx: ctx.slice(0, 700), shift: !!e.shiftKey};
+    var inp = P.document.querySelector('.st-key-lab_tab_sink input'); if (!inp) return;
+    var set = Object.getOwnPropertyDescriptor(P.HTMLInputElement.prototype, 'value').set;
+    inp.focus(); set.call(inp, 'eq:' + encodeURIComponent(JSON.stringify(payload)) + '|' + Date.now());
+    inp.dispatchEvent(new P.Event('input', {bubbles: true}));
+    inp.dispatchEvent(new P.KeyboardEvent('keydown', {key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true}));
+    inp.blur();
+  }, true);
+})();
+</script>"""
+
 # A helper or grade explanation written outside the app links to notes sections as web addresses of the page it was written
 # against ("...#s2-2", with the text "Lec 1 §2.2 · ..."). A click writes "note:<lecture>:<id>" (or "doc:<the link text>", e.g. "Midterm 2 Preparation")
 # into the hidden box of the Library page around this frame, which opens that lecture's notes at that section.
@@ -358,7 +393,7 @@ def safe_html(text, goto=None, questions=None, errata_source=None, resume=None, 
     if marks:
         script += _MARKS
     if slides:                                           # the id of this note: its slide numbers open the lecture slides (Note Reader)
-        script += _SLIDES.replace("__CFG__", str(slides))
+        script += _SLIDES.replace("__CFG__", str(slides)) + _EQSRC.replace("__CFG__", str(slides))
     if errata_source:
         script += _ERRATA.replace("__SRC__", errata_source)
     if questions:

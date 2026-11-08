@@ -321,6 +321,12 @@ def _handle_tab_action(wins):
         lecture, _, page = tail.partition(":")
         if note_id.isdigit() and page.isdigit():
             _show_slide(wins, crud.get_book(int(note_id)), lecture, int(page))
+    elif action == "eq":                                             # "eq:<json>": an equation of a note was clicked
+        import urllib.parse
+        try:
+            _show_equation(wins, json.loads(urllib.parse.unquote(rest)))
+        except (ValueError, KeyError):
+            pass
     elif action == "widths":                                         # a divider was dragged: "id=0.4,id=0.6"
         try:
             pairs = [item.split("=") for item in rest.split(",")]
@@ -358,18 +364,20 @@ def _slides_book(note, lecture):
         want = mine[0] if mine else None
     decks = [b for b in crud.list_books() if b["kind"] == "Lecture Notes" and set(b["course_ids"]) & set(note["course_ids"])
              and b["pdf_path"].lower().endswith(".pdf")]
+    key = lambda b: ([int(n) for n in re.findall(r"\d+", b.get("lecture") or "")], b["title"].lower())
+    decks.sort(key=key)
+    firsts = [(key(b)[0] or [None])[0] for b in decks]
     if want is not None:
-        decks = [b for b in decks if want in _lecture_numbers(b.get("lecture"))]
+        if len(set(firsts)) < len(firsts):                     # "1-1", "1-2", "2-1" ...: chapter and lecture of the chapter, not a range
+            decks = [b for b, f in zip(decks, firsts) if f == want]
+        else:
+            decks = [b for b in decks if want in _lecture_numbers(b.get("lecture"))]
     return decks[0] if decks else None
 
 
-def _show_slide(wins, note, lecture, page):
-    """Take the reader to a slide: in the window that already shows these slides; else in a new window beside the others (all windows
-    share the width equally); with three windows already, in the first reference window."""
-    deck = _slides_book(note, lecture) if note else None
-    if not deck:
-        st.toast("These slides are not in the Library.", icon=":material/info:")
-        return
+def _open_pdf(wins, deck, page):
+    """Show page `page` of a Library PDF: in the window that already shows it; else in a new window beside the others (all windows share
+    the width equally); with three windows already, in the first reference window."""
     wid = next((w["id"] for w in wins if w["type"] == "reference" and w.get("book") == deck["id"]), None)
     if wid is None:
         if len(wins) < MAX_WINDOWS:
@@ -379,7 +387,7 @@ def _show_slide(wins, note, lecture, page):
         else:
             wid = next((w["id"] for w in wins if w["type"] == "reference"), wins[-1]["id"])
             new = [{**w, "type": "reference", "book": deck["id"]} if w["id"] == wid else w for w in wins]
-        st.session_state[f"lab_ref_book_{wid}"] = deck["id"]            # the window starts on these slides (not on what the id showed before)
+        st.session_state[f"lab_ref_book_{wid}"] = deck["id"]            # the window starts on this file (not on what the id showed before)
         st.session_state[f"lab_ref_course_{wid}"] = next(iter(deck["course_ids"]), 0)
         st.session_state[f"lab_ref_kind_{wid}"] = deck["kind"]
         lab = settings.get_lab()
@@ -389,6 +397,104 @@ def _show_slide(wins, note, lecture, page):
     st.session_state[f"lab_{wid}_{deck['id']}_page"] = page
     reader._bump(f"lab_{wid}_{deck['id']}")
     st.rerun()
+
+
+def _show_slide(wins, note, lecture, page):
+    """Take the reader to a slide of the lecture slides."""
+    deck = _slides_book(note, lecture) if note else None
+    if not deck:
+        st.toast("These slides are not in the Library.", icon=":material/info:")
+        return
+    _open_pdf(wins, deck, page)
+
+
+def _words(text):
+    return {w for w in re.findall(r"[a-z]{4,}", (text or "").lower())}
+
+
+def _best_page(path, first, last, context):
+    """The page in first..last (1-based) whose text shares most words with the text around the equation; `first` when none does."""
+    import pymupdf
+    want = _words(context)
+    if not want or last <= first:
+        return first
+    best, score = first, 0
+    with pymupdf.open(str(path)) as doc:
+        for pg in range(first, min(last, doc.page_count) + 1):
+            hit = len(want & _words(doc[pg - 1].get_text()))
+            if hit > score:
+                best, score = pg, hit
+    return best
+
+
+def _printed_offset(path):
+    """PDF page number minus the page number printed on the page (the front matter of a textbook shifts them)."""
+    import collections
+    import pymupdf
+    votes = collections.Counter()
+    with pymupdf.open(str(path)) as doc:
+        for i in range(min(doc.page_count, 120)):
+            lines = [l.strip() for l in doc[i].get_text().split("\n") if l.strip()]
+            for l in lines[:2] + lines[-2:]:
+                if l.isdigit() and 1 <= int(l) <= 1500 and i + 1 - int(l) >= 0:
+                    votes[i + 1 - int(l)] += 1
+    return votes.most_common(1)[0][0] if votes else 0
+
+
+def _lecture_source(note, src, ctx):
+    """(book, page) for a source line like 'Lec 14, slides 2-3', 'Lec 3-1, Perfect Gases 1-14' or 'Notes Eqs. (427)-(433)'; None if it names none."""
+    import errata
+    m = re.match(r"\s*Lec(?:ture)?\s*(\d+(?:-\d+)?)\s*,?\s*(.*)$", src or "", re.I)
+    if m:
+        lecture, rest = m.group(1), m.group(2).strip()
+        pages = re.fullmatch(r"(?:(?P<title>[A-Za-z][^\d]*?)\s+)?(?:slides?\s+)?(?P<a>\d+)(?:\s*[\u2013-]\s*(?P<b>\d+))?", rest, re.I)
+        first = int(pages.group("a")) if pages else 1
+        last = int(pages.group("b") or first) if pages else first
+        title = (pages.group("title") or "").strip().lower() if pages else ""
+        decks = [b for b in crud.list_books() if b["kind"] == "Lecture Notes" and set(b["course_ids"]) & set(note["course_ids"])
+                 and b["pdf_path"].lower().endswith(".pdf")]
+        same = [b for b in decks if (b.get("lecture") or "") == lecture]
+        deck = next((b for b in same if title and title in b["title"].lower()), None) or (same[0] if same else _slides_book(note, lecture))
+        if deck:
+            return deck, _best_page(BASE_DIR / deck["pdf_path"], first, last, ctx)
+    m = re.search(r"Eqs?\.?\s*\((\d{1,4})\)", src or "")
+    if m:                                                     # equation numbers of the course lecture notes: the page that carries the tag
+        for b in crud.list_books():
+            if b["kind"] == "Lecture Notes" and set(b["course_ids"]) & set(note["course_ids"]) and b["pdf_path"].lower().endswith(".pdf"):
+                path = BASE_DIR / b["pdf_path"]
+                tags = errata._equation_tags(str(path), path.stat().st_mtime).get(int(m.group(1)))
+                if tags:
+                    return b, tags[0][0] + 1
+    return None
+
+
+def _textbook_source(note, vk):
+    """(book, page) for a line like 'V&K III §8, pp. 77-82': the page of the course's textbook (printed numbers made PDF numbers)."""
+    m = re.search(r"\bpp?\.\s*(\d{1,4})", vk or "")
+    books = [b for b in crud.list_books() if b["kind"] == "Textbook" and set(b["course_ids"]) & set(note["course_ids"])
+             and b["pdf_path"].lower().endswith(".pdf")]
+    if not books or not m:
+        return None
+    key = re.match(r"\s*([A-Za-z&]+)", vk or "")
+    word = key.group(1).lower() if key else ""
+    book = next((b for b in books if len(word) > 3 and (word in (b.get("author") or "").lower() or word in b["title"].lower())), books[0])
+    path = BASE_DIR / book["pdf_path"]
+    return book, int(m.group(1)) + _printed_offset(path)
+
+
+def _show_equation(wins, payload):
+    """A clicked equation: its source in the lecture slides / lecture notes, or (Shift, or when no lecture source is named) the textbook."""
+    note = crud.get_book(int(payload["note"])) if str(payload.get("note", "")).isdigit() else None
+    if not note:
+        return
+    found = None
+    ctx = f"{payload.get('ctx', '')}"
+    lecture, textbook = _lecture_source(note, payload.get("src", ""), ctx), _textbook_source(note, payload.get("vk", ""))
+    found = (textbook or lecture) if payload.get("shift") else (lecture or textbook)
+    if not found:
+        st.toast("No source page is listed for this equation.", icon=":material/info:")
+        return
+    _open_pdf(wins, found[0], found[1])
 
 
 def _tab_strip(wins):
