@@ -148,7 +148,7 @@ def _reference(win):
             from views import quiz_view                    # the note's Self-check shows the same questions as the course Quiz tab
             components.html(htmlnotes.safe_html(path.read_text(encoding="utf-8", errors="replace"),
                                                 questions=quiz_view.book_questions(book), errata_source=f"book:{book['id']}",
-                                                resume="reference"), height=600, scrolling=True)
+                                                resume="reference", slides=book["id"]), height=600, scrolling=True)
         return
 
     pdf_key = f"lab_{wid}_{book_id}"
@@ -195,7 +195,7 @@ def _show_part(text, book, part):
         own_quiz = 'id="qBox"' in text                       # a note with its own quiz script runs it as it is
         questions = None if own_quiz else quiz_view.book_questions(book)
         components.html(htmlnotes.safe_html(text, part["section"], questions=questions, errata_source=f"book:{book['id']}",
-                                            resume=f"reader:{part['key']}"), height=600, scrolling=True)
+                                            resume=f"reader:{part['key']}", slides=book["id"]), height=600, scrolling=True)
 
 
 def _html_notes():
@@ -316,6 +316,11 @@ def _handle_tab_action(wins):
             st.session_state["lab_errata_active"] = (src, int(idx), sink.split("|")[-1])
             st.session_state["_errata_hit"] = False
             st.rerun()
+    elif action == "slide":                                          # "slide:<note id>:<lecture>:<page>": a slide number in a note was clicked
+        note_id, _, tail = rest.partition(":")
+        lecture, _, page = tail.partition(":")
+        if note_id.isdigit() and page.isdigit():
+            _show_slide(wins, crud.get_book(int(note_id)), lecture, int(page))
     elif action == "widths":                                         # a divider was dragged: "id=0.4,id=0.6"
         try:
             pairs = [item.split("=") for item in rest.split(",")]
@@ -337,6 +342,53 @@ def _handle_tab_action(wins):
             new = {"id": f"r{n}", "type": "reference", "book": None}
         _save_windows(wins + [new])
         st.rerun()
+
+
+def _lecture_numbers(text):
+    """Lecture numbers a Library lecture field covers: '5' -> {5}, '4-5' -> {4, 5}, '8-10' -> {8, 9, 10}."""
+    nums = [int(n) for n in re.findall(r"\d+", text or "")]
+    return set(range(nums[0], nums[-1] + 1)) if len(nums) > 1 and nums[0] <= nums[-1] else set(nums)
+
+
+def _slides_book(note, lecture):
+    """The lecture slides (Library type Lecture Notes) of the course of `note` that hold lecture `lecture` (the note's own lecture if empty)."""
+    want = int(lecture) if str(lecture).isdigit() else None
+    if want is None:
+        mine = sorted(_lecture_numbers(note.get("lecture")))
+        want = mine[0] if mine else None
+    decks = [b for b in crud.list_books() if b["kind"] == "Lecture Notes" and set(b["course_ids"]) & set(note["course_ids"])
+             and b["pdf_path"].lower().endswith(".pdf")]
+    if want is not None:
+        decks = [b for b in decks if want in _lecture_numbers(b.get("lecture"))]
+    return decks[0] if decks else None
+
+
+def _show_slide(wins, note, lecture, page):
+    """Take the reader to a slide: in the window that already shows these slides; else in a new window beside the others (all windows
+    share the width equally); with three windows already, in the first reference window."""
+    deck = _slides_book(note, lecture) if note else None
+    if not deck:
+        st.toast("These slides are not in the Library.", icon=":material/info:")
+        return
+    wid = next((w["id"] for w in wins if w["type"] == "reference" and w.get("book") == deck["id"]), None)
+    if wid is None:
+        if len(wins) < MAX_WINDOWS:
+            used = {w["id"] for w in wins}
+            wid = next(f"r{i}" for i in range(1, 10) if f"r{i}" not in used)
+            new = wins + [{"id": wid, "type": "reference", "book": deck["id"]}]
+        else:
+            wid = next((w["id"] for w in wins if w["type"] == "reference"), wins[-1]["id"])
+            new = [{**w, "type": "reference", "book": deck["id"]} if w["id"] == wid else w for w in wins]
+        st.session_state[f"lab_ref_book_{wid}"] = deck["id"]            # the window starts on these slides (not on what the id showed before)
+        st.session_state[f"lab_ref_course_{wid}"] = next(iter(deck["course_ids"]), 0)
+        st.session_state[f"lab_ref_kind_{wid}"] = deck["kind"]
+        lab = settings.get_lab()
+        _remember(windows=new, widths={**lab.get("widths", {}), **{w["id"]: 1.0 for w in new}})
+    lab = settings.get_lab()
+    _remember(pages={**lab.get("pages", {}), str(deck["id"]): page})
+    st.session_state[f"lab_{wid}_{deck['id']}_page"] = page
+    reader._bump(f"lab_{wid}_{deck['id']}")
+    st.rerun()
 
 
 def _tab_strip(wins):

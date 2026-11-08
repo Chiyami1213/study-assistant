@@ -39,6 +39,61 @@ _ERRATA = """<script>
 })();
 </script>"""
 
+# "Slide 16", "slides 57-74", "Slides 13, 22" in a note are links to that page of the lecture slides: a click writes
+# "slide:<note id>:<lecture>:<page>" into the hidden box of the Note Reader (the lecture comes from a "Lec 5" just before the
+# words, else it is empty and the note's own lecture is meant).
+_SLIDES = r"""<script>
+(function () {
+  var CFG = "__CFG__".split('|'), BOOK = CFG[0], P = window.parent;
+  var css = document.createElement('style');
+  css.textContent = '.sa-slide{cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px}.sa-slide:hover{color:#4c8dff;text-decoration-style:solid}';
+  document.head.appendChild(css);
+  var RE = /\b(slides?)(\s+)(\d+(?:\s*[\u2013-]\s*\d+)?(?:\s*(?:,|and|&)\s*\d+(?:\s*[\u2013-]\s*\d+)?)*)/gi;
+  var SKIP = 'script,style,textarea,svg,a,button,mjx-container,.MathJax,input,select,.sa-slide';
+  var MATH = /\\\(.*?\\\)|\\\[[\s\S]*?\\\]|\$\$[\s\S]*?\$\$/g;
+  function wrap(node) {
+    var t = node.nodeValue, math = [], m, hits = [];
+    MATH.lastIndex = 0; while ((m = MATH.exec(t))) math.push([m.index, m.index + m[0].length]);
+    RE.lastIndex = 0;
+    while ((m = RE.exec(t))) { var s = m.index; if (!math.some(function (r) { return s >= r[0] && s < r[1]; })) hits.push(m); }
+    if (!hits.length) return;
+    var frag = document.createDocumentFragment(), pos = 0;
+    hits.forEach(function (h) {
+      var before = t.slice(pos, h.index); frag.appendChild(document.createTextNode(before + h[1] + h[2]));
+      var lec = /\bLec(?:ture)?\s*(\d+)\b[^\d]*$/i.exec(t.slice(Math.max(0, h.index - 28), h.index)), nums = h[3], last = 0, n;
+      var NUM = /\d+(?:\s*[\u2013-]\s*\d+)?/g;
+      while ((n = NUM.exec(nums))) {
+        if (n.index > last) frag.appendChild(document.createTextNode(nums.slice(last, n.index)));
+        var sp = document.createElement('span'); sp.className = 'sa-slide'; sp.textContent = n[0];
+        sp.dataset.page = parseInt(n[0], 10); sp.dataset.lec = lec ? lec[1] : ''; sp.title = 'open this slide in the pdf';
+        frag.appendChild(sp); last = n.index + n[0].length;
+      }
+      if (last < nums.length) frag.appendChild(document.createTextNode(nums.slice(last)));
+      pos = h.index + h[0].length;
+    });
+    frag.appendChild(document.createTextNode(t.slice(pos)));
+    node.parentNode.replaceChild(frag, node);
+  }
+  function run() {
+    var w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {acceptNode: function (n) {
+      return n.parentElement && !n.parentElement.closest(SKIP) && /slide/i.test(n.nodeValue) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT; }});
+    var nodes = [], n; while ((n = w.nextNode())) nodes.push(n);
+    nodes.forEach(wrap);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run); else run();
+  window.addEventListener('load', function () { setTimeout(run, 1500); });
+  document.addEventListener('click', function (e) {
+    var sp = e.target.closest && e.target.closest('.sa-slide'); if (!sp) return;
+    var inp = P.document.querySelector('.st-key-lab_tab_sink input'); if (!inp) return;
+    var set = Object.getOwnPropertyDescriptor(P.HTMLInputElement.prototype, 'value').set;
+    inp.focus(); set.call(inp, 'slide:' + BOOK + ':' + sp.dataset.lec + ':' + sp.dataset.page + '|' + Date.now());
+    inp.dispatchEvent(new P.Event('input', {bubbles: true}));
+    inp.dispatchEvent(new P.KeyboardEvent('keydown', {key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true}));
+    inp.blur();
+  }, true);
+})();
+</script>"""
+
 # A helper or grade explanation written outside the app links to notes sections as web addresses of the page it was written
 # against ("...#s2-2", with the text "Lec 1 §2.2 · ..."). A click writes "note:<lecture>:<id>" (or "doc:<the link text>", e.g. "Midterm 2 Preparation")
 # into the hidden box of the Library page around this frame, which opens that lecture's notes at that section.
@@ -293,7 +348,7 @@ window.addEventListener('message', function (e) { if (e.data && e.data.study ===
 })();</script>"""
 
 
-def safe_html(text, goto=None, questions=None, errata_source=None, resume=None, links=False, marks=False):
+def safe_html(text, goto=None, questions=None, errata_source=None, resume=None, links=False, marks=False, slides=None):
     """The note's HTML with the link guard added just before the closing body tag (or at the end). `goto` is the id of
     a section to scroll to once the page has loaded (the Exercises tab opens the page at #exercises). `questions` (the
     app's question dicts) replace the note's own Self-check, so the note and the course Quiz tab agree."""
@@ -302,6 +357,8 @@ def safe_html(text, goto=None, questions=None, errata_source=None, resume=None, 
         script += _LINKS
     if marks:
         script += _MARKS
+    if slides:                                           # the id of this note: its slide numbers open the lecture slides (Note Reader)
+        script += _SLIDES.replace("__CFG__", str(slides))
     if errata_source:
         script += _ERRATA.replace("__SRC__", errata_source)
     if questions:
