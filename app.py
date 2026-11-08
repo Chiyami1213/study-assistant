@@ -331,7 +331,7 @@ section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-h
 .syl-table .n {{text-align: right;}} .syl-table .none {{opacity: 0.6;}}
 .dl-grade {{font-size: 0.85rem; margin-top: 3px;}} .dl-grade b {{color: #2f9e5f;}} .dl-grade.none {{opacity: 0.6;}}
 .dl-sub {{opacity: 0.75; font-size: 0.85rem; margin-top: 3px;}}
-.dl-pill {{justify-self: end; font-size: 0.78rem; border-radius: 999px; padding: 1px 12px; border: 1px solid var(--border);}}
+.dl-pill {{justify-self: end; white-space: nowrap; font-size: 0.78rem; border-radius: 999px; padding: 1px 12px; border: 1px solid var(--border);}}
 .dl-pill.done {{border-color: #2f9e5f; color: #2f9e5f; background: rgba(47, 158, 95, 0.12);}}
 .dl-pill.open {{border-color: var(--accent); color: var(--accent); background: rgba(76, 141, 255, 0.10);}}
 .dl-pill.late {{border-color: #d14343; color: #d14343; background: rgba(209, 67, 67, 0.12);}}
@@ -341,6 +341,16 @@ section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-h
 .up-row:last-child {{border-bottom: none;}}
 .up-meta {{display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 4px;}}
 .up-meta .book-badge {{margin: 0;}}
+/* Home: upcoming list, one row per item with a check button that marks it complete */
+.st-key-up_list [data-testid="stVerticalBlock"] {{gap: 0;}}
+.st-key-up_list [data-testid="stHorizontalBlock"] {{align-items: center; gap: 0.5rem; padding: 12px 8px 12px 10px !important; border-bottom: 1px solid var(--border);}}
+.st-key-up_list [data-testid="stMarkdownContainer"] p {{margin: 0;}}
+.st-key-up_list [data-testid="stMarkdownContainer"], .st-key-up_list [data-testid="stMarkdown"], .st-key-up_list [data-testid="stElementContainer"] {{margin: 0 !important;}}
+.st-key-up_list [data-testid="stElementContainer"]:last-child [data-testid="stHorizontalBlock"] {{border-bottom: none;}}
+.st-key-up_list .dl-pill {{display: inline-block;}}
+.st-key-up_list [data-testid="stColumn"]:nth-child(2) {{text-align: right;}}
+.st-key-up_list button {{min-height: 2rem; padding: 0 0.6rem; border: 1px solid var(--border); border-radius: 999px;}}
+.st-key-up_list button:hover {{border-color: #2f9e5f; color: #2f9e5f;}}
 
 /* Calendar: week view */
 .st-key-edit_schedule_open {{width: 100% !important;}}

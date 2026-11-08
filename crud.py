@@ -409,6 +409,11 @@ def set_event_grade(event_id, score, points, note=None):
           (score, points if score is not None else None, (note or "").strip() or None, event_id))
 
 
+def set_event_done(event_id, done=True):
+    """Mark an exam (event) as completed, or not."""
+    _exec("UPDATE events SET done=? WHERE id=?", (1 if done else 0, event_id))
+
+
 def set_event_covers(event_id, text):
     """What an exam covers, e.g. 'HW 4, HW 5; Chapters IV, V, VI'."""
     _exec("UPDATE events SET covers=? WHERE id=?", ((text or "").strip() or None, event_id))

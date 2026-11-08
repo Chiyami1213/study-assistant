@@ -673,8 +673,8 @@ def _exams(course):
     its solution, my graded paper, the score and the reflection document."""
     today = date.today().isoformat()
     exams = _exam_items(course)
-    upcoming = [e for e in exams if e["date"] >= today]
-    past = [e for e in exams if e["date"] < today]
+    upcoming = [e for e in exams if e["date"] >= today and not e.get("done")]
+    past = [e for e in exams if e["date"] < today or e.get("done")]          # an exam marked complete on the Home page counts as past
 
     def row(e, done):
         return _row_html(e["title"], _when(e["date"], e.get("time")), "Done" if done else "Upcoming", "done" if done else "open",

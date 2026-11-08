@@ -304,6 +304,8 @@ def init_db() -> None:
             conn.execute("ALTER TABLE lab_notes ADD COLUMN course_id INTEGER")
         if "covers" not in [r["name"] for r in conn.execute("PRAGMA table_info(events)")]:
             conn.execute("ALTER TABLE events ADD COLUMN covers TEXT")
+        if "done" not in [r["name"] for r in conn.execute("PRAGMA table_info(events)")]:
+            conn.execute("ALTER TABLE events ADD COLUMN done INTEGER NOT NULL DEFAULT 0")      # an exam marked complete before its date
         if "source_book_id" not in [r["name"] for r in conn.execute("PRAGMA table_info(lab_chapters)")]:
             conn.execute("ALTER TABLE lab_chapters ADD COLUMN source_book_id INTEGER")
         for col in ("notes_used", "hints_used"):
