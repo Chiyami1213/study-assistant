@@ -39,6 +39,94 @@ _ERRATA = """<script>
 })();
 </script>"""
 
+# A helper or grade explanation written outside the app links to notes sections as web addresses of the page it was written
+# against ("...#s2-2", with the text "Lec 1 §2.2 · ..."). A click writes "note:<lecture>:<id>" (or "doc:<the link text>", e.g. "Midterm 2 Preparation")
+# into the hidden box of the Library page around this frame, which opens that lecture's notes at that section.
+_LINKS = r"""<script>
+(function () {
+  var P = window.parent, lec = {};
+  function art(a) { var m = /claude\.ai\/artifact\/([^#?\/]+)/.exec(a.getAttribute('href') || ''); return m && m[1]; }
+  function lecOf(a) { var m = /\b(?:Lec(?:ture)?|Ch(?:apter)?)\s*(\d+)/i.exec(a.textContent || ''); return m && m[1]; }
+  [].forEach.call(document.querySelectorAll('a[href]'), function (a) {
+    var id = art(a), l = lecOf(a);
+    if (id && l) lec[id] = l;
+  });
+  [].forEach.call(document.querySelectorAll('a[href]'), function (a) {
+    var id = art(a);
+    if (id) a.title = (lecOf(a) || lec[id]) ? 'open this section in your notes' : 'open this in the app';
+  });
+  function send(msg) {
+    var inp = P.document.querySelector('.st-key-lib_link_sink input'); if (!inp) return;
+    var set = Object.getOwnPropertyDescriptor(P.HTMLInputElement.prototype, 'value').set;
+    inp.focus(); set.call(inp, msg + '|' + Date.now());
+    inp.dispatchEvent(new P.Event('input', {bubbles: true}));
+    inp.dispatchEvent(new P.KeyboardEvent('keydown', {key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true}));
+    inp.blur();
+  }
+  document.addEventListener('click', function (e) {
+    var a = e.target.closest && e.target.closest('a[href]'); if (!a) return;
+    var id = art(a); if (!id) return;
+    e.preventDefault(); e.stopPropagation();
+    var hash = (a.getAttribute('href').split('#')[1] || ''), l = lecOf(a) || lec[id], txt = a.textContent || '';
+    if (l) send('note:' + l + ':' + hash);
+    else send('doc:' + txt.replace(/[|\u2197]/g, ' ').replace(/\s+/g, ' ').trim());     // another page of the course, by its name
+  }, true);
+})();
+</script>"""
+
+# In a grade explanation (and in a helper), a click on a problem card, a grader comment (its numbered badge is the comment's number in the grade
+# report), the score tiles or the contents list writes "mark:p<problem>" or "mark:c<comment>" into the same hidden box: the
+# Library page shows that page of the graded paper and marks the place on it.
+_MARKS = r"""<script>
+(function () {
+  var P = window.parent;
+  var css = document.createElement('style');
+  css.textContent = 'section.card.rd-sel{outline:2px solid var(--hbeta,#1d6cb0);outline-offset:2px}.gc.rd-sel,div.part.rd-sel,div.partb.rd-sel{outline:2px solid var(--hbeta,#1d6cb0);outline-offset:1px}'
+    + 'section.card,.gc,div.part,div.partb{cursor:pointer}';
+  document.head.appendChild(css);
+  [].forEach.call(document.querySelectorAll('section.card[id], .gc, div.part, div.partb'), function (el) { el.title = 'show this on your paper'; });
+  function send(msg) {
+    var inp = P.document.querySelector('.st-key-lib_link_sink input'); if (!inp) return;
+    var set = Object.getOwnPropertyDescriptor(P.HTMLInputElement.prototype, 'value').set;
+    inp.focus(); set.call(inp, msg + '|' + Date.now());
+    inp.dispatchEvent(new P.Event('input', {bubbles: true}));
+    inp.dispatchEvent(new P.KeyboardEvent('keydown', {key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true}));
+    inp.blur();
+  }
+  function pick(card, gc, rubric, part) {
+    var again = card && card.classList.contains('rd-sel');
+    [].forEach.call(document.querySelectorAll('.rd-sel'), function (x) { x.classList.remove('rd-sel'); });
+    if (part) part.classList.add('rd-sel'); else if (gc) gc.classList.add('rd-sel'); else if (card) card.classList.add('rd-sel');
+    if (rubric && card && !again) {                               // a problem was picked: show its rubric
+      var d = card.querySelector('details.rub'); if (d) d.open = true;
+    }
+  }
+  document.addEventListener('click', function (e) {
+    var t = e.target; if (!t.closest) return;
+    var tile = t.closest('a[href^="#p"]');                       // score tile or contents entry of a problem
+    if (tile) {
+      var m = /^#p(\d+)$/.exec(tile.getAttribute('href'));
+      if (m) { pick(document.getElementById('p' + m[1]), null, true); send('mark:p' + m[1]); }
+      return;
+    }
+    if (t.closest('a, button, label, input, textarea, select')) return;
+    var card = t.closest('section.card'), gc = t.closest('.gc');
+    if (!card) return;
+    var n = /^p(\d+)$/.exec(card.id || '');
+    var part = t.closest('div.part, div.partb'), pl = part && part.querySelector('.pl');         // a lettered part (sub-problem) of a helper
+    var letter = pl ? (pl.textContent || '').replace(/[^a-z]/gi, '').toLowerCase() : '';
+    if (n && part && /^[a-z]$/.test(letter)) { pick(card, null, false, part); send('mark:p' + n[1] + letter); return; }
+    var b = gc && gc.querySelector('.badge');
+    if (gc && b) {         // a grader comment: its badge number, or (badges that are letters) its place among the page's comments
+      var tx = b ? b.textContent.trim() : '';
+      var num = /^\d+$/.test(tx) ? tx : String([].indexOf.call(document.querySelectorAll('.gc'), gc) + 1);
+      pick(card, gc); send('mark:c' + num);
+    }
+    else if (n) { pick(card, null, !t.closest('summary')); send('mark:p' + n[1]); }   // a fold's own title toggles that fold itself
+  });
+})();
+</script>"""
+
 # The note's Self-check section is rebuilt from the same questions the course page Quiz tab uses: choose one option
 # per question, nothing is marked until you finish, then the score (below 60% fails) and the explanation of each miss.
 _QUIZ = """<style>
@@ -205,11 +293,15 @@ window.addEventListener('message', function (e) { if (e.data && e.data.study ===
 })();</script>"""
 
 
-def safe_html(text, goto=None, questions=None, errata_source=None, resume=None):
+def safe_html(text, goto=None, questions=None, errata_source=None, resume=None, links=False, marks=False):
     """The note's HTML with the link guard added just before the closing body tag (or at the end). `goto` is the id of
     a section to scroll to once the page has loaded (the Exercises tab opens the page at #exercises). `questions` (the
     app's question dicts) replace the note's own Self-check, so the note and the course Quiz tab agree."""
     script = _SCRIPT + _FIND
+    if links:
+        script += _LINKS
+    if marks:
+        script += _MARKS
     if errata_source:
         script += _ERRATA.replace("__SRC__", errata_source)
     if questions:

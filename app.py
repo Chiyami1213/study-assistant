@@ -230,7 +230,7 @@ section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-h
     pointer-events: none;}}
 
 /* Course outline: hidden box that carries a clicked point to the app */
-.st-key-outline_sink, .st-key-lib_sink {{position: absolute !important; width: 1px; height: 1px; overflow: hidden; opacity: 0; pointer-events: none;}}
+.st-key-outline_sink, .st-key-lib_sink, .st-key-lib_link_sink {{position: absolute !important; width: 1px; height: 1px; overflow: hidden; opacity: 0; pointer-events: none;}}
 
 /* Home: term stats */
 .home-stats {{display: flex; gap: 12px; margin: 2px 0 18px;}}
@@ -884,9 +884,6 @@ if (!win.__rdScrollV1) {
     return n;
   };
   setInterval(() => {
-    doc.querySelectorAll('.rd-err.active, .rd-find.active').forEach(el => {                       // the erratum clicked in a note: bring it to the middle
-      if (!el._seen) { el._seen = true; el.scrollIntoView({block: 'center', inline: 'nearest'}); }
-    });
     doc.querySelectorAll('.rd-cont').forEach(c => {
       if (!c._hooked) {
         c._hooked = true;
@@ -900,6 +897,9 @@ if (!win.__rdScrollV1) {
         const t = c.querySelector('#rdp-' + c.dataset.key + '-' + c.dataset.goto);
         if (t) { c.scrollTop = t.offsetTop - 12; c._applied = c.dataset.token + ':' + c.dataset.goto; }
       }
+    });
+    doc.querySelectorAll('.rd-err.active, .rd-find.active').forEach(el => {                       // the place clicked in a note, a helper or an explanation: bring it to the middle
+      if (!el._seen) { el._seen = true; el.scrollIntoView({block: 'center', inline: 'nearest'}); }   // after the page jump above, which would undo it
     });
   }, 250);
 }

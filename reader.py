@@ -237,10 +237,11 @@ def _step_zoom(zoom_key, delta):
 
 
 @st.fragment
-def pdf_reader(path, key, height=640, start=1, title=None, on_page=None, marks=None, active=None, marks_list=True):
+def pdf_reader(path, key, height=640, start=1, title=None, on_page=None, marks=None, active=None, marks_list=True, view="page"):
     """Draw the reader for a PDF file. 100% fits the width of the window; height None fills the window (page CSS).
     `title` is drawn above the toolbar with the page number; `on_page(page)` is told whenever the page changes.
-    `marks` are errata to draw on the pages (see errata.py); the numbers in `active` are drawn emphasised and scrolled to."""
+    `marks` are errata to draw on the pages (see errata.py); the numbers in `active` are drawn emphasised and scrolled to.
+    `view` is the view a file first opens in: "page", "double", "scroll" (continuous) or "scroll2"."""
     marks = list(marks or [])
     path = pathlib.Path(path)
     found, _n = _find_marks(key, path, path.stat().st_mtime)          # the text searched for (Ctrl+F) is highlighted on the pages
@@ -254,6 +255,7 @@ def pdf_reader(path, key, height=640, start=1, title=None, on_page=None, marks=N
     page_key, zoom_key, mode_key = f"{key}_page", f"{key}_zoom", f"{key}_view"
     st.session_state.setdefault(page_key, min(max(1, start), total))
     st.session_state.setdefault(zoom_key, 100)
+    st.session_state.setdefault(mode_key, view if view in _modes() else "page")        # the view a file opens in; the button still changes it
     st.session_state[page_key] = min(max(1, st.session_state[page_key]), total)
     heading = st.empty()
 

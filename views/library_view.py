@@ -22,11 +22,12 @@ from pdfmeta import split_lecture, strip_notes_prefix
 from database import BASE_DIR, PDF_DIR
 
 COLUMNS = 6
-KINDS = ["Textbook", "Lecture Notes", "Notes", "Homework", "Homework Solution", "Graded Homework", "Practice Exam", "Exam", "Exam Solution",
-         "Graded Exam", "Exam Preparation", "Exam Reflection", "Syllabus", "Equation Sheet"]
+KINDS = ["Textbook", "Lecture Notes", "Notes", "Homework", "Homework Helper", "Homework Solution", "Graded Homework", "Grade Explanation",
+         "Practice Exam", "Exam", "Exam Helper", "Exam Solution", "Graded Exam", "Exam Grade Explanation", "Exam Preparation", "Exam Reflection",
+         "Syllabus", "Equation Sheet"]
 # One tab for each family; inside a tab the files order (and, with Sort: Type, group) by these categories.
-HW_GROUP = ("Homework", "Homework Solution", "Graded Homework")
-EXAM_GROUP = ("Practice Exam", "Exam", "Exam Solution", "Graded Exam", "Exam Preparation", "Exam Reflection")
+HW_GROUP = ("Homework", "Homework Helper", "Homework Solution", "Graded Homework", "Grade Explanation")
+EXAM_GROUP = ("Practice Exam", "Exam", "Exam Helper", "Exam Solution", "Graded Exam", "Exam Grade Explanation", "Exam Preparation", "Exam Reflection")
 FILTERS = ["Textbook", "Lecture Notes", "Notes", "Homework", "Exam", "Syllabus", "Equation Sheet"]       # the pills after "All"
 FILTER_KINDS = {"Homework": HW_GROUP, "Exam": EXAM_GROUP}
 
@@ -34,8 +35,8 @@ FILTER_KINDS = {"Homework": HW_GROUP, "Exam": EXAM_GROUP}
 def filter_for(kind):
     """The pill a file of this kind appears under (and what an older remembered filter means now)."""
     return "Homework" if kind in HW_GROUP else "Exam" if kind in EXAM_GROUP else kind
-HW_KINDS = ("Homework", "Homework Solution", "Graded Homework")          # kinds that carry a homework number
-PLURAL = {"Textbook": "Textbooks", "Homework Solution": "Homework Solutions", "Exam": "Exams", "Practice Exam": "Practice Exams", "Exam Preparation": "Exam Preparation", "Exam Reflection": "Exam Reflections", "Exam Solution": "Exam Solutions", "Syllabus": "Syllabi", "Equation Sheet": "Equation Sheets"}
+HW_KINDS = HW_GROUP          # kinds that carry a homework number
+PLURAL = {"Textbook": "Textbooks", "Homework Solution": "Homework Solutions", "Exam": "Exams", "Practice Exam": "Practice Exams", "Exam Preparation": "Exam Preparation", "Exam Reflection": "Exam Reflections", "Homework Helper": "Homework Helpers", "Exam Helper": "Exam Helpers", "Exam Solution": "Exam Solutions", "Syllabus": "Syllabi", "Equation Sheet": "Equation Sheets"}
 
 
 @st.cache_data(show_spinner=False, max_entries=256)
@@ -91,6 +92,8 @@ SHEET_WORDS = re.compile(r"(?<![a-z])(equation|formula)[\s_\-]*sheets?(?![a-z])"
 SYLLABUS_WORDS = re.compile(r"(?<![a-z])(syllab(?:us|i)|course[\s_\-]*(?:information|policies|outline))(?![a-z])", re.I)
 PRACTICE_WORDS = re.compile(r"(?<![a-z])(practice|sample|mock|past|old|review)(?![a-z])", re.I)
 EXAM_WORDS = re.compile(r"(?<![a-z])(exams?|mid[\s_\-]*terms?|final[\s_\-]*exams?)(?![a-z])", re.I)
+HELPER_WORDS = re.compile(r"(?<![a-z])(helpers?|hints?)(?![a-z])", re.I)
+GRADE_WORDS = re.compile(r"(?<![a-z])(grades?|explanations?)(?![a-z])", re.I)
 SOLUTION_WORDS = re.compile(r"(?<![a-z])(solutions?|soln?s?)(?![a-z])", re.I)
 HOMEWORK_WORDS = re.compile(r"(?<![a-z])(homework|hw|problem[\s_\-]*sets?|psets?|assignment)(?![a-z])", re.I)
 BOOK_WORDS = re.compile(r"(?<![a-z])(textbook|text[\s_\-]*book|edition|ed\.?\s*\d+|\d+(st|nd|rd|th)[\s_\-]*ed)(?![a-z])", re.I)
@@ -106,6 +109,11 @@ def detect_kind(filename, title=""):
             return "Equation Sheet"
         if SYLLABUS_WORDS.search(text):
             return "Syllabus"
+        if filename.lower().endswith((".html", ".htm")) and (HELPER_WORDS.search(text) or GRADE_WORDS.search(text)):
+            exam = bool(EXAM_WORDS.search(text)) and not HOMEWORK_WORDS.search(text)           # written outside the app, imported as a page
+            if HELPER_WORDS.search(text):
+                return "Exam Helper" if exam else "Homework Helper"
+            return "Exam Grade Explanation" if exam else "Grade Explanation"
         if EXAM_WORDS.search(text) and not HOMEWORK_WORDS.search(text):
             if SOLUTION_WORDS.search(text):
                 return "Exam Solution"
@@ -158,7 +166,7 @@ def _add_dialog(default_course=None):
         num = (re.search(r"\d+", up.name) or re.search(r"\d+", info["title"] or "")) if up else None
         lecture = st.text_input("Homework Number", value=num.group() if num else "", key=f"bk_hw_{k}", placeholder="4")
         if lecture.strip() and not title.strip().lower().startswith("hw"):
-            title = f"HW {lecture.strip()}" + {"Homework Solution": " Solution", "Graded Homework": " Graded"}.get(kind, "")
+            title = f"HW {lecture.strip()}" + {"Homework Solution": " Solution", "Graded Homework": " Graded", "Homework Helper": " Helper", "Grade Explanation": " Grade Explanation"}.get(kind, "")
     elif is_notes:
         lecture = st.text_input("Lecture", value=lec_guess, key=f"bk_lec_{k}", placeholder="3 or 3-4")
     c1, c2, c3 = st.columns([3, 2, 1.2])
@@ -184,6 +192,11 @@ def _add_dialog(default_course=None):
         st.rerun()
 
 
+def _default_view(book):
+    """Homework and exam files (the problems, solutions, graded papers ...) open as one page wide, scrolling continuously."""
+    return "scroll" if book["kind"] in HW_GROUP + EXAM_GROUP else "page"
+
+
 def _viewer(book):
     """Preview: pages rendered as images, with prev/next, page jump and zoom."""
     if st.button("← Back"):                      # to the page the file was opened from (course, library ...)
@@ -197,29 +210,187 @@ def _viewer(book):
     if path.suffix.lower() in (".html", ".htm"):
         from views import quiz_view                        # the note's Self-check shows the same questions as the course Quiz tab
         jump = st.session_state.pop("lib_goto", None)
-        components.html(htmlnotes.safe_html(path.read_text(encoding="utf-8", errors="replace"), goto=jump,
+        _handle_link(book)                                 # links of a preparation, reflection ... page to the notes and to the course's other pages
+        components.html(htmlnotes.safe_html(path.read_text(encoding="utf-8", errors="replace"), goto=jump, links=True,
                                             questions=quiz_view.book_questions(book), resume=None if jump else "library"),
                         height=900, scrolling=True)
         return
     if book["kind"] in ("Homework", "Exam", "Practice Exam") and book["course_ids"]:     # the homework or exam and the helper side by side
-        left, right = st.columns([3, 2], gap="medium")
+        left, right = st.columns([1, 1], gap="medium")
+        helper = _sibling(book, ("Homework Helper",) if book["kind"] == "Homework" else ("Exam Helper",))
+        if helper:
+            with right:
+                _handle_link(book)                       # before the paper is drawn: a click may change its page
+        marks = _problem_marks(book, path, st.session_state.get(f"hp{book['id']}_sel")) if helper else []
         with left:
-            reader.pdf_reader(path, f"view_{book['id']}", height=820, start=st.session_state.pop(f"view_page_{book['id']}", 1))
+            reader.pdf_reader(path, f"view_{book['id']}", height=820, view=_default_view(book), start=st.session_state.pop(f"view_page_{book['id']}", 1),
+                              marks=marks, active=[m["n"] for m in marks if m.get("active")], marks_list=False)
         with right:
-            _homework_helper(book)
+            if helper:                                   # written outside the app; the automatic hints only when there is none
+                _imported_panel(helper, book, marks=True)
+            else:
+                _homework_helper(book)
         return
     if book["kind"] in ("Graded Homework", "Graded Exam"):      # the paper on the left, why it got this grade on the right
-        left, right = st.columns([3, 2], gap="medium")
+        left, right = st.columns([1, 1], gap="medium")
         sel = st.session_state.get(f"gp{book['id']}_sel")
-        marks = _grade_marks(book, path, sel)
+        explanation = _sibling(book, ("Grade Explanation",) if book["kind"] == "Graded Homework" else ("Exam Grade Explanation",))
+        graded = gradereport.load(book["id"])
+        if explanation:
+            with right:
+                _handle_link(book)                       # before the paper is drawn: a click may change its page or its marks
+            sel = st.session_state.get(f"gp{book['id']}_sel")
+        marks = _grade_marks(book, path, sel)                 # the written page marks the paper too
         with left:
-            reader.pdf_reader(path, f"view_{book['id']}", height=820, start=st.session_state.pop(f"view_page_{book['id']}", 1),
+            reader.pdf_reader(path, f"view_{book['id']}", height=820, view=_default_view(book), start=st.session_state.pop(f"view_page_{book['id']}", 1),
                               marks=marks, active=[m["n"] for m in marks if m.get("active")], marks_list=False)
-        with right, st.container(height=860, border=False):       # scrolls on its own, like the paper beside it
-            _grade_panel(book)
+        with right:
+            if explanation:                              # the grade and the links to the problem and the solution, then the written page
+                _grade_panel(book, header_only=True)
+                _imported_panel(explanation, book, marks=bool(graded and graded.get("total")), height=700)
+            else:                                        # no written page: the automatic panel
+                with st.container(height=860, border=False):       # scrolls on its own, like the paper beside it
+                    _grade_panel(book)
         return
-    reader.pdf_reader(path, f"view_{book['id']}", height=820,
+    reader.pdf_reader(path, f"view_{book['id']}", height=820, view=_default_view(book),
                       start=st.session_state.pop(f"view_page_{book['id']}", 1))
+
+
+def _lecture_note(book, lecture):
+    """The course's notes file for a lecture (chapter) number, or None."""
+    for b in sorted(crud.list_books(), key=lambda b: b["kind"] != "Notes"):
+        if (b["kind"] in ("Notes", "Lecture Notes") and set(b["course_ids"]) & set(book["course_ids"])
+                and lecture in re.findall(r"\d+", b.get("lecture") or "")):
+            return b
+    return None
+
+
+def _handle_link(book):
+    """A link in the written page (a notes section, the helper, the solution) writes 'note:<lecture>:<id>' or 'companion:<what>'
+    into a hidden box (see htmlnotes._LINKS); open that file."""
+    sink = st.text_input("Page Link", key="lib_link_sink", label_visibility="collapsed")
+    if not sink or sink == st.session_state.get("_lib_link_done"):
+        return
+    st.session_state["_lib_link_done"] = sink
+    action, _, rest = sink.split("|")[0].partition(":")
+    if action == "note":
+        lecture, _, anchor = rest.partition(":")
+        note = _lecture_note(book, lecture) if lecture else None
+        if note:
+            _open_note(note["id"], None if anchor in ("", "top") else anchor)
+            st.rerun()
+    elif action == "mark" and re.fullmatch(r"[pc]\d+[a-z]?", rest):          # a problem, a part or a comment of the written page
+        if book["kind"] in ("Graded Homework", "Graded Exam"):
+            data = gradereport.load(book["id"]) or {}
+            if rest[0] == "c":
+                if not any(c["id"] == int(rest[1:]) for c in data.get("comments") or []):
+                    st.rerun()                                              # a comment the grade data does not have
+                page = next((c.get("page") for c in data.get("comments") or [] if c["id"] == int(rest[1:])), None)
+            else:
+                page = next((x.get("page") for x in data.get("problems") or [] if x["n"] == int(rest[1:])), None)
+            _select_grade(book["id"], rest, page)
+        elif rest[0] == "p":                                                 # a problem or a part of a written helper: show it in the problem file
+            st.session_state[f"hp{book['id']}_sel"] = rest
+            found = _problem_info(book).get(re.match(r"p(\d+)", rest).group(1))
+            part = next((q for q in (found or {}).get("parts") or [] if q["id"] == rest[-1]), None) if rest[-1].isalpha() else None
+            if found:
+                _go_page(book["id"], (part or found)["page"])
+        st.rerun()
+    elif action == "doc":                                                    # a link to another page of the course, by its name
+        target = _doc_target(book, rest)
+        if target:
+            _open_file_at(target["id"], 1)
+            st.rerun()
+
+
+def _doc_target(book, text):
+    """The Library file that a link named like "Midterm 2 Preparation", "Homework 4 Grades", "Midterm 1 Reflection" or "Homework 5 Helper"
+    means, in the course of `book`: the preparation or reflection page itself, the graded paper (it shows the explanation beside it), or
+    the problem file (it shows the helper beside it). None if the name says nothing."""
+    t = re.sub(r"\s+", " ", text.replace("\u2197", " ")).strip().lower()
+    num = re.search(r"(homework|hw|problem set|midterm|exam|quiz|test)\s*#?\s*(\d+)", t)
+    key = num.group(2) if num else ("final" if "final" in t else None)
+    if not key:
+        return None
+    homework = bool(re.search(r"homework|\bhw\b|problem set", t))
+    if "reflection" in t:
+        kinds = ("Exam Reflection",)
+    elif "prepar" in t:
+        kinds = ("Exam Preparation",)
+    elif "helper" in t or "hint" in t:
+        kinds = ("Homework",) if homework else ("Exam",)
+    elif "grade" in t or "explanation" in t:
+        kinds = ("Graded Homework",) if homework else ("Graded Exam",)
+    elif "solution" in t:
+        kinds = ("Homework Solution",) if homework else ("Exam Solution",)
+    elif not homework:
+        kinds = ("Exam Preparation",)                    # just "Midterm 2" or "Midterm 2 page": the exam's preparation page
+    else:
+        return None
+    found = [b for b in crud.list_books() if b["kind"] in kinds and set(b["course_ids"]) & set(book["course_ids"]) and _pair_key(b) == key]
+    return min(found, key=lambda b: ("practice" in b["title"].lower(), b["id"])) if found else None
+
+
+def _problem_info(book):
+    """{problem number: parsed problem} of a homework or exam file."""
+    path = BASE_DIR / book["pdf_path"]
+    try:
+        return {str(x["id"]): x for x in hwassist.parse_problems(str(path), path.stat().st_mtime)}
+    except Exception:
+        return {}
+
+
+def _find_text(page, text):
+    """The first place a start of this text appears on a PDF page, or None (the start is tried at several lengths)."""
+    text = re.sub(r"\s+", " ", text).strip()
+    for n in (32, 20, 12):
+        hits = page.search_for(text[:n]) if len(text) >= 6 else []
+        if hits:
+            return hits[0]
+    return None
+
+
+def _problem_marks(book, path, sel):
+    """The box to draw on the problem file around the heading of the problem, or the lines of the part, picked in the written helper."""
+    m = re.fullmatch(r"p(\d+)([a-z]?)", sel or "")
+    found = _problem_info(book).get(m.group(1)) if m else None
+    if not found:
+        return []
+    part = next((q for q in found.get("parts") or [] if q["id"] == m.group(2)), None) if m.group(2) else None
+    target = part or found
+    sizes = _page_sizes(path, {target["page"]})
+    if target["page"] not in sizes:
+        return []
+    W, H = sizes[target["page"]]
+    rect, label = (W * 0.05, H * 0.05, W * 0.95, H * 0.12), found["title"]        # the top of the page when nothing is found
+    try:
+        import pymupdf
+        page = pymupdf.open(path)[target["page"] - 1]
+        if part:
+            hit = _find_text(page, part["text"])
+            if hit:
+                later = [h.y0 for q in found["parts"] if q["id"] > part["id"] and q["page"] == part["page"]
+                         for h in [_find_text(page, q["text"])] if h and h.y0 > hit.y0]
+                lines = min(4, max(1, len(re.sub(r"\s+", " ", part["text"])) // 85 + 1))
+                bottom = (min(later) - 2) if later else hit.y0 + 15 * lines
+                rect, label = (hit.x0 - 30, hit.y0 - 3, W * 0.95, bottom), f"{found['id']}{part['id']})"
+        else:
+            hit = _find_text(page, found["title"])
+            if hit:
+                rect = (W * 0.05, hit.y0 - 5, W * 0.95, hit.y1 + 5)
+    except Exception:
+        pass
+    return [{"n": f"{found['id']}{part['id'] if part else ''}", "label": label, "md": "", "page": target["page"] - 1, "size": (W, H),
+             "sentence": False, "active": True, "rect": rect}]
+
+
+def _imported_panel(doc, book, marks=False, height=860):
+    """The helper or grade explanation written outside the app, shown beside the paper; its notes links open your notes."""
+    path = BASE_DIR / doc["pdf_path"]
+    if not path.exists():
+        st.error("The stored file is missing."); return
+    components.html(htmlnotes.safe_html(path.read_text(encoding="utf-8", errors="replace"), resume=f"doc{doc['id']}", links=True, marks=marks),
+                    height=height, scrolling=True)
 
 
 def _open_file_at(book_id, page):
@@ -229,14 +400,22 @@ def _open_file_at(book_id, page):
     st.session_state[f"view_{book_id}_page"] = page
 
 
+def _pair_key(book):
+    """What pairs a graded file, a solution, a helper ... with its problem file: the homework or exam number, or "final"."""
+    m = re.search(r"\d+", book.get("lecture") or "") or re.search(
+        r"(?:homework|hw|problem\s*set|assignment|mid[\s_\-]*term|exam|quiz|test)\s*#?\s*(\d+)", book["title"], re.I) or re.search(r"\d+", book["title"])
+    if m:
+        return m.group(m.lastindex or 0)
+    return "final" if "final" in book["title"].lower() else None
+
+
 def _sibling(book, kinds):
-    """The file of the same course and number as this graded file: the problem file or the solution."""
-    number = re.search(r"\d+", book.get("lecture") or book["title"])
-    if not number:
+    """The file of the same course and number as this one: the problem file, the solution, the helper, the graded paper ..."""
+    key = _pair_key(book)
+    if not key:
         return None
     for b in crud.list_books():
-        n = re.search(r"\d+", b.get("lecture") or b["title"])
-        if (b["kind"] in kinds and set(b["course_ids"]) & set(book["course_ids"]) and n and n.group() == number.group()
+        if (b["id"] != book["id"] and b["kind"] in kinds and set(b["course_ids"]) & set(book["course_ids"]) and _pair_key(b) == key
                 and ("practice" in b["title"].lower()) == ("practice" in book["title"].lower())):
             return b
     return None
@@ -337,9 +516,10 @@ def _exam_problems(book, exam_file, solution, analysis):
                         st.image(reader.page_image(sol_path, sol_path.stat().st_mtime, pg - 1, 1100), caption=f"Solution, page {pg}")
 
 
-def _grade_panel(book):
+def _grade_panel(book, header_only=False):
     """Beside a graded file: the grade, the rubric of each problem with the points lost, and the grader's comments. Clicking a
-    problem, a rubric line or a comment shows its page and marks it on the paper. Canvas-only grades show what Canvas gave."""
+    problem, a rubric line or a comment shows its page and marks it on the paper. Canvas-only grades show what Canvas gave.
+    `header_only`: just the title, the links to the problem and the solution, and the grade (above a written explanation)."""
     st.subheader("Grade Explanation")
     data = gradereport.load(book["id"])
     exam = book["kind"] == "Graded Exam"
@@ -355,14 +535,16 @@ def _grade_panel(book):
     if not data or not data.get("total"):
         st.caption("Not graded yet.")
         return
+    got, of = data["total"]
+    st.markdown(f"### {got:g} / {of:g} ({got / of:.0%})")
+    if header_only:
+        return
     analysis = {}
     if problem_file and problem_file["course_ids"]:           # which sections of the course notes each problem draws on
         try:
             analysis = {str(a["id"]): a for a in hwassist.analyze(problem_file, crud.get_course(problem_file["course_ids"][0]), crud.list_books())}
         except Exception:
             analysis = {}
-    got, of = data["total"]
-    st.markdown(f"### {got:g} / {of:g} ({got / of:.0%})")
     st.caption(f"Source: {data['source']}. Click a problem, a line or a comment to see it marked on your paper.")
     for text in data.get("general") or []:
         st.markdown(f":red[{text}]")
@@ -587,10 +769,11 @@ def _course_order(book):
     by category (homework, solution, graded; practice exam, exam, graded exam) and then by number."""
     numbers = tuple(int(n) for n in re.findall(r"\d+", book.get("lecture") or ""))
     by_title = tuple(int(n) for n in re.findall(r"\d+", book["title"]))
-    rank = {"Homework": 1.50, "Homework Solution": 1.55, "Graded Homework": 1.60, "Practice Exam": 1.70, "Exam Preparation": 1.72, "Exam Reflection": 1.82, "Exam": 1.75, "Exam Solution": 1.78, "Graded Exam": 1.80}
-    if book["kind"] in ("Homework", "Homework Solution", "Graded Homework"):
+    rank = {"Homework": 1.50, "Homework Helper": 1.52, "Homework Solution": 1.55, "Graded Homework": 1.60, "Grade Explanation": 1.62, "Practice Exam": 1.70,
+            "Exam Preparation": 1.72, "Exam": 1.75, "Exam Helper": 1.76, "Exam Solution": 1.78, "Graded Exam": 1.80, "Exam Grade Explanation": 1.81, "Exam Reflection": 1.82}
+    if book["kind"] in HW_GROUP:
         return (rank[book["kind"]], numbers, book["title"].lower())
-    if book["kind"] in ("Practice Exam", "Exam Preparation", "Exam", "Exam Solution", "Graded Exam", "Exam Reflection"):
+    if book["kind"] in EXAM_GROUP:
         return (rank[book["kind"]], by_title, book["title"].lower())
     if book["kind"] == "Syllabus":
         return (-1, (), book["title"].lower())
