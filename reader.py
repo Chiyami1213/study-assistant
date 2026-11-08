@@ -6,6 +6,7 @@ import base64
 import pathlib
 import hashlib
 import html
+import json
 import os
 import threading
 from collections import OrderedDict
@@ -199,6 +200,37 @@ def _errata_list(marks, key, page_key):
             st.button("Go To Page", key=f"{key}_err_{i}", on_click=_go, args=(page_key, m["page"] + 1, key))
 
 
+def _annot_attrs(annot, path):
+    """Attributes that tell the page script a file can be drawn on: the drawings made so far, and the lines of text of each page (the
+    highlighter follows them)."""
+    if not annot:
+        return ""
+    import annotations
+    lines = annotations.words(str(path), pathlib.Path(path).stat().st_mtime)
+    return (f' data-annot="{int(annot)}" data-strokes="{html.escape(json.dumps(annotations.load(annot), separators=(",", ":")), quote=True)}"'
+            f' data-words="{html.escape(json.dumps(lines, separators=(",", ":")), quote=True)}"')
+
+
+@st.fragment
+def _annot_sink():
+    """The page script writes 'annot:<file>:<page>:<strokes of the page as json>|<time>' (or 'annotclear:<file>|<time>') here as a drawing is made;
+    it is a fragment, so saving a stroke does not redraw the reader."""
+    import annotations
+    sink = st.text_input("Drawing", key="annot_sink", label_visibility="collapsed")
+    if not sink or sink == st.session_state.get("_annot_done"):
+        return
+    st.session_state["_annot_done"] = sink
+    action, _, rest = sink.rsplit("|", 1)[0].partition(":")
+    try:
+        if action == "annot":
+            book_id, page, strokes = rest.split(":", 2)
+            annotations.set_page(int(book_id), int(page), json.loads(strokes))
+        elif action == "annotclear":
+            annotations.clear(int(rest))
+    except (ValueError, TypeError):
+        pass
+
+
 def _bump(key):
     st.session_state[f"{key}_tok"] = st.session_state.get(f"{key}_tok", 0) + 1       # tells the scrolling view to jump
 
@@ -237,11 +269,12 @@ def _step_zoom(zoom_key, delta):
 
 
 @st.fragment
-def pdf_reader(path, key, height=640, start=1, title=None, on_page=None, marks=None, active=None, marks_list=True, view="page"):
+def pdf_reader(path, key, height=640, start=1, title=None, on_page=None, marks=None, active=None, marks_list=True, view="page", annot=None):
     """Draw the reader for a PDF file. 100% fits the width of the window; height None fills the window (page CSS).
     `title` is drawn above the toolbar with the page number; `on_page(page)` is told whenever the page changes.
     `marks` are errata to draw on the pages (see errata.py); the numbers in `active` are drawn emphasised and scrolled to.
-    `view` is the view a file first opens in: "page", "double", "scroll" (continuous) or "scroll2"."""
+    `view` is the view a file first opens in: "page", "double", "scroll" (continuous) or "scroll2".
+    `annot` is the Library id of the file when it can be drawn on (pen and highlighter, saved as they are drawn: see annotations.py)."""
     marks = list(marks or [])
     path = pathlib.Path(path)
     found, _n = _find_marks(key, path, path.stat().st_mtime)          # the text searched for (Ctrl+F) is highlighted on the pages
@@ -258,6 +291,9 @@ def pdf_reader(path, key, height=640, start=1, title=None, on_page=None, marks=N
     st.session_state.setdefault(mode_key, view if view in _modes() else "page")        # the view a file opens in; the button still changes it
     st.session_state[page_key] = min(max(1, st.session_state[page_key]), total)
     heading = st.empty()
+    if annot:
+        _annot_sink()                                                   # the hidden box the drawings are saved through
+    drawn = _annot_attrs(annot, path)
 
     with st.container(key=f"reader_{key}"):
         # fit width | Prev  14/280  Next | zoom chip, magnifier + (zoom in), magnifier - (zoom out)
@@ -289,18 +325,18 @@ def pdf_reader(path, key, height=640, start=1, title=None, on_page=None, marks=N
     mtime = path.stat().st_mtime
     mode = st.session_state.get(mode_key, "page")
     if mode in ("scroll", "scroll2") and scroll_available():
-        _scrolling_view(path, key, page, zoom, total, height, mtime, per_row=2 if mode == "scroll2" else 1, by_page=by_page, active=active)
+        _scrolling_view(path, key, page, zoom, total, height, mtime, per_row=2 if mode == "scroll2" else 1, by_page=by_page, active=active, drawn=drawn)
         if on_page:
             on_page(page)
         return
     shown = [page, page + 1] if mode == "double" and page < total else [page]
     width = min(3000, int(1400 * zoom / 100 / len(shown) + 200))
     imgs = "".join(
-        f'<div class="rd-pagewrap" style="width:{zoom / len(shown):g}%">'
+        f'<div class="rd-pagewrap" data-pn="{n}" style="width:{zoom / len(shown):g}%">'
         f'<img src="data:image/jpeg;base64,{base64.b64encode(page_image(path, mtime, n - 1, width)).decode()}" '
         f'style="width:100%" alt="Page {n}">{_boxes(by_page.get(n - 1), active)}</div>' for n in shown)
     box = f' style="height:{height}px"' if height else ""
-    st.markdown(f'<div class="rd-scroll{"" if height else " rd-fill"}"{box}><div class="rd-spread">{imgs}</div></div>',
+    st.markdown(f'<div class="rd-scroll{"" if height else " rd-fill"}"{box}{drawn}><div class="rd-spread">{imgs}</div></div>',
                 unsafe_allow_html=True)
     step = len(shown)
     neighbours = [i for i in (page - 1 + step, page - 1 + 2 * step, page - 1 - step) if 0 <= i < total]   # next spread, then back
@@ -309,7 +345,7 @@ def pdf_reader(path, key, height=640, start=1, title=None, on_page=None, marks=N
         on_page(page)
 
 
-def _scrolling_view(path, key, page, zoom, total, height, mtime, per_row=1, by_page=None, active=None):
+def _scrolling_view(path, key, page, zoom, total, height, mtime, per_row=1, by_page=None, active=None, drawn=""):
     """Every page stacked in one scrolling window. Images are page files under static/pages, drawn in the
     background around the current page; the page script retries any that are not ready yet."""
     sizes = _page_sizes(str(path), mtime)
@@ -317,7 +353,7 @@ def _scrolling_view(path, key, page, zoom, total, height, mtime, per_row=1, by_p
     _write_page(str(path), mtime, page - 1)                 # the page you land on is ready at once
     _render_files(str(path), mtime, page - 1, total)
     cells = [
-        f'<div class="rd-pg" id="rdp-{key}-{n}" style="aspect-ratio:{w}/{h};width:{zoom / per_row:g}%">'
+        f'<div class="rd-pg" id="rdp-{key}-{n}" data-pn="{n}" style="aspect-ratio:{w}/{h};width:{zoom / per_row:g}%">'
         f'<img loading="lazy" decoding="async" alt="" src="/app/static/pages/{folder}/{n}.jpg">'
         f'{_boxes((by_page or {}).get(n - 1), active)}</div>'
         for n, (w, h) in enumerate(sizes, 1)]
@@ -328,5 +364,5 @@ def _scrolling_view(path, key, page, zoom, total, height, mtime, per_row=1, by_p
     box = f' style="height:{height}px"' if height else ""
     token = st.session_state.get(f"{key}_tok", 0)
     st.markdown(f'<div class="rd-scroll rd-cont{"" if height else " rd-fill"}" data-key="{key}" data-goto="{page}" '
-                f'data-token="{token}" data-total="{total}"{box}><div class="rd-live">Page {page} / {total}</div>{pages}</div>',
+                f'data-token="{token}" data-total="{total}"{box}{drawn}><div class="rd-live">Page {page} / {total}</div>{pages}</div>',
                 unsafe_allow_html=True)

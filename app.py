@@ -511,6 +511,24 @@ section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-h
 .rd-pg {{position: relative;}}
 .rd-err {{position: absolute; border: 2px solid #e5484d; background: rgba(229, 72, 77, 0.14); border-radius: 4px; z-index: 2; cursor: help;}}
 .rd-err.rd-sent {{border-color: #d9a21b; background: rgba(217, 162, 27, 0.2);}}
+/* drawing on a homework or exam PDF: a layer over each page, a small toolbar at the top left of the reader */
+.an-layer {{position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 4; overflow: visible;}}
+.an-on .an-layer {{pointer-events: auto; cursor: crosshair; touch-action: pan-x pan-y pinch-zoom;}}
+.an-layer path {{fill: none; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke;}}
+.an-layer path.hl {{mix-blend-mode: multiply; opacity: 0.45; stroke-linecap: butt;}}
+.an-layer g.hl {{mix-blend-mode: multiply; opacity: 0.45;}}
+.an-barwrap {{position: sticky; top: 0; height: 0; z-index: 9; overflow: visible;}}
+.an-bar {{position: absolute; left: 10px; top: 8px; display: flex; gap: 3px; align-items: center; padding: 3px 5px; border-radius: 10px;
+    background: rgba(24, 26, 32, 0.92); border: 1px solid var(--border); box-shadow: 0 4px 14px #0006; color: #e8e9ec; font-size: 0.8rem; user-select: none;}}
+.an-bar button {{background: transparent; border: 1px solid transparent; color: inherit; border-radius: 7px; padding: 3px 7px; cursor: pointer; font-size: 0.8rem; line-height: 1.2;
+    display: inline-flex; align-items: center; gap: 4px; min-height: 0 !important;}}
+.an-bar button:hover {{background: #ffffff1c;}}
+.an-bar button.act {{border-color: var(--accent); background: #4c8dff33;}}
+.an-bar .sw {{width: 15px; height: 15px; border-radius: 50%; padding: 0; border: 2px solid #ffffff55;}}
+.an-bar .sw.act {{border-color: #fff; box-shadow: 0 0 0 1px #000a;}}
+.an-bar .sep {{width: 1px; height: 18px; background: #ffffff33; margin: 0 3px;}}
+.an-bar svg {{width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;}}
+.st-key-annot_sink {{position: absolute !important; width: 1px; height: 1px; overflow: hidden; opacity: 0; pointer-events: none;}}
 .rd-find {{position: absolute; background: rgba(255, 213, 0, 0.42); border-radius: 2px; z-index: 2; pointer-events: none;}}
 .rd-find.active {{background: rgba(255, 140, 0, 0.55); outline: 2px solid #ff8c00; z-index: 4;}}
 .rd-err.active {{border-width: 3px; box-shadow: 0 0 0 4px rgba(229, 72, 77, 0.35); animation: rd-pulse 1.2s ease-in-out 3; z-index: 4;}}
@@ -692,6 +710,13 @@ if (!win.__olNavV1) {
 // 20-20-20 rule: after every 20 minutes of using the app, ask for a 20-second look at something 20 feet away.
 // Turning that down is allowed, but after 2 refusals in a row there is a warning, and the 3rd prompt (1 hour of
 // non-stop use) becomes a required 5-minute rest.
+win.__keys = __KEYS__;                           // the key bindings from Settings (one group per reader)
+win.__keyOf = e => {                               // a key press as a binding: 'd', 'ctrl+z', 'esc'
+  let k = (e.key || '').toLowerCase(); if (k === 'escape') k = 'esc'; if (k === ' ') k = 'space';
+  const m = []; if (e.ctrlKey || e.metaKey) m.push('ctrl'); if (e.altKey) m.push('alt'); if (e.shiftKey) m.push('shift');
+  return m.concat(k).join('+');
+};
+win.__keyIs = (e, group, action, dflt) => win.__keyOf(e) === (((win.__keys || {})[group] || {})[action] || dflt);
 win.__eyeCfg = __EYE_CFG__;                      // from Settings; a change reloads this script, the running timer reads the new values
 if (!win.__eyeRestV2) {
   win.__eyeRestV2 = true;
@@ -794,7 +819,7 @@ if (!win.__findV1) {
   let px = 0, py = 0;
   doc.addEventListener('mousemove', e => { px = e.clientX; py = e.clientY; }, true);
   doc.addEventListener('keydown', e => {
-    if (!((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'f')) return;
+    if (!win.__keyIs(e, 'notes', 'find', 'ctrl+f')) return;
     const tag = (e.target && e.target.tagName || '').toLowerCase();
     const readers = [...doc.querySelectorAll('[class*="st-key-reader_"]')].filter(r => r.getBoundingClientRect().width > 0);
     const frames = [...doc.querySelectorAll('iframe')].filter(f => f.getBoundingClientRect().height > 200);
@@ -1008,9 +1033,206 @@ if (!win.__labResizeV2) {
 if (!win.__fullEscV1) {
   win.__fullEscV1 = true;
   doc.addEventListener('keydown', e => {
-    if (e.key !== 'Escape' || e.defaultPrevented) return;
+    if (e.defaultPrevented || !win.__keyIs(e, 'notes', 'leave_full', 'esc')) return;
     const b = doc.querySelector('.st-key-lab_full_close button'); if (b) b.click();
   });
+}
+// Drawing on a homework or exam PDF (pages with data-annot): pen, highlighter and eraser over each page, saved as they are drawn, Clear All.
+// Strokes are kept as fractions of the page, so they stay in place at any zoom (see annotations.py).
+if (!win.__annotV1) {
+  win.__annotV1 = true;
+  const S = {on: false, tool: 'pen', col: {pen: '#e5484d', hl: '#ffd500'}, undo: []};
+  const PEN = ['#e5484d', '#2f6fe0', '#1baf7a', '#111111', '#f08a24'], HL = ['#ffd500', '#7ee08a', '#ff8fd0', '#6fd3ff'];
+  const WID = {pen: 0.0028, hl: 0.019}, ERASE_PX = 14;
+  const ICON = {
+    pen: '<svg viewBox="0 0 24 24"><path d="M4 20l1-4L16 5l3 3L8 19z"/><path d="M14 7l3 3"/></svg>',
+    hl: '<svg viewBox="0 0 24 24"><path d="M9 14l6-9 4 3-6 9z"/><path d="M9 14l-1 4 4-1"/><path d="M4 21h7"/></svg>',
+    er: '<svg viewBox="0 0 24 24"><path d="M7 21h12"/><path d="M5 16l8-9 6 5-6 7H8z"/></svg>',
+    undo: '<svg viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg>',
+    draw: '<svg viewBox="0 0 24 24"><path d="M4 20l1-4L16 5l3 3L8 19z"/></svg>'};
+  const mk = (tag, cls, html) => { const e = doc.createElement(tag); if (cls) e.className = cls; if (html) e.innerHTML = html; return e; };
+  const send = text => {
+    const inp = doc.querySelector('.st-key-annot_sink input'); if (!inp) return;
+    const set = Object.getOwnPropertyDescriptor(win.HTMLInputElement.prototype, 'value').set;
+    inp.focus(); set.call(inp, text + '|' + Date.now());
+    inp.dispatchEvent(new win.Event('input', {bubbles: true}));
+    inp.dispatchEvent(new win.KeyboardEvent('keydown', {key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true}));
+    inp.blur();
+  };
+  const save = (c, pn) => send('annot:' + c.dataset.annot + ':' + pn + ':' + JSON.stringify(c._st[pn] || []));
+  const pathOf = pts => pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(4) + ' ' + p[1].toFixed(4)).join('');
+  const NS = 'http://www.w3.org/2000/svg';
+  function boxes(s) {                               // a highlighter stroke: one box per line of text
+    const g = doc.createElementNS(NS, 'g'); g.setAttribute('class', 'hl'); g.style.fill = s.c;
+    s.r.forEach(q => {
+      const e = doc.createElementNS(NS, 'rect');
+      e.setAttribute('x', q[0]); e.setAttribute('y', q[1]); e.setAttribute('width', Math.max(0, q[2] - q[0])); e.setAttribute('height', Math.max(0, q[3] - q[1]));
+      g.appendChild(e);
+    });
+    return g;
+  }
+  function paint(layer, c) {                       // draw the strokes of a page into its layer
+    const pn = layer.dataset.pn, w = layer.parentElement.clientWidth || 1;
+    layer.innerHTML = '';
+    (c._st[pn] || []).forEach(s => {
+      if (s.t === 'hr') { layer.appendChild(boxes(s)); return; }
+      const p = doc.createElementNS(NS, 'path');
+      p.setAttribute('d', pathOf(s.p) + (s.p.length === 1 ? 'l0.0001 0' : '')); p.setAttribute('class', s.t);
+      p.style.stroke = s.c; p.style.strokeWidth = Math.max(1, s.w * w) + 'px'; layer.appendChild(p);
+    });
+    layer._w = w; layer._n = (c._st[pn] || []).length;
+  }
+  function wordsOf(c, pn) {                        // the words of a page as boxes (fractions of the page), in reading order
+    if (!c._wd) { try { c._wd = JSON.parse(c.dataset.words || '{}'); } catch (e) { c._wd = {}; } c._wc = {}; }
+    if (!c._wc[pn]) {
+      const out = [];
+      (c._wd[pn] || []).forEach((ln, li) => { for (let k = 0; k + 1 < ln[2].length; k += 2) out.push({x0: ln[2][k], x1: ln[2][k + 1], y0: ln[0], y1: ln[1], li}); });
+      c._wc[pn] = out;
+    }
+    return c._wc[pn];
+  }
+  function pick(words, x, y, r) {                  // the word nearest to a point (within 40 px): its index, or -1
+    let best = -1, bd = 40;
+    words.forEach((w, i) => {
+      const d = Math.hypot(Math.max(w.x0 - x, 0, x - w.x1) * r.width, Math.max(w.y0 - y, 0, y - w.y1) * r.height);
+      if (d < bd) { bd = d; best = i; }
+    });
+    return best;
+  }
+  function follow(words, a, b) {                   // from word a to word b: one box per line of text, as wide as the words on that line
+    const lo = Math.min(a, b), hi = Math.max(a, b), rows = [];
+    for (let i = lo; i <= hi; i++) {
+      const w = words[i], last = rows[rows.length - 1];
+      if (last && last.li === w.li) { last.x1 = Math.max(last.x1, w.x1); last.x0 = Math.min(last.x0, w.x0); }
+      else rows.push({li: w.li, x0: w.x0, x1: w.x1, y0: w.y0, y1: w.y1});
+    }
+    return rows.map(q => [q.x0, q.y0, q.x1, q.y1]);
+  }
+  function wire(layer, c) {
+    let cur = null, live = null, changed = false;
+    const at = e => { const r = layer.getBoundingClientRect(); return [(e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height, r]; };
+    layer.addEventListener('pointerdown', e => {
+      if (!S.on || e.pointerType === 'touch' || e.button > 0) return;
+      e.preventDefault(); layer.setPointerCapture(e.pointerId);
+      const [x, y, r] = at(e), pn = layer.dataset.pn;
+      if (S.tool === 'er') { cur = {erase: true}; changed = false; erase(layer, c, x, y, r); return; }
+      if (S.tool === 'hl') {                       // the highlighter follows the lines of text
+        const words = wordsOf(c, pn), from = pick(words, x, y, r);
+        if (words.length && from < 0) return;      // not near any text: nothing to highlight
+        cur = {t: 'hr', c: S.col.hl, from, words, x0: x, y0: y, r: []};
+        return;
+      }
+      cur = {t: S.tool, c: S.col[S.tool], w: WID[S.tool], p: [[x, y]]};
+      live = doc.createElementNS(NS, 'path'); live.setAttribute('class', cur.t);
+      live.style.stroke = cur.c; live.style.strokeWidth = Math.max(1, cur.w * r.width) + 'px'; layer.appendChild(live);
+    });
+    layer.addEventListener('pointermove', e => {
+      if (!cur) return;
+      const [x, y, r] = at(e);
+      if (cur.erase) { erase(layer, c, x, y, r); return; }
+      if (cur.t === 'hr') {
+        if (cur.words.length) { const to = pick(cur.words, x, y, r); if (to < 0) return; cur.r = follow(cur.words, cur.from, to); }
+        else { const h = WID.hl * r.width / r.height; cur.r = [[Math.min(cur.x0, x), cur.y0 - h / 2, Math.max(cur.x0, x), cur.y0 + h / 2]]; }   // a scan: a straight band
+        if (live) live.remove();
+        live = boxes({c: cur.c, r: cur.r}); live.style.opacity = 0.45; layer.appendChild(live);
+        return;
+      }
+      const last = cur.p[cur.p.length - 1];
+      if (Math.hypot((x - last[0]) * r.width, (y - last[1]) * r.height) < 1.2) return;
+      cur.p.push([x, y]); live.setAttribute('d', pathOf(cur.p));
+    });
+    const up = () => {
+      if (!cur) return;
+      const pn = layer.dataset.pn;
+      if (cur.erase) { if (changed) save(c, pn); cur = null; return; }
+      const rnd = v => Math.round(v * 10000) / 10000;
+      let stroke = null;
+      if (cur.t === 'hr') { if (cur.r.length) stroke = {t: 'hr', c: cur.c, r: cur.r.map(q => q.map(rnd))}; }
+      else stroke = {t: cur.t, c: cur.c, w: cur.w, p: cur.p.map(p => [rnd(p[0]), rnd(p[1])])};
+      cur = null; live = null;
+      if (!stroke) { paint(layer, c); return; }
+      (c._st[pn] = c._st[pn] || []).push(stroke); S.undo.push({c, pn, add: stroke});
+      paint(layer, c); save(c, pn);
+    };
+    layer.addEventListener('pointerup', up); layer.addEventListener('pointercancel', up);
+    function erase(layer, c, x, y, r) {            // remove every drawing that has a point (or a highlighted box) near the eraser
+      const pn = layer.dataset.pn, keep = [], gone = [], pad = ERASE_PX / 2;
+      const hit = s => s.t === 'hr'
+        ? s.r.some(q => x * r.width >= q[0] * r.width - pad && x * r.width <= q[2] * r.width + pad && y * r.height >= q[1] * r.height - pad && y * r.height <= q[3] * r.height + pad)
+        : s.p.some(p => Math.hypot((p[0] - x) * r.width, (p[1] - y) * r.height) < ERASE_PX);
+      (c._st[pn] || []).forEach(s => (hit(s) ? gone : keep).push(s));
+      if (gone.length) { c._st[pn] = keep; S.undo.push({c, pn, del: gone}); changed = true; paint(layer, c); }
+    }
+  }
+  const DEF = {draw: 'd', pen: 'p', highlighter: 'h', eraser: 'e', undo: 'ctrl+z', leave: 'esc'};
+  const kb = a => ((win.__keys || {}).reader || {})[a] || DEF[a];
+  const syncAll = () => doc.querySelectorAll('[data-annot]').forEach(c => c._sync && c._sync());
+  doc.addEventListener('keydown', e => {           // shortcuts (set in Settings); not while typing in a box
+    if (!doc.querySelector('[data-annot]')) return;
+    const t = e.target, tag = (t && t.tagName || '').toLowerCase();
+    if (tag === 'input' || tag === 'textarea' || tag === 'select' || (t && t.isContentEditable)) return;
+    const is = a => win.__keyIs(e, 'reader', a, DEF[a]);
+    if (is('draw')) { e.preventDefault(); S.on = !S.on; syncAll(); }
+    else if (S.on && is('leave')) { e.preventDefault(); S.on = false; syncAll(); }
+    else if (S.on && is('undo')) { e.preventDefault(); undoLast(); }
+    else if (S.on && is('pen')) { S.tool = 'pen'; syncAll(); }
+    else if (S.on && is('highlighter')) { S.tool = 'hl'; syncAll(); }
+    else if (S.on && is('eraser')) { S.tool = 'er'; syncAll(); }
+  }, true);
+  function bar(c) {                                // the toolbar at the top left of the reader
+    const wrap = mk('div', 'an-barwrap'), b = mk('div', 'an-bar'); wrap.appendChild(b);
+    const btn = (html, title, fn, cls) => { const e = mk('button', cls || '', html); e.type = 'button'; e.title = title; e.onclick = ev => { ev.stopPropagation(); fn(); sync(); }; return e; };
+    const toggle = btn(ICON.draw + '<span>Draw</span>', 'draw on the pages (' + kb('draw') + '). drawings are saved automatically', () => { S.on = !S.on; });
+    const tools = mk('span', ''); tools.style.display = 'contents';
+    const pen = btn(ICON.pen + '<span>Pen</span>', 'pen (' + kb('pen') + ')', () => { S.tool = 'pen'; });
+    const hl = btn(ICON.hl + '<span>Highlighter</span>', 'highlighter (' + kb('highlighter') + '): drag across text and it highlights the lines', () => { S.tool = 'hl'; });
+    const er = btn(ICON.er + '<span>Eraser</span>', 'eraser (' + kb('eraser') + '): rub over a drawing to remove it', () => { S.tool = 'er'; });
+    const sw = mk('span', ''); sw.style.display = 'contents';
+    const undo = btn(ICON.undo + '<span>Undo</span>', 'undo the last drawing or erase (' + kb('undo') + ')', () => undoLast());
+    const clear = btn('<span>Clear All</span>', 'remove every drawing from this pdf', () => clearAll(c));
+    [pen, hl, er, mk('span', 'sep'), sw, mk('span', 'sep'), undo, clear].forEach(e => tools.appendChild(e));
+    b.appendChild(toggle); b.appendChild(tools);
+    function sync() {
+      c.classList.toggle('an-on', S.on); toggle.classList.toggle('act', S.on); tools.style.display = S.on ? 'contents' : 'none';
+      pen.classList.toggle('act', S.tool === 'pen'); hl.classList.toggle('act', S.tool === 'hl'); er.classList.toggle('act', S.tool === 'er');
+      sw.innerHTML = ''; sw.style.display = S.tool === 'er' ? 'none' : 'contents';
+      (S.tool === 'hl' ? HL : PEN).forEach(col => {
+        const s = mk('button', 'sw' + (S.col[S.tool] === col ? ' act' : '')); s.type = 'button'; s.style.background = col; s.title = 'colour';
+        s.onclick = ev => { ev.stopPropagation(); S.col[S.tool] = col; sync(); }; sw.appendChild(s);
+      });
+    }
+    c._sync = sync; sync(); c.insertBefore(wrap, c.firstChild);
+  }
+  function undoLast() {
+    const op = S.undo.pop(); if (!op || !op.c.isConnected) return;
+    const list = op.c._st[op.pn] = op.c._st[op.pn] || [];
+    if (op.add) { const i = list.indexOf(op.add); if (i >= 0) list.splice(i, 1); } else list.push(...op.del);
+    op.c.querySelectorAll('.an-layer').forEach(l => { if (l.dataset.pn === op.pn) paint(l, op.c); });
+    send('annot:' + op.c.dataset.annot + ':' + op.pn + ':' + JSON.stringify(list));
+  }
+  function clearAll(c) {
+    if (!win.confirm('Clear all drawings on this PDF? This cannot be undone.')) return;
+    c._st = {}; S.undo = S.undo.filter(o => o.c !== c);
+    c.querySelectorAll('.an-layer').forEach(l => paint(l, c));
+    send('annotclear:' + c.dataset.annot);
+  }
+  setInterval(() => {
+    doc.querySelectorAll('[data-annot]').forEach(c => {
+      if (!c._st) {                                 // a new reader: load its drawings and add the toolbar
+        try { c._st = JSON.parse(c.dataset.strokes || '{}'); } catch (e) { c._st = {}; }
+        bar(c);
+      } else if (!c.querySelector('.an-barwrap')) bar(c);
+      c.querySelectorAll('.rd-pg, .rd-pagewrap').forEach(pg => {
+        let layer = pg.querySelector(':scope > .an-layer');
+        if (!layer) {
+          if (getComputedStyle(pg).position === 'static') pg.style.position = 'relative';
+          layer = doc.createElementNS('http://www.w3.org/2000/svg', 'svg');
+          layer.setAttribute('class', 'an-layer'); layer.setAttribute('viewBox', '0 0 1 1'); layer.setAttribute('preserveAspectRatio', 'none');
+          layer.dataset.pn = pg.dataset.pn; pg.appendChild(layer); wire(layer, c); paint(layer, c);
+        } else if (layer._w !== pg.clientWidth) paint(layer, c);       // zoomed: stroke widths follow the page
+      });
+    });
+  }, 400);
 }
 // Library cards: pass "action:id" to the hidden box (open the file, its Edit window, or the add window).
 if (!win.__libNavV1) {
@@ -1026,7 +1248,7 @@ if (!win.__libNavV1) {
     inp.blur();
   }, true);
 }
-</script>""".replace("__EYE_CFG__", json.dumps(settings.get_eye_rest())), height=0)
+</script>""".replace("__EYE_CFG__", json.dumps(settings.get_eye_rest())).replace("__KEYS__", json.dumps(settings.get_keys())), height=0)
 
 if st.query_params.get("detached"):          # a Note Reader window dragged out into its own window
     lab_view.render_detached(st.query_params["detached"])

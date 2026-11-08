@@ -110,6 +110,32 @@ def set_appearance(choice):
     _save(data)
 
 
+# Key bindings, one group per reader. A binding is a key such as "d", or a combination such as "ctrl+z"; "esc" is the Escape key.
+DEFAULT_KEYS = {
+    "reader": {"draw": "d", "pen": "p", "highlighter": "h", "eraser": "e", "undo": "ctrl+z", "leave": "esc"},     # homework and exam PDFs
+    "notes": {"find": "ctrl+f", "leave_full": "esc"},                                                              # the Note Reader
+}
+
+
+def get_keys():
+    saved = _load().get("keys", {})
+    return {g: {a: (saved.get(g, {}).get(a) or d) for a, d in acts.items()} for g, acts in DEFAULT_KEYS.items()}
+
+
+def set_keys(group, **values):
+    data = _load()
+    keys = data.get("keys", {})
+    keys[group] = {**get_keys()[group], **values}
+    data["keys"] = keys
+    _save(data)
+
+
+def reset_keys(group):
+    data = _load()
+    data.setdefault("keys", {}).pop(group, None)
+    _save(data)
+
+
 def get_recent_courses():
     """When each course page was last opened: {course id (str): ISO time}."""
     return _load().get("recent_courses", {})

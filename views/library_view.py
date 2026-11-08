@@ -195,6 +195,11 @@ def _add_dialog(default_course=None):
         st.rerun()
 
 
+def _annot_id(book):
+    """Homework and exam files can be drawn on (pen, highlighter; saved automatically): the file's id, else None."""
+    return book["id"] if book["kind"] in HW_GROUP + EXAM_GROUP and book["pdf_path"].lower().endswith(".pdf") else None
+
+
 def _default_view(book):
     """Homework and exam files (the problems, solutions, graded papers ...) open as one page wide, scrolling continuously."""
     return "scroll" if book["kind"] in HW_GROUP + EXAM_GROUP else "page"
@@ -229,7 +234,7 @@ def _viewer(book):
         marks = _problem_marks(book, path, st.session_state.get(f"hp{book['id']}_sel")) if helper else []
         with left:
             reader.pdf_reader(path, f"view_{book['id']}", height=820, view=_default_view(book), start=st.session_state.pop(f"view_page_{book['id']}", 1),
-                              marks=marks, active=[m["n"] for m in marks if m.get("active")], marks_list=False)
+                              marks=marks, active=[m["n"] for m in marks if m.get("active")], marks_list=False, annot=_annot_id(book))
         with right:
             if helper:                                   # written outside the app; the automatic hints only when there is none
                 _imported_panel(helper, book, marks=True)
@@ -248,7 +253,7 @@ def _viewer(book):
         marks = _grade_marks(book, path, sel)                 # the written page marks the paper too
         with left:
             reader.pdf_reader(path, f"view_{book['id']}", height=820, view=_default_view(book), start=st.session_state.pop(f"view_page_{book['id']}", 1),
-                              marks=marks, active=[m["n"] for m in marks if m.get("active")], marks_list=False)
+                              marks=marks, active=[m["n"] for m in marks if m.get("active")], marks_list=False, annot=_annot_id(book))
         with right:
             if explanation:                              # the grade and the links to the problem and the solution, then the written page
                 _grade_panel(book, header_only=True)
@@ -258,7 +263,7 @@ def _viewer(book):
                     _grade_panel(book)
         return
     reader.pdf_reader(path, f"view_{book['id']}", height=820, view=_default_view(book),
-                      start=st.session_state.pop(f"view_page_{book['id']}", 1))
+                      start=st.session_state.pop(f"view_page_{book['id']}", 1), annot=_annot_id(book))
 
 
 def _lecture_note(book, lecture):

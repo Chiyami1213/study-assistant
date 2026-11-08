@@ -107,7 +107,7 @@ _EQSRC = r"""<script>
   var cur = null, head = null;
   [].forEach.call(document.querySelectorAll('h2,h3,.src,.eqb'), function (el) {
     if (el.classList.contains('src')) cur = el;
-    else if (el.classList.contains('eqb')) { el._src = cur; el._head = head; el.title = 'open this equation in its source (shift: textbook)'; }
+    else if (el.classList.contains('eqb')) { el._src = cur; el._head = head; el.title = 'open its source (shift: textbook)'; }
     else head = el;
   });
   function text(el) { return el ? (el.textContent || '').replace(/\s+/g, ' ').trim() : ''; }
@@ -132,9 +132,49 @@ _EQSRC = r"""<script>
 # Esc inside a note shown full screen in the Note Reader clicks the page's Exit Full Screen button (unless the find bar used the key).
 _ESC = """<script>
 document.addEventListener('keydown', function (e) {
-  if (e.key !== 'Escape' || e.defaultPrevented) return;
-  try { var b = window.parent.document.querySelector('.st-key-lab_full_close button'); if (b) b.click(); } catch (err) {}
+  if (e.defaultPrevented) return;
+  try {
+    var P = window.parent; if (!(P.__keyIs ? P.__keyIs(e, 'notes', 'leave_full', 'esc') : e.key === 'Escape')) return;
+    var b = P.document.querySelector('.st-key-lab_full_close button'); if (b) b.click();
+  } catch (err) {}
 });
+</script>"""
+
+# The place the reader is at in a note (the heading or equation at the top of the window and how far past it) is kept as the page is
+# scrolled, and the same note opened in the other mode (full screen, or in its window) opens at that place: leaving full screen keeps the position.
+_ANCHOR = """<script>
+(function () {
+  var MODE = "__MODE__", KEY = 'sa_note_anchor', TITLE = document.title || 'note', SEL = 'h2[id],h3[id],h4[id],.eqb[id]';
+  var armed = false, timer = null, stored = null;
+  try { stored = JSON.parse(localStorage.getItem(KEY)); } catch (e) {}
+  if (stored && !(stored.title === TITLE && stored.mode !== MODE && Date.now() - stored.t < 60000)) stored = null;
+  function current() {
+    var els = document.querySelectorAll(SEL), best = null;
+    for (var i = 0; i < els.length; i++) { var r = els[i].getBoundingClientRect(); if (r.top <= 6) best = {id: els[i].id, off: Math.round(-r.top)}; else break; }
+    return best || {id: '', off: Math.round(window.scrollY)};
+  }
+  function saveNow() {
+    if (!armed) return;
+    var c = current();
+    try { localStorage.setItem(KEY, JSON.stringify({title: TITLE, mode: MODE, id: c.id, off: c.off, t: Date.now()})); } catch (e) {}
+  }
+  window.addEventListener('scroll', function () { clearTimeout(timer); timer = setTimeout(saveNow, 120); });
+  setInterval(saveNow, 1000);                                  // also while nothing is scrolled: the place is always the latest one
+  window.addEventListener('pagehide', saveNow);
+  var steps = [], touched = false;
+  ['wheel', 'keydown', 'touchstart', 'mousedown'].forEach(function (ev) { window.addEventListener(ev, function () { touched = true; }, {passive: true, capture: true}); });
+  function go() {
+    if (!stored || touched) return;                              // the reader took over: leave the page where they put it
+    var el = stored.id ? document.getElementById(stored.id) : null;
+    if (el) {
+      var d = el.closest('details'); if (d && !d.open) d.open = true;
+      el.scrollIntoView({block: 'start', behavior: 'instant'});
+      window.scrollBy({top: stored.off, behavior: 'instant'});
+    } else if (!stored.id) window.scrollTo({top: stored.off || 0, behavior: 'instant'});
+  }
+  // the page grows while its equations are typeset, so the place is found again a few times
+  window.addEventListener('load', function () { [500, 1400, 2600, 4200].forEach(function (ms) { steps.push(setTimeout(go, ms)); }); setTimeout(function () { armed = true; }, 4600); });
+})();
 </script>"""
 
 # A helper or grade explanation written outside the app links to notes sections as web addresses of the page it was written
@@ -325,6 +365,34 @@ tools.addEventListener('click', function (e) {
   if (b.dataset.a === 'in') setZoom(zoom + 0.1); else if (b.dataset.a === 'out') setZoom(zoom - 0.1); else openBar();
 });
 pct.addEventListener('dblclick', function () { setZoom(1); });
+// The note's helper box (.tipbox) is placed in screen pixels, but a zoomed page also scales fixed boxes: scale the position back and keep the
+// whole box inside the frame (it used to run past the right edge when the page was zoomed in).
+(function () {
+  var tb = null;
+  function fix() {
+    if (!tb) return;
+    if (zoom === 1) { if (tb._m) { tb.style.maxWidth = ''; tb.style.width = ''; tb._m = 0; } return; }
+    var l = parseFloat(tb.style.left), t = parseFloat(tb.style.top);
+    if (isNaN(l) || isNaN(t)) return;
+    var key = tb.style.left + '|' + tb.style.top + '|' + zoom; if (tb._k === key) return;
+    tb.style.maxWidth = Math.max(120, Math.min(340, (window.innerWidth - 24) / zoom)) + 'px'; tb.style.width = 'max-content'; tb._m = 1;
+    var x = l / zoom, y = t / zoom;
+    tb.style.left = x + 'px'; tb.style.top = y + 'px';
+    var r = tb.getBoundingClientRect(), dx = 0, dy = 0;
+    if (r.right > window.innerWidth - 8) dx = window.innerWidth - 8 - r.right;
+    if (r.left + dx < 8) dx = 8 - r.left;
+    if (r.bottom > window.innerHeight - 8) dy = window.innerHeight - 8 - r.bottom;
+    if (r.top + dy < 8) dy = 8 - r.top;
+    if (dx) tb.style.left = (x + dx / zoom) + 'px';
+    if (dy) tb.style.top = (y + dy / zoom) + 'px';
+    tb._k = tb.style.left + '|' + tb.style.top + '|' + zoom;
+  }
+  setInterval(function () {
+    if (tb) return;
+    tb = document.querySelector('.tipbox');
+    if (tb) new MutationObserver(fix).observe(tb, {attributes: true, attributeFilter: ['style']});
+  }, 400);
+})();
 document.addEventListener('wheel', function (e) { if (e.ctrlKey) { e.preventDefault(); setZoom(zoom + (e.deltaY < 0 ? 0.1 : -0.1)); } }, {passive: false});
 function build() {
   if (bar) return;
@@ -379,9 +447,13 @@ function step(d, first) {
 function openBar() { build(); bar.style.display = 'flex'; tools.classList.add('on'); input.focus(); input.select(); if (input.value) run(); }
 function closeBar() { clear(); if (bar) bar.style.display = 'none'; tools.classList.remove('on'); }
 document.addEventListener('keydown', function (e) {
+  var isFind;
+  try { isFind = window.parent.__keyIs ? window.parent.__keyIs(e, 'notes', 'find', 'ctrl+f') : ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'f'); }
+  catch (err) { isFind = (e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'f'; }
+  if (isFind) { e.preventDefault(); openBar(); return; }
   if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey) {
     var k = e.key.toLowerCase();
-    if (k === 'f') { e.preventDefault(); openBar(); }
+    if (k === 'f') { /* the find shortcut is set in Settings */ }
     else if (k === '=' || k === '+') { e.preventDefault(); setZoom(zoom + 0.1); }
     else if (k === '-') { e.preventDefault(); setZoom(zoom - 0.1); }
     else if (k === '0') { e.preventDefault(); setZoom(1); }
@@ -391,7 +463,7 @@ window.addEventListener('message', function (e) { if (e.data && e.data.study ===
 })();</script>"""
 
 
-def safe_html(text, goto=None, questions=None, errata_source=None, resume=None, links=False, marks=False, slides=None, esc_exit=False):
+def safe_html(text, goto=None, questions=None, errata_source=None, resume=None, links=False, marks=False, slides=None, esc_exit=False, anchor=None):
     """The note's HTML with the link guard added just before the closing body tag (or at the end). `goto` is the id of
     a section to scroll to once the page has loaded (the Exercises tab opens the page at #exercises). `questions` (the
     app's question dicts) replace the note's own Self-check, so the note and the course Quiz tab agree."""
@@ -402,6 +474,8 @@ def safe_html(text, goto=None, questions=None, errata_source=None, resume=None, 
         script += _MARKS
     if slides:                                           # the id of this note: its slide numbers open the lecture slides (Note Reader)
         script += _SLIDES.replace("__CFG__", str(slides)) + _EQSRC.replace("__CFG__", str(slides))
+    if anchor:                                           # "full" or "win": which mode of the Note Reader this copy of the note is shown in
+        script += _ANCHOR.replace("__MODE__", str(anchor))
     if esc_exit:
         script += _ESC
     if errata_source:
