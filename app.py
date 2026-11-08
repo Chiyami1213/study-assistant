@@ -907,15 +907,51 @@ if (!win.__rdScrollV1) {
     });
   }, 250);
 }
-// Note Reader: drag the border between two windows to change their widths (remembered).
-if (!win.__labResizeV1) {
-  win.__labResizeV1 = true;
+// Note Reader: drag the border between two windows to change their widths (remembered); double click a border to share the width equally.
+// The widths live in the browser (localStorage, keyed by the windows' ids) and are applied here on every tick, so they do not depend on how fast
+// the app redraws; the app gets a copy too (hidden box) as a fallback.
+if (!win.__labResizeV2) {
+  win.__labResizeV2 = true;
+  const STORE = 'sa_lab_widths';
   const columns = () => {
     const b = doc.querySelector('[data-testid="stHorizontalBlock"]:has([class*="st-key-lab_pane_"])');
     return b ? [...b.children].filter(c => c.matches('[data-testid="stColumn"]')) : [];
   };
   const idOf = col => { const m = (col.querySelector('[class*="st-key-lab_pane_"]') || {className: ''}).className.match(/st-key-lab_pane_([A-Za-z0-9_]+)/); return m ? m[1] : null; };
-  let drag = null;
+  const load = () => { try { return JSON.parse(localStorage.getItem(STORE)) || null; } catch (e) { return null; } };
+  const save = v => { try { if (v) localStorage.setItem(STORE, JSON.stringify(v)); else localStorage.removeItem(STORE); } catch (e) {} };
+  const CSS = ['flex', 'width', 'min-width'];
+  let drag = null, applied = '';
+  // keep the remembered widths on the windows (the app redraws them with its own widths from time to time)
+  const apply = () => {
+    if (drag) return;
+    const cs = columns(); if (!cs.length) return;
+    const ids = cs.map(idOf), st = load();
+    const strip = doc.querySelector('.lab-tabs');
+    if (!st || st.ids.join() !== ids.join()) {                       // other windows than the remembered ones: the app's widths apply
+      if (st) save(null);
+      cs.forEach(c => CSS.forEach(k => c.style.removeProperty(k))); applied = '';
+      return;
+    }
+    cs.forEach((c, k) => { const f = st.w[k] + ' 1 0px';
+      if (c.style.flex !== f) { c.style.flex = f; c.style.width = '0'; c.style.minWidth = '0'; } });
+    if (strip) { const g = st.w.map(w => 'minmax(0,' + w + 'fr)').join(' '); if (strip.style.gridTemplateColumns !== g) strip.style.gridTemplateColumns = g; }
+  };
+  setInterval(apply, 120);
+  // send the relative widths to the app (kept as a copy)
+  const send = (cs, ws) => {
+    const sink = doc.querySelector('.st-key-lab_tab_sink input'); if (!sink) return;
+    const parts = cs.map((c, k) => idOf(c) + '=' + ws[k].toFixed(3)).filter(x => !x.startsWith('null'));
+    const set = Object.getOwnPropertyDescriptor(win.HTMLInputElement.prototype, 'value').set;
+    sink.focus(); set.call(sink, 'widths:' + parts.join(',') + '|' + Date.now());
+    sink.dispatchEvent(new win.Event('input', {bubbles: true}));
+    sink.dispatchEvent(new win.KeyboardEvent('keydown', {key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true}));
+    sink.blur();
+  };
+  const remember = (cs, widths) => {
+    const avg = widths.reduce((t, w) => t + w, 0) / widths.length, ws = widths.map(w => Math.round(w / avg * 1000) / 1000);
+    save({ids: cs.map(idOf), w: ws}); apply(); setTimeout(() => send(cs, ws), 60);
+  };
   doc.addEventListener('mousedown', e => {
     const cs = columns();
     for (let i = 0; i < cs.length - 1; i++) {
@@ -935,28 +971,10 @@ if (!win.__labResizeV1) {
     const strip = doc.querySelector('.lab-tabs');                      // the tabs above follow the windows
     if (strip) strip.style.gridTemplateColumns = drag.cs.map(c => 'minmax(0,' + c.getBoundingClientRect().width + 'fr)').join(' ');
   }, true);
-  // send the relative widths of the windows to the app (remembered), then drop the temporary pixel sizes
-  const commit = (cs, widths) => {
-    const sink = doc.querySelector('.st-key-lab_tab_sink input'); if (!sink) return;
-    const total = widths.reduce((t, w) => t + w, 0) / widths.length;                                  // average width = weight 1
-    const parts = cs.map((c, k) => idOf(c) + '=' + (widths[k] / total).toFixed(3)).filter(x => !x.startsWith('null'));
-    const set = Object.getOwnPropertyDescriptor(win.HTMLInputElement.prototype, 'value').set;
-    sink.focus(); set.call(sink, 'widths:' + parts.join(',') + '|' + Date.now());
-    sink.dispatchEvent(new win.Event('input', {bubbles: true}));
-    sink.dispatchEvent(new win.KeyboardEvent('keydown', {key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true}));
-    sink.blur();
-    // drop the temporary pixel sizes only once the app has drawn the new widths (the tab strip carries them in data-w); never before
-    const want = widths.map(w => w / total), t0 = Date.now();
-    const timer = setInterval(() => {
-      const strip = doc.querySelector('.lab-tabs'), have = strip && (strip.dataset.w || '').split(',').map(Number);
-      const done = have && have.length === want.length && have.every((v, k) => Math.abs(v - want[k]) < 0.01);
-      if (done || Date.now() - t0 > 60000) { clearInterval(timer); cs.forEach(c => ['flex', 'width', 'min-width'].forEach(k => c.style.removeProperty(k))); }
-    }, 200);
-  };
   doc.addEventListener('mouseup', () => {
     if (!drag) return;
     const d = drag; drag = null; doc.documentElement.classList.remove('lab-resizing');
-    commit(d.cs, d.cs.map(c => c.getBoundingClientRect().width));
+    remember(d.cs, d.cs.map(c => c.getBoundingClientRect().width));
   }, true);
   // a double click on the border between two windows shares the width equally between all of them
   doc.addEventListener('dblclick', e => {
@@ -964,12 +982,8 @@ if (!win.__labResizeV1) {
     for (let i = 0; i < cs.length - 1; i++) {
       const r = cs[i].getBoundingClientRect(), n = cs[i + 1].getBoundingClientRect();
       if (e.clientX >= r.right - 6 && e.clientX <= n.left + 6 && e.clientY >= r.top && e.clientY <= r.bottom) {
-        const each = cs.reduce((t, c) => t + c.getBoundingClientRect().width, 0) / cs.length;
-        cs.forEach(c => { c.style.flex = '0 0 ' + each + 'px'; c.style.width = each + 'px'; c.style.minWidth = '0'; });
-        const strip = doc.querySelector('.lab-tabs');
-        if (strip) strip.style.gridTemplateColumns = cs.map(() => 'minmax(0,1fr)').join(' ');
-        e.preventDefault();
-        setTimeout(() => commit(cs, cs.map(() => each)), 60);
+        e.preventDefault(); drag = null; doc.documentElement.classList.remove('lab-resizing');
+        remember(cs, cs.map(() => 1));
         return;
       }
     }
