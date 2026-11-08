@@ -142,7 +142,7 @@ def main():
         window.load_url(url)
 
     threading.Thread(target=wait_then_load, daemon=True).start()
-    storage = Path(os.environ.get("LOCALAPPDATA", project)) / "StudyAssistant" / "webview"
+    storage = project / "data" / "webview"          # inside the project, so copying the project folder also carries the browser-side settings
     storage.mkdir(parents=True, exist_ok=True)       # keeps the theme and other browser-side settings
     try:
         webview.settings["ALLOW_DOWNLOADS"] = True        # the File page's Download buttons (quizzes, notes) save files

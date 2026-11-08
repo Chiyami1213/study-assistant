@@ -24,6 +24,10 @@ from views import calendar_view, courses_view, home_view, lab_view, library_view
 st.set_page_config(page_title="Study Assistant", page_icon=":material/book:", layout="wide",
                    initial_sidebar_state="expanded")
 init_db()
+if "_backed_up" not in st.session_state:             # a safety copy of the database and settings outside the project (see backup.py)
+    import backup
+    backup.run()
+    st.session_state["_backed_up"] = True
 if "_titles_fixed" not in st.session_state:          # course codes in file names read "AE 333", not "AE333" or "ae 333"
     crud.fix_book_titles()
     st.session_state["_titles_fixed"] = True
@@ -482,6 +486,10 @@ section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-h
 [class*="st-key-lab_pane_"] [data-testid="stPopover"] button {{border: 1px solid var(--border) !important; background: var(--card) !important;
     padding: 0.25rem 0.75rem; min-height: 2.5rem; justify-content: center;}}
 [class*="st-key-lab_pane_"] [data-testid="stPopover"] button p {{font-size: 0.95rem; font-weight: 400; letter-spacing: 0; line-height: 1.4;}}
+/* the Restore Database popover in Settings looks like the other buttons of its row */
+.st-key-backup_db_pop [data-testid="stPopover"] button {{border: 1px solid var(--border) !important; background: var(--bg) !important;
+    padding: 0.25rem 0.75rem; min-height: 2.5rem; justify-content: center;}}
+.st-key-backup_db_pop [data-testid="stPopover"] button p {{font-size: 0.875rem; font-weight: 400; letter-spacing: 0; line-height: 1.4;}}
 .lab-tab.dragging {{opacity: 0.45;}}
 .lab-tab.drop-target {{box-shadow: inset 0 -3px 0 var(--accent);}}
 [class*="st-key-lab_pane_"] {{flex: none; height: calc(100vh - 62px); overflow-y: auto; overflow-x: hidden; padding: 0 12px; background: var(--bg);}}

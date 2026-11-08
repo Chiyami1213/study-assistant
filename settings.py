@@ -1,10 +1,15 @@
 """User preferences (appearance) persisted to data/settings.json and the Streamlit theme config."""
 import json
+import os
+import shutil
+import threading
+import time
 from datetime import datetime
 
 from database import BASE_DIR
 
 SETTINGS_FILE = BASE_DIR / "data" / "settings.json"
+SETTINGS_BACKUP = BASE_DIR / "data" / "settings.json.bak"
 
 THEMES = ("light", "dark", "device")
 
@@ -87,16 +92,45 @@ def css_vars(choice):
     return f":root{{{PALETTES[choice]}color-scheme:{choice};}}" + OVERRIDE
 
 
+def _read(path):
+    """The parsed file, None when it is missing or cannot be read (another copy of the app may be writing it at that moment: try again)."""
+    for _ in range(4):
+        try:
+            return json.loads(path.read_text(encoding="utf-8"))
+        except FileNotFoundError:
+            return None
+        except Exception:
+            time.sleep(0.05)
+    return None
+
+
 def _load():
-    try:
-        return json.loads(SETTINGS_FILE.read_text())
-    except Exception:
-        return {}
+    """All settings. A file that cannot be read falls back to the last good copy (settings.json.bak), never to an empty set that a save would
+    then write over everything."""
+    data = _read(SETTINGS_FILE)
+    if data is None and SETTINGS_FILE.exists() and SETTINGS_FILE.stat().st_size > 2:
+        data = _read(SETTINGS_BACKUP)
+    return data if isinstance(data, dict) else {}
 
 
 def _save(data):
+    """Written to a temporary file and moved into place, so a reader never sees half a file; the previous good file is kept as .bak."""
     SETTINGS_FILE.parent.mkdir(parents=True, exist_ok=True)
-    SETTINGS_FILE.write_text(json.dumps(data))
+    tmp = SETTINGS_FILE.with_name(f"settings.{os.getpid()}.{threading.get_ident()}.tmp")       # one per writer
+    tmp.write_text(json.dumps(data), encoding="utf-8")
+    try:
+        if _read(SETTINGS_FILE) is not None:
+            shutil.copyfile(SETTINGS_FILE, SETTINGS_BACKUP)
+    except OSError:
+        pass
+    for attempt in range(8):                       # on Windows the move fails while another reader has the file open for a moment
+        try:
+            os.replace(tmp, SETTINGS_FILE)
+            return
+        except PermissionError:
+            time.sleep(0.03 * (attempt + 1))
+    SETTINGS_FILE.write_text(json.dumps(data), encoding="utf-8")
+    tmp.unlink(missing_ok=True)
 
 
 def get_appearance():
@@ -133,6 +167,17 @@ def set_keys(group, **values):
 def reset_keys(group):
     data = _load()
     data.setdefault("keys", {}).pop(group, None)
+    _save(data)
+
+
+def get_backup():
+    """{dir: where the Library backup is kept, sources: [folders the original files are kept in], last: time of the last backup}"""
+    return _load().get("backup", {})
+
+
+def set_backup(**values):
+    data = _load()
+    data["backup"] = {**data.get("backup", {}), **values}
     _save(data)
 
 

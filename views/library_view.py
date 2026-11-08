@@ -4,6 +4,7 @@ from datetime import date
 import html
 import hashlib
 import re
+import shutil
 import uuid
 
 import streamlit as st
@@ -16,6 +17,7 @@ import solcrop
 import hwassist
 import reader
 import crud
+import libbackup
 import syllabus
 import navigation
 import pdfmeta
@@ -51,12 +53,27 @@ def _page_png(path, mtime, page_index, width):
     return covers.render_page(path, page_index, width)
 
 
+def _cover_url(img):
+    """Where the page shows a cover from. Covers are copied under static/covers (served by Streamlit, and kept by the browser), so the Library page
+    does not carry about 300 inline images every time it is drawn; without static serving the image is inlined."""
+    try:
+        if reader.scroll_available():
+            dest = BASE_DIR / "static" / "covers" / img.name
+            if not dest.exists() or dest.stat().st_mtime < img.stat().st_mtime:
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(img, dest)
+            return f"/app/static/covers/{img.name}?v={int(img.stat().st_mtime)}"
+    except OSError:
+        pass
+    return f"data:image/jpeg;base64,{_cover_b64(str(img), img.stat().st_mtime)}"
+
+
 def _cover_html(book):
     """First page of the PDF as the cover; a generated gradient with the title if it can't be rendered."""
     img = covers.ensure_cover(book["id"], BASE_DIR / book["pdf_path"])
     if img:
-        b64 = _cover_b64(str(img), img.stat().st_mtime)
-        return f'<div class="book-cover has-img" style="background-image:url(data:image/jpeg;base64,{b64});"></div>'
+        url = _cover_url(img)
+        return f'<div class="book-cover has-img" style="background-image:url({url});"></div>'
     hue = int(hashlib.md5(book["title"].encode()).hexdigest()[:6], 16) % 360
     title = book["title"].replace("<", "&lt;")
     return (f'<div class="book-cover" style="background: linear-gradient(155deg, hsl({hue},45%,38%), '
@@ -202,7 +219,8 @@ def _add_dialog(default_course=None):
         dest = PDF_DIR / f"book_{uuid.uuid4().hex[:10]}{ext}"
         dest.write_bytes(up.getvalue())
         new_id = crud.add_book(title.strip(), author.strip(), edition.strip(), str(dest.relative_to(BASE_DIR)),
-                               info["pages"], course_ids, kind, year.strip(), lecture.strip())
+                               info["pages"], course_ids, kind, year.strip(), lecture.strip(), orig_name=up.name)
+        libbackup.auto()                                           # keeps the backup folder (if one is chosen) up to date
         if kind == "Syllabus" and ext == ".pdf":
             syllabus.auto_build(course_ids, new_id, dest)          # the syllabus section of the course page
         _reset_add_boxes()

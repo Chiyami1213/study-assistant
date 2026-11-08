@@ -20,14 +20,28 @@ RESOURCE_COLUMNS = 6
 
 
 @st.cache_data(show_spinner=False, max_entries=64)
-def _photo_b64(path, mtime):
-    with open(path, "rb") as f:
-        return base64.b64encode(f.read()).decode()
+def _photo_b64(path, mtime, width):
+    """The photo scaled down to `width` pixels (a 3000 px photo decoded for every tile made the Courses page slow); the scaled copy is kept
+    under data/course_photos/thumbs so it is made once."""
+    import pathlib
+    src = pathlib.Path(path)
+    thumb = src.parent / "thumbs" / f"{src.stem}_{width}_{int(mtime)}.jpg"
+    if not thumb.exists():
+        from PIL import Image
+        with Image.open(src) as im:
+            im = im.convert("RGB")
+            if im.width > width:
+                im = im.resize((width, max(1, round(im.height * width / im.width))), Image.LANCZOS)
+            thumb.parent.mkdir(exist_ok=True)
+            for old in thumb.parent.glob(f"{src.stem}_{width}_*.jpg"):      # an earlier version of this photo
+                old.unlink(missing_ok=True)
+            im.save(thumb, "JPEG", quality=82, optimize=True)
+    return base64.b64encode(thumb.read_bytes()).decode()
 
 
-def _photo_url(course_id):
+def _photo_url(course_id, width=640):
     p = photos.photo_path(course_id)
-    return f"data:image/jpeg;base64,{_photo_b64(str(p), p.stat().st_mtime)}" if p else None
+    return f"data:image/jpeg;base64,{_photo_b64(str(p), p.stat().st_mtime, width)}" if p else None
 
 
 def _icon_html(icon):
@@ -97,7 +111,7 @@ def _add_course_dialog():
 def _hero_html(course):
     """Top of a course page: the photo (or the course color) fills the top, with the title and labels on it."""
     color = crud.course_color(course)
-    photo = _photo_url(course["id"])
+    photo = _photo_url(course["id"], 1800)
     if photo:
         bg = f"linear-gradient(to top, rgba(0,0,0,0.72), rgba(0,0,0,0.12)), url({photo}) center/cover"
     else:
@@ -743,7 +757,6 @@ def _outline(course):
         st.caption("No outline yet.")
         return
 
-    _open_pdf_from_outline()
 
     def label(it):
         text = html.escape(it["title"])
@@ -792,6 +805,7 @@ def _outline(course):
 
 def _manage(course):
     """The course page below the banner: Overview (deadlines), Outline (blank for now) and Resources."""
+    _open_pdf_from_outline()                     # the hidden box every file link of the course page (homework, exams, outline ...) writes into
     remembered = st.session_state.get("course_tab")          # (course id, tab) set when a PDF was opened from here
     start = remembered[1] if remembered and remembered[0] == course["id"] else None
     overview, homework, exams, outline, resources, quiz = st.tabs(

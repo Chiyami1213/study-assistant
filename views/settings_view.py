@@ -41,6 +41,7 @@ def render():
             settings.set_eye_rest(**new)
             st.rerun()
 
+    _backup_section()
     st.header("Keyboard Shortcuts")
     st.caption("Type a key, such as d, or a combination, such as ctrl+z. Esc is the Escape key. A shortcut works when you are not typing in a box.")
     _keys_section("Homework and Exam Reader", "reader", [
@@ -51,6 +52,76 @@ def render():
     _keys_section("Note Reader", "notes", [
         ("find", "Find in the Page", "opens the find bar of the note under the pointer"),
         ("leave_full", "Leave Full Screen", "returns from the full screen note to the windows")])
+    _danger_zone()
+
+
+def _backup_section():
+    """Where the Library is backed up, the folders the original files live in, Back Up Now and the two ways to restore; then the danger zone."""
+    import libbackup
+    st.header("Backup")
+    st.caption("Keeps a copy of every Library file, what each one is, the database and the settings in a folder you choose, so the Library can be "
+               "brought back quickly if it is ever lost. The folders where you keep the original files are remembered too: files that are missing "
+               "can be found again there by their size and content. Nothing in your own folders is ever changed or deleted.")
+    cfg = settings.get_backup()
+    folder = st.text_input("Backup Folder", cfg.get("dir") or str(libbackup.DEFAULT_DIR), key="backup_dir",
+                           help="a folder outside the project, such as one on another drive or in onedrive")
+    sources = st.text_area("Folders With Your Original Files", "\n".join(cfg.get("sources", [])), key="backup_sources", height=110,
+                           help="one folder per line, such as your onedrive school documents folder. they are only read", placeholder="C:\\Users\\you\\OneDrive\\School Documents")
+    wanted = [s.strip() for s in sources.splitlines() if s.strip()]
+    if folder.strip() != (cfg.get("dir") or str(libbackup.DEFAULT_DIR)) or wanted != cfg.get("sources", []):
+        settings.set_backup(dir=folder.strip(), sources=wanted)
+        st.rerun()
+    bad = [p for p in wanted if not libbackup.Path(p).is_dir()]
+    if bad:
+        st.warning("These folders were not found: " + ", ".join(bad))
+    a, b, c = st.columns(3)
+    if a.button("Back Up Now", icon=":material/backup:", width="stretch", key="backup_now", help="copies new and changed files to the backup folder"):
+        with st.spinner("Copying the Library..."):
+            try:
+                r = libbackup.back_up(folder.strip() or None)
+                st.success(f"Backed up {r['books']} files ({r['copied']} new or changed) to {r['folder']}.")
+            except OSError as e:
+                st.error(f"The backup could not be made: {e}")
+    if b.button("Restore Missing Files", icon=":material/restore:", width="stretch", key="backup_restore",
+                help="adds back the files the library does not have, from the backup folder or your original folders"):
+        try:
+            with st.spinner("Restoring..."):
+                r = libbackup.restore(folder.strip() or None, wanted)
+            st.success(f"Restored {r['restored']} files; {r['skipped']} were already in the Library.")
+            if r["missing"]:
+                st.warning(f"{len(r['missing'])} files could not be found: " + ", ".join(r["missing"][:8]) + (" ..." if len(r["missing"]) > 8 else ""))
+        except (OSError, ValueError) as e:
+            st.error(f"There is no usable backup in that folder: {e}")
+    with c, st.container(key="backup_db_pop"):                              # styled like the buttons beside it
+        with st.popover("Restore Database", icon=":material/database:", width="stretch", help="puts the backed up database and settings back"):
+            st.caption("Replaces the database and settings with the ones in the backup folder (courses, homework, grades, exams, outlines). The current ones are "
+                       "kept next to them as before-restore copies. Restart the app afterwards.")
+            if st.button("Restore Database", key="backup_restore_db"):
+                try:
+                    libbackup.restore_database(folder.strip() or None)
+                    st.success("The database and settings were restored. Close and reopen the app.")
+                except OSError as e:
+                    st.error(f"Could not restore: {e}")
+    if cfg.get("last"):
+        st.caption(f"Last backup: {cfg['last'].replace('T', ' ')}")
+
+
+
+def _danger_zone():
+    import libbackup
+    st.header("Danger Zone")
+    with st.container(key="danger_zone", border=True):
+        st.markdown("**Clear All Library**")
+        st.caption("Removes every file from the Library: the records and the stored copies. A backup is made first, and nothing is removed if that "
+                   "fails. Your original files in your own folders and in onedrive are not touched.")
+        typed = st.text_input("Type CLEAR LIBRARY to confirm", key="clear_confirm", placeholder="CLEAR LIBRARY")
+        if st.button("Clear All Library", icon=":material/delete_forever:", type="primary", key="clear_library", disabled=typed.strip() != "CLEAR LIBRARY"):
+            try:
+                with st.spinner("Backing up, then clearing..."):
+                    r = libbackup.clear_library()
+                st.success(f"Removed {r['books']} files from the Library. The backup is in {r['backup']}.")
+            except Exception as e:
+                st.error(f"Nothing was removed: {e}")
 
 
 _MODIFIERS = ("ctrl", "alt", "shift")

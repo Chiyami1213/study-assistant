@@ -397,11 +397,11 @@ def fix_book_titles():
 
 
 def add_book(title, author, edition, pdf_path, total_pages, course_ids=None, kind="Textbook", year=None,
-             lecture=None):
+             lecture=None, orig_name=None):
     title = fix_course_ids(title)
-    book_id = _exec("INSERT INTO books(title,author,edition,year,lecture,pdf_path,total_pages,kind) "
-                    "VALUES (?,?,?,?,?,?,?,?)",
-                    (title, author or None, edition or None, year or None, lecture or None, pdf_path, total_pages, kind))
+    book_id = _exec("INSERT INTO books(title,author,edition,year,lecture,pdf_path,total_pages,kind,orig_name) "
+                    "VALUES (?,?,?,?,?,?,?,?,?)",
+                    (title, author or None, edition or None, year or None, lecture or None, pdf_path, total_pages, kind, orig_name or None))
     set_book_courses(book_id, course_ids)
     return book_id
 

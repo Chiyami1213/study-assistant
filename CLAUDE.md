@@ -3,6 +3,17 @@
 Personal Streamlit + SQLite study app (`python run.py`). Code is in `app.py`, `views/`, `crud.py`, `database.py`.
 Personal data (`data/`: database, settings, PDFs) is git-ignored. Never edit files under `data/` by hand.
 
+## Protect `data/` (it was deleted once by a test setup; the originals of many imports were lost)
+- NEVER link, junction, symlink or mount `data/` (or anything inside it) into another folder, and never run a recursive delete
+  (`git worktree remove`, `rm -r`, `Remove-Item -Recurse`, `shutil.rmtree`) on a folder that contains such a link. A recursive delete follows
+  Windows junctions and erases the real files.
+- To test or compare an older version, COPY what is needed to a scratch folder (a small copy of `data/study.db` is enough) and point the test at the
+  copy. Never point a test at the real `data/`, and never leave a test server running against it.
+- Source files outside the project (OneDrive, the H: drive, Downloads ...) are READ ONLY for this app and for Claude: import = COPY into
+  `data/pdfs/`. Never delete, move, rename or edit a file in the user's own drives or OneDrive.
+- `backup.py` copies the database, settings and the small data folders to `~/StudyAssistantBackup/` (outside the project) when the app starts.
+  Restore from the newest folder there if `data/` is damaged.
+
 ## The Note Reader reads notes; it does not build them
 
 Notes are built outside the app and imported into the Library as type Notes (one `.html` file per chapter, stored under
@@ -44,6 +55,13 @@ Number (or "Midterm 1", "Final" in the title) pair it with the problem file and 
 - A written helper marks the problem file the same way: a click on a problem card (`id="p<n>"`) shows the problem's heading, and a
   click on a sub-problem (`<div class="part">` whose `.pl` label is the letter, e.g. `a)`) shows that part's lines. Problem numbers and
   letters must match the numbering of the problem PDF (the app finds them by their text).
+
+## Moving to another laptop
+Everything the app keeps is inside the project folder: `data/` (database, settings, imported files, covers, photos, grades, drawings, browser-side
+settings in `data/webview`), `notes/`, `quizzes/`. Copy the whole project folder (including `dist/` if the exe is wanted) to the new laptop and run
+`python run.py` (after `pip install -r requirements.txt`) or `dist/StudyAssistant/StudyAssistant.exe` (Windows with the Edge WebView2 runtime). Nothing
+may be stored outside the project: do not add paths to the user profile, AppData or the registry. (The only things outside are the optional safety copies
+in `~/StudyAssistantBackup` and the backup folder chosen in Settings; they are not needed to run the app.)
 
 ## Conventions
 - Interface text uses APA title case; hover tooltips are all lower case.
