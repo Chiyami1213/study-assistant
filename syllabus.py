@@ -169,14 +169,22 @@ def _grade_rows(text):
     """The parts of the grade [{item, percent, kind}] from the first place that lists parts adding up to about 100%, and the index
     of that place. Reads 'Homework 25%', 'Homework: 40% of course grade', 'Final Exam' / '50%' on the next line and
     'assignments (30%) and two quizzes (35% each)'."""
-    starts = [m.start() for m in re.finditer(r"(?i)grad(?:e|es|ing)\b", text)] or [0]
+    starts = [m.start() for m in re.finditer(r"(?i)grad(?:e|es|ing)\b", text)][:12] or [0]
     for start in starts:
         rows, total = [], 0.0
-        for m in _ROW.finditer(text[start:start + 1200]):
+        window = re.sub(r"(?i)\(?\s*@?\s*[\d.]+\s*%\s*each\s*\)?", "", text[start:start + 1200])
+        for m in _ROW.finditer(window):
             label = _label(m.group("label"))
             pct = float(m.group("pct"))
             if not label or len(label) < 2 or re.fullmatch(r"(?i)\W*(?:above|below|and above|or above|grade|to|a|b|c|d|f)\W*", label) or pct > 100:
                 continue
+            if re.search(r"\d\s*/\s*\d", label) or re.match(r"(?i)or\b", label):
+                rows, total = None, 0.0
+                break
+            if re.search(r"(?i)\b(will|each|be|weighted|counted|count|if|you|your|scor\w*|are|is|than|less|more|at least)\b", label) \
+                    and not re.fullmatch(r"(?i)(?:comprehensive |final |midterm |first |second |third |online |written |in-class )*exams?(?: \d)?", label):
+                rows, total = None, 0.0                                   # a sentence, not a name of a part: not a grading table
+                break
             word = label.split()[0].lower() if label.split() else ""
             n = _COUNTS.get(word, 1) if "each" in m.group("after").lower() else 1
             if n > 1:
@@ -190,7 +198,7 @@ def _grade_rows(text):
                     total += pct
             if total >= 99.5:
                 break
-        if 95 <= total <= 105:
+        if rows and 95 <= total <= 105:
             return rows, start
     return [], None
 
@@ -207,6 +215,10 @@ def _scale(text):
                          text):
         nums = [float(x) for x in (m.group(1), m.group(2)) if x]
         found.setdefault(m.group(3), (min(nums), _clean(m.group(0))))
+    for m in re.finditer(r"(?m)^\s*(\d{2,3}(?:\.\d+)?)\s*[\u2013-]\s*(\d{2,3}(?:\.\d+)?)\s*%?\s*:?\s+([ABCDF][+-]?)\s*$", text):
+        found.setdefault(m.group(3), (min(float(m.group(1)), float(m.group(2))), _clean(m.group(0))))
+    for m in re.finditer(r"(?m)^\s*([ABCDF][+-]?)\s+(\d{2,3}(?:\.\d+)?)\s*[\u2013-]\s*(\d{2,3}(?:\.\d+)?)\s*%?\s*$", text):
+        found.setdefault(m.group(1), (min(float(m.group(2)), float(m.group(3))), _clean(m.group(0))))
     scale = [{"grade": g, "rule": rule, "min": int(low) if low == int(low) else low} for g, (low, rule) in found.items()]
     return sorted(scale, key=lambda r: -r["min"]) if len(scale) >= 2 else []
 
@@ -219,7 +231,9 @@ def parse(pages):
     m = re.search(r"(Professor|Prof\.|Instructor|Dr\.)[: ]+(" + _NAME + ")", text)
     if m:
         name = re.sub(r"(?:\s+(?:Office|Email|E-mail|Phone|Tel|Room|Contact|Hours|Dept|Department|School))+.*$", "", _clean(m.group(2)))
-        out["instructor"] = ("Prof. " if m.group(1).startswith("Prof") else "Dr. " if m.group(1).startswith("Dr") else "") + name
+        name = " ".join(w for w in name.split() if w.lower() not in ("information", "name", "contact", "instructor", "evaluations", "of", "the"))
+        if len(name.split()) >= 2 or (name and "." in name):
+            out["instructor"] = ("Prof. " if m.group(1).startswith("Prof") else "Dr. " if m.group(1).startswith("Dr") else "") + name
         near = re.search(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+", text[m.end():m.end() + 400])
         if near:
             out["email"] = near.group(0)

@@ -202,6 +202,8 @@ def _default_view(book):
 
 def _viewer(book):
     """Preview: pages rendered as images, with prev/next, page jump and zoom."""
+    if book["kind"] in HW_GROUP + EXAM_GROUP:          # the reading page of a homework or exam: the same margin at the right as at the left
+        st.markdown("<style>.block-container {padding-right: 2.5rem !important;}</style>", unsafe_allow_html=True)
     if st.button("← Back"):                      # to the page the file was opened from (course, library ...)
         if not navigation.go_back():
             st.session_state["open_book"] = None
