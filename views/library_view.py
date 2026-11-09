@@ -22,7 +22,7 @@ import syllabus
 import navigation
 import pdfmeta
 from pdfmeta import split_lecture, strip_notes_prefix
-from database import BASE_DIR, PDF_DIR
+from database import BASE_DIR, PDF_DIR, data_path, stored_path
 
 COLUMNS = 6
 KINDS = ["Textbook", "Lecture Notes", "Notes", "Homework", "Homework Helper", "Homework Solution", "Graded Homework", "Grade Explanation",
@@ -70,7 +70,7 @@ def _cover_url(img):
 
 def _cover_html(book):
     """First page of the PDF as the cover; a generated gradient with the title if it can't be rendered."""
-    img = covers.ensure_cover(book["id"], BASE_DIR / book["pdf_path"])
+    img = covers.ensure_cover(book["id"], data_path(book["pdf_path"]))
     if img:
         url = _cover_url(img)
         return f'<div class="book-cover has-img" style="background-image:url({url});"></div>'
@@ -218,7 +218,7 @@ def _add_dialog(default_course=None):
         ext = ".pdf" if up.name.lower().endswith(".pdf") else ".html"
         dest = PDF_DIR / f"book_{uuid.uuid4().hex[:10]}{ext}"
         dest.write_bytes(up.getvalue())
-        new_id = crud.add_book(title.strip(), author.strip(), edition.strip(), str(dest.relative_to(BASE_DIR)),
+        new_id = crud.add_book(title.strip(), author.strip(), edition.strip(), stored_path(dest),
                                info["pages"], course_ids, kind, year.strip(), lecture.strip(), orig_name=up.name)
         libbackup.auto()                                           # keeps the backup folder (if one is chosen) up to date
         if kind == "Syllabus" and ext == ".pdf":
@@ -246,7 +246,7 @@ def _viewer(book):
             st.session_state["open_book"] = None
             st.rerun()
     st.header(book["title"])
-    path = BASE_DIR / book["pdf_path"]
+    path = data_path(book["pdf_path"])
     if not path.exists():
         st.error("The stored PDF file is missing."); return
     if path.suffix.lower() in (".html", ".htm"):
@@ -375,7 +375,7 @@ def _doc_target(book, text):
 
 def _problem_info(book):
     """{problem number: parsed problem} of a homework or exam file."""
-    path = BASE_DIR / book["pdf_path"]
+    path = data_path(book["pdf_path"])
     try:
         return {str(x["id"]): x for x in hwassist.parse_problems(str(path), path.stat().st_mtime)}
     except Exception:
@@ -428,7 +428,7 @@ def _problem_marks(book, path, sel):
 
 def _imported_panel(doc, book, marks=False, height=860):
     """The helper or grade explanation written outside the app, shown beside the paper; its notes links open your notes."""
-    path = BASE_DIR / doc["pdf_path"]
+    path = data_path(doc["pdf_path"])
     if not path.exists():
         st.error("The stored file is missing."); return
     components.html(htmlnotes.safe_html(path.read_text(encoding="utf-8", errors="replace"), resume=f"doc{doc['id']}", links=True, marks=marks),
@@ -531,7 +531,7 @@ def _exam_problems(book, exam_file, solution, analysis):
     """Problem cards for a graded exam without per-problem marks: notes sections, and on request the solution pages."""
     sol_pages = {}
     if solution:
-        sol_path = BASE_DIR / solution["pdf_path"]
+        sol_path = data_path(solution["pdf_path"])
         try:
             found = hwassist.parse_problems(str(sol_path), sol_path.stat().st_mtime)
         except Exception:
@@ -553,7 +553,7 @@ def _exam_problems(book, exam_file, solution, analysis):
                 st.button("Hide Solution" if opened else "Show Solution", key=f"{flag}_btn", icon=":material/fact_check:",
                           on_click=_toggle_flag, args=(flag,), help="the solution's pages for this problem")
                 if opened:
-                    sol_path = BASE_DIR / solution["pdf_path"]
+                    sol_path = data_path(solution["pdf_path"])
                     for pg in sol_pages[pid]:
                         st.image(reader.page_image(sol_path, sol_path.stat().st_mtime, pg - 1, 1100), caption=f"Solution, page {pg}")
 
@@ -634,7 +634,7 @@ def _grade_panel(book, header_only=False):
                 st.button("Hide Corrected Answer" if opened else "Show Corrected Answer", key=f"{flag}_btn", icon=":material/fact_check:",
                           on_click=_toggle_flag, args=(flag,), help="the solution's answer to this problem, with the grader's comments")
                 if opened:
-                    sol_path = BASE_DIR / solution["pdf_path"]
+                    sol_path = data_path(solution["pdf_path"])
                     mtime = sol_path.stat().st_mtime
                     pages = tuple(_solution_pages(pr, problems, solution.get("total_pages") or 1))
                     wanted = [it for it in pr["items"] if it["lost"] or it.get("comment")] or [None]
@@ -764,7 +764,7 @@ def _edit_dialog(book):
         crud.update_book(book["id"], title.strip() or book["title"], author.strip(), edition.strip(), kind,
                          course_ids, year.strip(), lecture.strip())
         if kind == "Syllabus" and book["pdf_path"].lower().endswith(".pdf"):
-            syllabus.auto_build(course_ids, book["id"], BASE_DIR / book["pdf_path"])
+            syllabus.auto_build(course_ids, book["id"], data_path(book["pdf_path"]))
         st.rerun()
     if b.button("Preview", key=f"open_book_{book['id']}"):
         st.session_state["open_book"] = book["id"]
@@ -777,7 +777,7 @@ def _edit_dialog(book):
     if st.session_state.get(confirm):
         st.warning("This also deletes the stored copy in data/pdfs. Your original file is not touched.")
         if st.button("Yes, Remove It", type="primary", key=f"del_yes_{book['id']}"):
-            p = BASE_DIR / book["pdf_path"]
+            p = data_path(book["pdf_path"])
             crud.delete_book(book["id"])
             covers.remove_cover(book["id"])
             if p.exists():

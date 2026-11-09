@@ -3,9 +3,40 @@ import re
 import sqlite3
 from pathlib import Path
 
-BASE_DIR = Path(__file__).parent
-DB_PATH = BASE_DIR / "data" / "study.db"
-PDF_DIR = BASE_DIR / "data" / "pdfs"
+BASE_DIR = Path(__file__).parent                      # the program: code, notes/, quizzes/ (everything that is on GitHub)
+
+
+def _data_root():
+    r"""Where the user's own files live: the database, settings, imported files, covers, photos, grades, drawings, backups.
+    STUDY_ASSISTANT_DATA overrides it (for tests); otherwise %APPDATA%\Study Assistant. A copy that has not been migrated yet
+    (data/study.db inside the program folder) keeps using that folder, so updating the program never loses anything."""
+    import os
+    env = os.environ.get("STUDY_ASSISTANT_DATA")
+    if env:
+        return Path(env)
+    roaming = Path(os.environ.get("APPDATA") or (Path.home() / "AppData" / "Roaming")) / "Study Assistant"
+    if roaming.exists():
+        return roaming
+    legacy = BASE_DIR / "data"
+    return legacy if (legacy / "study.db").exists() else roaming
+
+
+DATA_DIR = _data_root()
+DB_PATH = DATA_DIR / "study.db"
+PDF_DIR = DATA_DIR / "pdfs"
+
+
+def data_path(rel):
+    r"""The real file of a path stored in the database: 'pdfs\book_x.pdf' (or the older 'data\pdfs\book_x.pdf') inside DATA_DIR."""
+    p = str(rel or "").replace("/", "\\")
+    if re.match(r"^[A-Za-z]:\\", p) or p.startswith("\\\\"):
+        return Path(p)
+    return DATA_DIR / (p[5:] if p.lower().startswith("data\\") else p)
+
+
+def stored_path(path):
+    """What to store in the database for a file inside DATA_DIR: its path relative to DATA_DIR."""
+    return str(Path(path).relative_to(DATA_DIR))
 
 USER_COURSES = [  # (code, name, sidebar icon)
     ("AE 6009", "Viscous Fluid Flow", "svg:boundary_layer"),

@@ -21,7 +21,7 @@ import macros
 import re
 import quizgen
 import quizzes
-from database import BASE_DIR
+from database import BASE_DIR, data_path
 from views import library_view
 
 PASS, STRONG = 60, 80          # percent: below PASS the quiz is failed
@@ -44,7 +44,7 @@ def course_chapters(course):
     for b in sorted((b for b in crud.list_books() if course["id"] in b["course_ids"]
                      and b["kind"] in ("Notes", "Lecture Notes") and b["pdf_path"].lower().endswith((".html", ".htm"))),
                     key=library_view._course_order):
-        path = BASE_DIR / b["pdf_path"]
+        path = data_path(b["pdf_path"])
         if not path.exists():
             continue
         secs = _sections(str(path), path.stat().st_mtime)

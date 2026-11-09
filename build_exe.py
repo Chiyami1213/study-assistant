@@ -42,6 +42,8 @@ def main():
     out = ROOT / "dist" / "StudyAssistant"
     (out / "project_path.txt").write_text(str(ROOT), encoding="utf-8")
     print("Built:", out / "StudyAssistant.exe")
+    import build_installer                      # the installer that Settings > Migrate puts in the migration zip
+    print("Built:", build_installer.build())
 
 
 if __name__ == "__main__":

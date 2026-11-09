@@ -5,7 +5,7 @@ from pathlib import Path
 import streamlit as st
 
 import crud
-from database import BASE_DIR, PDF_DIR
+from database import BASE_DIR, PDF_DIR, data_path, stored_path
 
 
 def render_note(note, mode):
@@ -31,7 +31,7 @@ def render_note(note, mode):
 
 
 def pdf_viewer(ref):
-    path = BASE_DIR / ref["pdf_path"] if ref["pdf_path"] else None
+    path = data_path(ref["pdf_path"]) if ref["pdf_path"] else None
     page = st.session_state["pdf_page"]
     c1, c2, c3 = st.columns([1, 2, 1])
     if c1.button("◀ Prev"):
@@ -52,7 +52,7 @@ def pdf_viewer(ref):
     if up:
         dest = PDF_DIR / f"ref_{ref['id']}.pdf"
         dest.write_bytes(up.getvalue())
-        crud.set_reference_pdf(ref["id"], str(dest.relative_to(BASE_DIR)))
+        crud.set_reference_pdf(ref["id"], stored_path(dest))
         st.rerun()
 
 

@@ -142,7 +142,9 @@ def main():
         window.load_url(url)
 
     threading.Thread(target=wait_then_load, daemon=True).start()
-    storage = project / "data" / "webview"          # inside the project, so copying the project folder also carries the browser-side settings
+    sys.path.insert(0, str(project))
+    from database import DATA_DIR
+    storage = DATA_DIR / "webview"                 # the browser-side settings live with the user's other files
     storage.mkdir(parents=True, exist_ok=True)       # keeps the theme and other browser-side settings
     try:
         webview.settings["ALLOW_DOWNLOADS"] = True        # the File page's Download buttons (quizzes, notes) save files

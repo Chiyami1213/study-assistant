@@ -1,6 +1,6 @@
 """Safety copies of everything in data/ that cannot be made again from the original files: the database, the settings and the small
-folders of notes, grades, syllabus data, drawings and equation sheets. They go OUTSIDE the project, to ~/StudyAssistantBackup/<date and time>/,
-so deleting or damaging data/ cannot take the copies with it. The PDFs themselves are not copied (they exist where they were imported from).
+folders of notes, grades, syllabus data, drawings and equation sheets. They go to <data folder>/Backups/Snapshots/<date and time>/ (the data folder is
+AppData/Roaming/Study Assistant, outside the project, so a damaged project folder cannot take the copies with it). The PDFs themselves are not copied (they exist where they were imported from).
 
 run() is called when the app starts; it makes a copy at most once every 30 minutes and keeps the newest 20."""
 import shutil
@@ -9,10 +9,10 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-from database import BASE_DIR
+from database import DATA_DIR
 
-DATA = BASE_DIR / "data"
-ROOT = Path.home() / "StudyAssistantBackup"
+DATA = DATA_DIR
+ROOT = DATA_DIR / "Backups" / "Snapshots"
 FOLDERS = ("syllabus", "grading", "annotations", "equation_sheets", "outlines", "course_photos")     # small; covers and pdfs are not copied
 KEEP = 20
 EVERY = 30 * 60

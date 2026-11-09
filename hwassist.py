@@ -15,7 +15,7 @@ import macros
 import pymupdf
 import quizgen
 import unitex
-from database import BASE_DIR
+from database import BASE_DIR, data_path
 
 ROOT = BASE_DIR / "homework"
 PROBLEM = re.compile(r"^\s*(\d{1,2})\.\s+([A-Z].{3,})$")             # "2. Rotational Energies ..."        (AE 6765)
@@ -176,7 +176,7 @@ def course_examples(course_id, books):
     key = []
     for b in books:
         if course_id in b["course_ids"] and b["kind"] in ("Notes", "Lecture Notes") and b["pdf_path"].lower().endswith((".html", ".htm")):
-            p = BASE_DIR / b["pdf_path"]
+            p = data_path(b["pdf_path"])
             if p.exists():
                 key.append((b["id"], str(p), p.stat().st_mtime))
     return _examples(tuple(key))
@@ -187,7 +187,7 @@ def course_sections(course_id, books):
     key = []
     for b in books:
         if course_id in b["course_ids"] and b["kind"] in ("Notes", "Lecture Notes") and b["pdf_path"].lower().endswith((".html", ".htm")):
-            p = BASE_DIR / b["pdf_path"]
+            p = data_path(b["pdf_path"])
             if p.exists():
                 key.append((b["id"], str(p), p.stat().st_mtime))
     return _sections(tuple(key))
@@ -314,7 +314,7 @@ def _whole_assignment(path):
 def analyze(book, course, books):
     """Problems of a homework PDF with the matching note sections and hints.
     [{id, title, page, tags, hint, parts: [{id, page, text, tags, hint}]}]"""
-    path = BASE_DIR / book["pdf_path"]
+    path = data_path(book["pdf_path"])
     problems = parse_problems(str(path), path.stat().st_mtime) or _whole_assignment(path)
     sections = course_sections(course["id"], books)
     examples = course_examples(course["id"], books)

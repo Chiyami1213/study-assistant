@@ -1,4 +1,4 @@
-"""Backup and restore of the Library, kept in a folder the user chooses (default ~/StudyAssistantBackup/Library).
+"""Backup and restore of the Library, kept in a folder the user chooses (default <data folder>/Backups/Library).
 
 The folder holds files/ (a copy of every stored PDF and HTML file), manifest.json (what each file is: title, type, lecture, courses, size and a
 fingerprint, so a file can also be found again in the folders the user keeps the originals in), study.db (the database) and settings.json.
@@ -14,9 +14,9 @@ from pathlib import Path
 
 import crud
 import settings
-from database import BASE_DIR, PDF_DIR
+from database import BASE_DIR, DATA_DIR, PDF_DIR, data_path, stored_path
 
-DEFAULT_DIR = Path.home() / "StudyAssistantBackup" / "Library"
+DEFAULT_DIR = DATA_DIR / "Backups" / "Library"
 SMALL_FOLDERS = ("syllabus", "grading", "annotations", "equation_sheets", "outlines", "course_photos")
 
 
@@ -45,7 +45,7 @@ def manifest():
     courses = {c["id"]: c for c in crud.list_courses(section=None)}
     out = []
     for b in crud.list_books():
-        f = BASE_DIR / b["pdf_path"]
+        f = data_path(b["pdf_path"])
         if not f.exists():
             continue
         size, sha = _fingerprint(f)
@@ -68,7 +68,7 @@ def back_up(folder=None):
             shutil.copyfile(src, target)
             copied += 1
     (dest / "manifest.json").write_text(json.dumps({"saved": datetime.now().isoformat(timespec="seconds"), "books": entries}, ensure_ascii=False, indent=1), encoding="utf-8")
-    db = BASE_DIR / "data" / "study.db"
+    db = DATA_DIR / "study.db"
     if db.exists():
         a, b = sqlite3.connect(db), sqlite3.connect(dest / "study.db")
         try:
@@ -77,11 +77,11 @@ def back_up(folder=None):
             b.close()
             a.close()
     for name in ("settings.json",):
-        if (BASE_DIR / "data" / name).exists():
-            shutil.copyfile(BASE_DIR / "data" / name, dest / name)
+        if (DATA_DIR / name).exists():
+            shutil.copyfile(DATA_DIR / name, dest / name)
     for folder_name in SMALL_FOLDERS:
-        if (BASE_DIR / "data" / folder_name).is_dir():
-            shutil.copytree(BASE_DIR / "data" / folder_name, dest / folder_name, dirs_exist_ok=True)
+        if (DATA_DIR / folder_name).is_dir():
+            shutil.copytree(DATA_DIR / folder_name, dest / folder_name, dirs_exist_ok=True)
     settings.set_backup(last=datetime.now().isoformat(timespec="seconds"), dir=str(dest))
     return {"books": len(entries), "copied": copied, "folder": str(dest)}
 
@@ -146,7 +146,7 @@ def restore(folder=None, sources=None):
         PDF_DIR.mkdir(parents=True, exist_ok=True)
         dest = PDF_DIR / f"book_{uuid.uuid4().hex[:10]}{Path(e['file']).suffix}"
         shutil.copyfile(origin, dest)                          # a copy; the backup or the original stays where it is
-        crud.add_book(e["title"], e["author"], e["edition"], str(dest.relative_to(BASE_DIR)), e["pages"], course_ids, e["kind"], e["year"], e["lecture"])
+        crud.add_book(e["title"], e["author"], e["edition"], stored_path(dest), e["pages"], course_ids, e["kind"], e["year"], e["lecture"])
         restored += 1
     return {"restored": restored, "skipped": skipped, "missing": missing}
 
@@ -157,7 +157,7 @@ def restore_database(folder=None):
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     for name in ("study.db", "settings.json"):
         if (src / name).exists():
-            target = BASE_DIR / "data" / name
+            target = DATA_DIR / name
             if target.exists():
                 shutil.copyfile(target, target.with_name(f"{name}.before-restore-{stamp}"))
             shutil.copyfile(src / name, target)
@@ -173,7 +173,7 @@ def clear_library():
     for b in books:
         crud.delete_book(b["id"])
     removed = 0
-    for folder in (PDF_DIR, BASE_DIR / "data" / "covers", BASE_DIR / "static" / "covers"):
+    for folder in (PDF_DIR, DATA_DIR / "covers", BASE_DIR / "static" / "covers"):
         if not folder.is_dir() or folder.is_symlink() or _is_link(folder):
             continue
         for f in list(folder.iterdir()):

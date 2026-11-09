@@ -5,9 +5,9 @@ A highlighter stroke follows the text instead: {"t": "hr", "c": "#rrggbb", "r": 
 import json
 from functools import lru_cache
 
-from database import BASE_DIR
+from database import DATA_DIR
 
-DIR = BASE_DIR / "data" / "annotations"
+DIR = DATA_DIR / "annotations"
 
 
 def load(book_id):

@@ -2,7 +2,7 @@
 import streamlit as st
 
 import crud
-from database import BASE_DIR, PDF_DIR
+from database import BASE_DIR, PDF_DIR, data_path, stored_path
 
 ICON = {"todo": "⚪", "attempted": "🟡", "verified": "🟢"}
 
@@ -11,7 +11,7 @@ def _show(md, file_path):
     if md:
         st.markdown(md)
     if file_path:
-        p = BASE_DIR / file_path
+        p = data_path(file_path)
         if p.exists():
             st.download_button("Download file", p.read_bytes(), file_name=p.name, key=f"dl_{file_path}")
 
@@ -62,6 +62,6 @@ def render():
                         return None
                     dest = PDF_DIR / f"hw_{cid}_{tag}_{f.name}"
                     dest.write_bytes(f.getvalue())
-                    return str(dest.relative_to(BASE_DIR))
+                    return stored_path(dest)
                 crud.add_homework(cid, title, due.isoformat(), prob, sol, store(pf, "p"), store(sf, "s"))
                 st.rerun()

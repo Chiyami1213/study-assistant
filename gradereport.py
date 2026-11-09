@@ -7,9 +7,9 @@ import re
 
 import pymupdf
 
-from database import BASE_DIR
+from database import DATA_DIR
 
-DIR = BASE_DIR / "data" / "grading"
+DIR = DATA_DIR / "grading"
 
 
 def load(book_id):

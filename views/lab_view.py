@@ -14,7 +14,7 @@ import notesfs
 import outline
 import reader
 import settings
-from database import BASE_DIR
+from database import BASE_DIR, data_path
 
 SECTIONS = [("notes", "Notes"), ("exercises", "Exercises"), ("errata", "Errata")]
 HTML_START = ("<!doctype", "<html", "<div", "<section", "<main", "<body", "<style")
@@ -63,7 +63,7 @@ def _errata_marks(book, path):
     for w in _windows():
         other = crud.get_book(w["book"]) if w["type"] == "reference" and w.get("book") else None
         if other and other["id"] != book["id"] and other["pdf_path"].lower().endswith((".html", ".htm")):
-            f = BASE_DIR / other["pdf_path"]
+            f = data_path(other["pdf_path"])
             if f.exists():
                 sources.append((set(other["course_ids"]), f.read_text(encoding="utf-8", errors="replace"), f"book:{other['id']}"))
     lab = settings.get_lab()
@@ -140,7 +140,7 @@ def _reference(win):
             c1.selectbox("Course", course_ids, key=ck, format_func=course_name)
             c2.selectbox("Category", kinds, key=kk)
             st.selectbox("File", [b["id"] for b in files], key=sel_key, format_func=lambda i: file_name(by_id[i]))
-    path = BASE_DIR / book["pdf_path"]
+    path = data_path(book["pdf_path"])
     if not path.exists():
         st.error("The stored file is missing."); return
     if is_html:
@@ -248,7 +248,7 @@ def _notes():
                               format_func=lambda i: (f"Lec {by_id[i]['lecture']} · " if by_id[i].get("lecture") else "") + by_id[i]["title"])
     _remember(notes={**lab.get("notes", {}), str(course_id): book_id})
     book = by_id[book_id]
-    path = BASE_DIR / book["pdf_path"]
+    path = data_path(book["pdf_path"])
     if not path.exists():
         st.error("The stored note file is missing."); return
     text = path.read_text(encoding="utf-8", errors="replace")
@@ -458,12 +458,12 @@ def _lecture_source(note, src, ctx):
         same = [b for b in decks if (b.get("lecture") or "") == lecture]
         deck = next((b for b in same if title and title in b["title"].lower()), None) or (same[0] if same else _slides_book(note, lecture))
         if deck:
-            return deck, _best_page(BASE_DIR / deck["pdf_path"], first, last, ctx)
+            return deck, _best_page(data_path(deck["pdf_path"]), first, last, ctx)
     m = re.search(r"Eqs?\.?\s*\((\d{1,4})\)", src or "")
     if m:                                                     # equation numbers of the course lecture notes: the page that carries the tag
         for b in crud.list_books():
             if b["kind"] == "Lecture Notes" and set(b["course_ids"]) & set(note["course_ids"]) and b["pdf_path"].lower().endswith(".pdf"):
-                path = BASE_DIR / b["pdf_path"]
+                path = data_path(b["pdf_path"])
                 tags = errata._equation_tags(str(path), path.stat().st_mtime).get(int(m.group(1)))
                 if tags:
                     return b, tags[0][0] + 1
@@ -480,7 +480,7 @@ def _textbook_source(note, vk):
     key = re.match(r"\s*([A-Za-z&]+)", vk or "")
     word = key.group(1).lower() if key else ""
     book = next((b for b in books if len(word) > 3 and (word in (b.get("author") or "").lower() or word in b["title"].lower())), books[0])
-    path = BASE_DIR / book["pdf_path"]
+    path = data_path(book["pdf_path"])
     return book, int(m.group(1)) + _printed_offset(path)
 
 
@@ -528,7 +528,7 @@ def _full_screen():
     notes = _course_notes(course_id) if courses else []
     book = next((b for b in notes if b["id"] == st.session_state.get("lab_note")), None) or \
         next((b for b in notes if b["id"] == lab.get("notes", {}).get(str(course_id))), None) or (notes[0] if notes else None)
-    path = BASE_DIR / book["pdf_path"] if book else None
+    path = data_path(book["pdf_path"]) if book else None
     head, back = st.columns([8, 1.6], vertical_alignment="center")
     head.markdown(f"<div class='lab-detached-title'>{_esc(book['title']) if book else 'Notes'}</div>", unsafe_allow_html=True)
     if back.button("Exit Full Screen", icon=":material/fullscreen_exit:", key="lab_full_close", width="stretch"):

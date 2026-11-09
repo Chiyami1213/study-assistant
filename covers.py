@@ -1,7 +1,7 @@
 """Render PDF pages to images (covers and the in-app preview) with PyMuPDF."""
 import warnings
 
-from database import BASE_DIR
+from database import DATA_DIR
 
 warnings.filterwarnings("ignore", category=FutureWarning)
 try:
@@ -9,7 +9,7 @@ try:
 except ImportError:  # older PyMuPDF versions expose it as fitz
     import fitz as pymupdf
 
-COVER_DIR = BASE_DIR / "data" / "covers"
+COVER_DIR = DATA_DIR / "covers"
 
 
 def page_count(pdf_path):

@@ -8,9 +8,9 @@ import re
 import uuid
 
 import crud
-from database import BASE_DIR, PDF_DIR
+from database import DATA_DIR, PDF_DIR, data_path, stored_path
 
-DIR = BASE_DIR / "data" / "equation_sheets"
+DIR = DATA_DIR / "equation_sheets"
 SHEET_TITLE = re.compile(r"formula sheet|equation sheet", re.I)
 
 
@@ -59,7 +59,7 @@ def candidates(course_id):
     for b in crud.list_books():
         if course_id in b["course_ids"] and b["kind"] == "Notes" and b["pdf_path"].endswith(".html"):
             try:
-                sheet = sheet_of((BASE_DIR / b["pdf_path"]).read_text(encoding="utf-8", errors="replace"))
+                sheet = sheet_of(data_path(b["pdf_path"]).read_text(encoding="utf-8", errors="replace"))
             except OSError:
                 continue
             if sheet:
@@ -91,7 +91,7 @@ th{color:var(--muted);font-weight:600;font-size:11px}p{margin:3px 0}
 
 def build(course, event, notes):
     """The html page of an exam's equation sheet from [(book, sheet html)]; the first note's MathJax settings (macros) are reused."""
-    first = (BASE_DIR / notes[0][0]["pdf_path"]).read_text(encoding="utf-8", errors="replace") if notes else ""
+    first = data_path(notes[0][0]["pdf_path"]).read_text(encoding="utf-8", errors="replace") if notes else ""
     cfg = re.search(r"<script>\s*window\.MathJax\s*=.*?</script>", first, re.S)
     mathjax = cfg.group(0) if cfg else "<script>window.MathJax={tex:{inlineMath:[['\\\\(','\\\\)']],displayMath:[['\\\\[','\\\\]']]},svg:{fontCache:'global'}};</script>"
     parts = ""
@@ -114,13 +114,13 @@ def make(course, event, book_ids):
     page = build(course, event, wanted)
     old = crud.get_book(state.get("book") or 0)
     if old and old["kind"] == "Equation Sheet":
-        (BASE_DIR / old["pdf_path"]).write_text(page, encoding="utf-8")
+        data_path(old["pdf_path"]).write_text(page, encoding="utf-8")
         crud.update_book(old["id"], title, "", "", "Equation Sheet", [course["id"]], "", "")
         book_id = old["id"]
     else:
         PDF_DIR.mkdir(parents=True, exist_ok=True)
         dest = PDF_DIR / f"book_{uuid.uuid4().hex[:10]}.html"
         dest.write_text(page, encoding="utf-8")
-        book_id = crud.add_book(title, "", "", f"data\\pdfs\\{dest.name}", 1, [course["id"]], "Equation Sheet", "2026", "")
+        book_id = crud.add_book(title, "", "", stored_path(dest), 1, [course["id"]], "Equation Sheet", "2026", "")
     save(event["id"], {"notes": [b["id"] for b, _ in wanted], "book": book_id})
     return book_id

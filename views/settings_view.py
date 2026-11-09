@@ -1,4 +1,6 @@
 """Settings."""
+from pathlib import Path
+
 import streamlit as st
 
 import settings
@@ -42,6 +44,7 @@ def render():
             st.rerun()
 
     _backup_section()
+    _migrate_section()
     st.header("Keyboard Shortcuts")
     st.caption("Type a key, such as d, or a combination, such as ctrl+z. Esc is the Escape key. A shortcut works when you are not typing in a box.")
     _keys_section("Homework and Exam Reader", "reader", [
@@ -105,6 +108,53 @@ def _backup_section():
     if cfg.get("last"):
         st.caption(f"Last backup: {cfg['last'].replace('T', ' ')}")
 
+
+
+def _migrate_section():
+    """Make one zip with the program and (optionally) all of the user's files, for another laptop; an installer inside it sets everything up."""
+    import migrate
+    st.header("Migrate")
+    st.caption("To move to another laptop: make a migration zip here, copy it over, extract it and run the installer inside. The installer puts the program in "
+               "Documents\\study-assistant and your files (database, settings, imported files, covers, photos, grades) in AppData\\Roaming\\Study Assistant. "
+               "A folder that is already there is renamed, never overwritten. For a clean copy without your files, copy the project folder by itself: "
+               "the app creates its own empty data folder on first run.")
+    st.caption(f"Your files are kept in {migrate.DATA_DIR}")
+    cols = st.columns([3, 1, 1])
+    dest = cols[0].text_input("Save the Zip In", str(Path.home() / "Desktop"), key="migrate_dest", help="a folder outside the project, such as the desktop or a usb drive")
+    with cols[1]:
+        st.markdown("<div style='height:1.7rem'></div>", unsafe_allow_html=True)
+        include_data = st.toggle("Include My Files", True, key="migrate_data", help="off makes a clean installer with no personal files")
+    with cols[2]:
+        st.markdown("<div style='height:1.7rem'></div>", unsafe_allow_html=True)
+        include_exe = st.toggle("Include the App", True, key="migrate_exe", help="includes the built app (exe) so the new laptop does not need python")
+    if migrate.JOB["running"]:
+        _migrate_progress()
+    else:
+        job = migrate.JOB
+        if job["result"]:
+            st.success(f"Done: {job['result']}")
+        if job["error"]:
+            st.error(job["error"])
+        try:
+            info = migrate.estimate(include_exe, include_data)
+            gb = (info["program_bytes"] + info["data_bytes"]) / 2**30
+            st.caption(f"About {gb:.1f} GB ({info['program_files'] + info['data_files']} files) will be packed. "
+                       + ("" if info["installer"] else "The installer exe is built automatically the first time."))
+        except OSError:
+            pass
+        if st.button("Create Migration Zip", icon=":material/folder_zip:", key="migrate_make", help="packs the program and your files into one zip; nothing is changed or removed"):
+            if migrate.start(dest.strip(), include_exe, include_data):
+                st.rerun()
+
+
+@st.fragment(run_every=1.5)
+def _migrate_progress():
+    import migrate
+    job = migrate.JOB
+    if job["running"]:
+        st.progress(min(max(job["fraction"], 0.0), 1.0), text=job["message"][:90])
+    else:
+        st.rerun()
 
 
 def _danger_zone():

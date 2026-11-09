@@ -7,9 +7,9 @@ Kept per course in data/syllabus/<course id>.json:
 import json
 import re
 
-from database import BASE_DIR
+from database import DATA_DIR
 
-DIR = BASE_DIR / "data" / "syllabus"
+DIR = DATA_DIR / "syllabus"
 
 
 def load(course_id):

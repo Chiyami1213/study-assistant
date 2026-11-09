@@ -9,9 +9,9 @@ from io import BytesIO
 
 from PIL import Image, ImageOps
 
-from database import BASE_DIR, get_conn
+from database import DATA_DIR, get_conn
 
-PHOTO_DIR = BASE_DIR / "data" / "course_photos"
+PHOTO_DIR = DATA_DIR / "course_photos"
 MAX_SIDE = 3840      # only protects against enormous files; smaller photos are never enlarged
 JPEG_QUALITY = 95
 

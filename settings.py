@@ -6,10 +6,10 @@ import threading
 import time
 from datetime import datetime
 
-from database import BASE_DIR
+from database import DATA_DIR
 
-SETTINGS_FILE = BASE_DIR / "data" / "settings.json"
-SETTINGS_BACKUP = BASE_DIR / "data" / "settings.json.bak"
+SETTINGS_FILE = DATA_DIR / "settings.json"
+SETTINGS_BACKUP = DATA_DIR / "settings.json.bak"
 
 THEMES = ("light", "dark", "device")
 

@@ -1,23 +1,32 @@
 # Study Assistant: notes for Claude
 
 Personal Streamlit + SQLite study app (`python run.py`). Code is in `app.py`, `views/`, `crud.py`, `database.py`.
-Personal data (`data/`: database, settings, PDFs) is git-ignored. Never edit files under `data/` by hand.
 
-## Protect `data/` (it was deleted once by a test setup; the originals of many imports were lost)
-- NEVER link, junction, symlink or mount `data/` (or anything inside it) into another folder, and never run a recursive delete
+## Where things live
+- The PROJECT folder (`Documents\study-assistant`) holds only what is pushed to GitHub: code, `notes/`, `quizzes/`. (`static/`, `build/`, `dist/` are
+  git-ignored caches and build output.)
+- The user's own files live in the DATA folder `database.DATA_DIR` = `C:\Users\acer\AppData\Roaming\Study Assistant` (the env variable
+  `STUDY_ASSISTANT_DATA` overrides it; an old `project\data` is still used only if it holds `study.db` and the roaming folder does not exist): `study.db`,
+  `settings.json`, `pdfs/`, `covers/`, `course_photos/`, `grading/`, `syllabus/`, `annotations/`, `equation_sheets/`, `webview/`, `Backups/`.
+  Never edit files in it by hand. In code use `database.DATA_DIR`, `data_path(rel)` and `stored_path(path)`; never build paths from `BASE_DIR / "data"`.
+  Book paths in the database are relative to the data folder (`pdfs\book_x.pdf`; older rows may start with `data\`).
+
+## Protect the data folder (it was deleted once by a test setup; the originals of many imports were lost)
+- NEVER link, junction, symlink or mount the data folder (or anything inside it) into another folder, and never run a recursive delete
   (`git worktree remove`, `rm -r`, `Remove-Item -Recurse`, `shutil.rmtree`) on a folder that contains such a link. A recursive delete follows
   Windows junctions and erases the real files.
-- To test or compare an older version, COPY what is needed to a scratch folder (a small copy of `data/study.db` is enough) and point the test at the
-  copy. Never point a test at the real `data/`, and never leave a test server running against it.
+- To test or compare a version, COPY what is needed to a scratch folder (a small copy of `study.db` is enough) and point the test at the copy with
+  `STUDY_ASSISTANT_DATA`. Never point a test at the real data folder, and never leave a test server running against it. Test the installer only with
+  `SA_INSTALL_PROGRAM_DIR` / `SA_INSTALL_DATA_DIR` set to scratch folders.
 - Source files outside the project (OneDrive, the H: drive, Downloads ...) are READ ONLY for this app and for Claude: import = COPY into
-  `data/pdfs/`. Never delete, move, rename or edit a file in the user's own drives or OneDrive.
-- `backup.py` copies the database, settings and the small data folders to `~/StudyAssistantBackup/` (outside the project) when the app starts.
-  Restore from the newest folder there if `data/` is damaged.
+  `pdfs/` of the data folder. Never delete, move, rename or edit a file in the user's own drives or OneDrive.
+- `backup.py` copies the database, settings and the small folders to `<data folder>\Backups\Snapshots` when the app starts (the library backup in
+  Settings goes to `Backups\Library`). Restore from the newest copy there if the data is damaged. Old copies may also exist in `~/StudyAssistantBackup`.
 
 ## The Note Reader reads notes; it does not build them
 
 Notes are built outside the app and imported into the Library as type Notes (one `.html` file per chapter, stored under
-`data/pdfs/`). The Note Reader (`views/lab_view.py`) shows a course's notes and builds its tabs from the parts each note has.
+`pdfs/` (data folder)). The Note Reader (`views/lab_view.py`) shows a course's notes and builds its tabs from the parts each note has.
 The older `notes/<course code>/<id>-<title>/notes.html` chapters are no longer edited.
 
 - A note is ONE self-contained interactive HTML page (inline CSS and JavaScript, no build step, no external images, no links
@@ -30,7 +39,7 @@ The older `notes/<course code>/<id>-<title>/notes.html` chapters are no longer e
   part, and a part that is missing gets no tab.
 - A note with its own quiz script (`id="qBox"`) runs it as it is; older notes get the course's question set injected
   (`quiz_view.book_questions`).
-- Reference files (textbooks, lecture notes) are in the Library, with stored copies under `data/pdfs/`.
+- Reference files (textbooks, lecture notes) are in the Library, with stored copies under `pdfs/` (data folder).
 
 ## Homework Helpers and Grade Explanations are written outside the app too
 
@@ -51,17 +60,19 @@ Number (or "Midterm 1", "Final" in the title) pair it with the problem file and 
 - A written grade explanation also marks the paper: a click on a problem card (`<section class="card" id="p1">`, id `p<problem>`), on a
   score tile or contents link to `#p<problem>`, or on a grader comment (`.gc` with a numbered `.badge`, the number being the comment's
   number in the grade report) shows that page of the graded paper and marks the place. This needs the app's own grade data
-  (`data/grading/<id>.json`, read from the Gradescope report), so keep the problem numbers and comment numbers the same as the report's.
+  (`grading/<id>.json` in the data folder, read from the Gradescope report), so keep the problem numbers and comment numbers the same as the report's.
 - A written helper marks the problem file the same way: a click on a problem card (`id="p<n>"`) shows the problem's heading, and a
   click on a sub-problem (`<div class="part">` whose `.pl` label is the letter, e.g. `a)`) shows that part's lines. Problem numbers and
   letters must match the numbering of the problem PDF (the app finds them by their text).
 
-## Moving to another laptop
-Everything the app keeps is inside the project folder: `data/` (database, settings, imported files, covers, photos, grades, drawings, browser-side
-settings in `data/webview`), `notes/`, `quizzes/`. Copy the whole project folder (including `dist/` if the exe is wanted) to the new laptop and run
-`python run.py` (after `pip install -r requirements.txt`) or `dist/StudyAssistant/StudyAssistant.exe` (Windows with the Edge WebView2 runtime). Nothing
-may be stored outside the project: do not add paths to the user profile, AppData or the registry. (The only things outside are the optional safety copies
-in `~/StudyAssistantBackup` and the backup folder chosen in Settings; they are not needed to run the app.)
+## Moving to another laptop (Settings > Migrate)
+- A clean copy: copy the project folder alone and run `python run.py` (after `pip install -r requirements.txt`); the app makes its own empty data folder.
+- With all of the user's files: Settings > Migrate (`migrate.py`) writes one zip with `Install Study Assistant.exe` (`installer.py`, built by
+  `build_installer.py` and by `build_exe.py` into `dist/installer/`), `payload/program` (project without `.git`, `static`, `build`, `data`; with
+  `dist/StudyAssistant` when "Include the App" is on) and `payload/data` (the data folder without `webview` and `Backups`, the database as a consistent copy).
+  On the new laptop the installer COPIES `payload/program` to `Documents\study-assistant` and `payload/data` to `AppData\Roaming\Study Assistant`; a folder that
+  is already there is renamed to `... (old date time)`, never overwritten or deleted.
+- Do not store anything elsewhere (user profile, registry). The only extras are the Desktop shortcut made by the installer and the optional backup folder.
 
 ## Conventions
 - Interface text uses APA title case; hover tooltips are all lower case.
