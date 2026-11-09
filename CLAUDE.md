@@ -5,7 +5,7 @@ Personal Streamlit + SQLite study app (`python run.py`). Code is in `app.py`, `v
 ## Where things live
 - The PROJECT folder (`Documents\study-assistant`) holds only what is pushed to GitHub: code, `notes/`, `quizzes/`. (`static/`, `build/`, `dist/` are
   git-ignored caches and build output.)
-- The user's own files live in the DATA folder `database.DATA_DIR` = `C:\Users\acer\AppData\Roaming\Study Assistant` (the env variable
+- The user's own files live in the DATA folder `database.DATA_DIR` = `%APPDATA%\Study Assistant` (the env variable
   `STUDY_ASSISTANT_DATA` overrides it; an old `project\data` is still used only if it holds `study.db` and the roaming folder does not exist): `study.db`,
   `settings.json`, `pdfs/`, `covers/`, `course_photos/`, `grading/`, `syllabus/`, `annotations/`, `equation_sheets/`, `webview/`, `Backups/`.
   Never edit files in it by hand. In code use `database.DATA_DIR`, `data_path(rel)` and `stored_path(path)`; never build paths from `BASE_DIR / "data"`.
@@ -18,7 +18,7 @@ Personal Streamlit + SQLite study app (`python run.py`). Code is in `app.py`, `v
 - To test or compare a version, COPY what is needed to a scratch folder (a small copy of `study.db` is enough) and point the test at the copy with
   `STUDY_ASSISTANT_DATA`. Never point a test at the real data folder, and never leave a test server running against it. Test the installer only with
   `SA_INSTALL_PROGRAM_DIR` / `SA_INSTALL_DATA_DIR` set to scratch folders.
-- Source files outside the project (OneDrive, the H: drive, Downloads ...) are READ ONLY for this app and for Claude: import = COPY into
+- Source files outside the project (OneDrive, other drives, Downloads ...) are READ ONLY for this app and for Claude: import = COPY into
   `pdfs/` of the data folder. Never delete, move, rename or edit a file in the user's own drives or OneDrive.
 - `backup.py` copies the database, settings and the small folders to `<data folder>\Backups\Snapshots` when the app starts (the library backup in
   Settings goes to `Backups\Library`). Restore from the newest copy there if the data is damaged. Old copies may also exist in `~/StudyAssistantBackup`.

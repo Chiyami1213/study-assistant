@@ -1,4 +1,9 @@
 streamlit>=1.35
 pypdf>=4.0
 pymupdf>=1.24
+pillow>=10.0
 pillow-heif>=0.16
+pywebview>=5.0
+psutil>=5.9
+# only to build the exe and the installer (build_exe.py, build_installer.py):
+# pyinstaller>=6.0
