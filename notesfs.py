@@ -1,14 +1,14 @@
 """Note Reader chapters as plain files, so Claude in VS Code (or any editor) can edit them directly.
 
-    notes/<course code>/<id>-<chapter title>/notes.html      (one interactive page; its last section is the exercises)
+    <data folder>/notes/<course code>/<id>-<chapter title>/notes.html      (one interactive page; its last section is the exercises)
 
 The app reads these files every time it draws a chapter, so changes made outside the app show up there."""
 import re
 import shutil
 
-from database import BASE_DIR
+from database import DATA_DIR
 
-ROOT = BASE_DIR / "notes"
+ROOT = DATA_DIR / "notes"
 FIELDS = ("notes",)
 HTML_START = ("<!doctype", "<html", "<div", "<section", "<main", "<body", "<style")
 

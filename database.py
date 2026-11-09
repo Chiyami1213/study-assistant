@@ -3,7 +3,7 @@ import re
 import sqlite3
 from pathlib import Path
 
-BASE_DIR = Path(__file__).parent                      # the program: code, notes/, quizzes/ (everything that is on GitHub)
+BASE_DIR = Path(__file__).parent                      # the program: code only (everything that is on GitHub); personal files are in DATA_DIR
 
 
 def _data_root():

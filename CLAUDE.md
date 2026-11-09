@@ -3,11 +3,11 @@
 Personal Streamlit + SQLite study app (`python run.py`). Code is in `app.py`, `views/`, `crud.py`, `database.py`.
 
 ## Where things live
-- The PROJECT folder (`Documents\study-assistant`) holds only what is pushed to GitHub: code, `notes/`, `quizzes/`. (`static/`, `build/`, `dist/` are
+- The PROJECT folder (`Documents\study-assistant`) holds only what is pushed to GitHub: the code and docs. (`static/`, `build/`, `dist/` are
   git-ignored caches and build output.)
 - The user's own files live in the DATA folder `database.DATA_DIR` = `%APPDATA%\Study Assistant` (the env variable
   `STUDY_ASSISTANT_DATA` overrides it; an old `project\data` is still used only if it holds `study.db` and the roaming folder does not exist): `study.db`,
-  `settings.json`, `pdfs/`, `covers/`, `course_photos/`, `grading/`, `syllabus/`, `annotations/`, `equation_sheets/`, `webview/`, `Backups/`.
+  `settings.json`, `notes/`, `quizzes/`, `pdfs/`, `covers/`, `course_photos/`, `grading/`, `syllabus/`, `annotations/`, `equation_sheets/`, `webview/`, `Backups/`.
   Never edit files in it by hand. In code use `database.DATA_DIR`, `data_path(rel)` and `stored_path(path)`; never build paths from `BASE_DIR / "data"`.
   Book paths in the database are relative to the data folder (`pdfs\book_x.pdf`; older rows may start with `data\`).
 
@@ -27,7 +27,7 @@ Personal Streamlit + SQLite study app (`python run.py`). Code is in `app.py`, `v
 
 Notes are built outside the app and imported into the Library as type Notes (one `.html` file per chapter, stored under
 `pdfs/` (data folder)). The Note Reader (`views/lab_view.py`) shows a course's notes and builds its tabs from the parts each note has.
-The older `notes/<course code>/<id>-<title>/notes.html` chapters are no longer edited.
+The older `<data folder>/notes/<course code>/<id>-<title>/notes.html` chapters are no longer edited.
 
 - A note is ONE self-contained interactive HTML page (inline CSS and JavaScript, no build step, no external images, no links
   to other pages; in-page `#anchors` are fine). Math: MathJax from jsdelivr (`https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-svg.js`),

@@ -2,7 +2,7 @@
 
 `sections_of(html)` lists the content sections of a note with a suggested number of questions (1 to 3, from the
 section's length and how much it contains). The questions themselves are written into
-quizzes/<course code>/<note title>.json (plain files, so Claude in VS Code can write them):
+<data folder>/quizzes/<course code>/<note title>.json (plain files, so Claude in VS Code can write them):
 
     {"book": 16, "title": "Complex Numbers Review",
      "sections": [{"id": "euler", "title": "Euler's formula and polar form",
@@ -16,9 +16,9 @@ import random
 import re
 
 import macros
-from database import BASE_DIR
+from database import DATA_DIR
 
-ROOT = BASE_DIR / "quizzes"
+ROOT = DATA_DIR / "quizzes"
 SKIP = re.compile(r"notes check|errata|self-check|quiz|mind map", re.I)       # not content sections
 
 

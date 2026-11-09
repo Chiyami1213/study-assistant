@@ -6,3 +6,6 @@ dist/
 build/
 *.spec
 static/
+# personal notes and quizzes (kept in the data folder)
+notes/
+quizzes/
