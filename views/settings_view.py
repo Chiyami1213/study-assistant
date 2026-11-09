@@ -135,14 +135,22 @@ def _migrate_section():
             st.success(f"Done: {job['result']}")
         if job["error"]:
             st.error(job["error"])
+        enough = True
         try:
             info = migrate.estimate(include_exe, include_data)
+            space = migrate.check_space(dest.strip() or ".", info)
+            enough = space["ok"]
             gb = (info["program_bytes"] + info["data_bytes"]) / 2**30
             st.caption(f"About {gb:.1f} GB ({info['program_files'] + info['data_files']} files) will be packed. "
+                       f"Free space on {space['drive']}: {space['free'] / 2**30:.1f} GB; the zip needs up to {space['needed'] / 2**30:.1f} GB. "
                        + ("" if info["installer"] else "The installer exe is built automatically the first time."))
-        except OSError:
-            pass
-        if st.button("Create Migration Zip", icon=":material/folder_zip:", key="migrate_make", help="packs the program and your files into one zip; nothing is changed or removed"):
+            if not enough:
+                st.error(f"Not enough free space on {space['drive']}: {(space['needed'] - space['free']) / 2**30:.1f} GB more are needed. "
+                         "Free some space or choose a folder on another drive.")
+        except OSError as e:
+            st.warning(f"That folder cannot be used: {e}")
+            enough = False
+        if st.button("Create Migration Zip", icon=":material/folder_zip:", key="migrate_make", disabled=not enough, help="packs the program and your files into one zip; nothing is changed or removed"):
             if migrate.start(dest.strip(), include_exe, include_data):
                 st.rerun()
 

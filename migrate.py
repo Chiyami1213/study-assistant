@@ -71,8 +71,34 @@ def estimate(include_exe=True, include_data=True):
     """Sizes in bytes and file counts, for the page to show before the package is made."""
     prog = program_files(include_exe)
     data = data_files() if include_data else []
+    exe = installer_exe()
     return {"program_bytes": sum(p.stat().st_size for p, _ in prog), "program_files": len(prog),
-            "data_bytes": sum(p.stat().st_size for p, _ in data), "data_files": len(data), "installer": installer_exe().exists()}
+            "data_bytes": sum(p.stat().st_size for p, _ in data), "data_files": len(data), "installer": exe.exists(),
+            "installer_bytes": exe.stat().st_size if exe.exists() else 12 << 20}
+
+
+def _existing(path):
+    """The folder itself, or the nearest parent that exists (the zip folder may not have been made yet)."""
+    p = Path(path)
+    while not p.exists() and p.parent != p:
+        p = p.parent
+    return p
+
+
+def check_space(dest_dir, info):
+    """Is there enough free disk space for the zip? The zip is at most as big as the files in it (pdfs and pictures are stored as they are), plus
+    some room; the temporary copy of the database is made in the data folder, which counts too when that is the same drive.
+    Returns {ok, needed, free, drive}; sizes in bytes."""
+    import shutil
+    margin = 200 << 20
+    needed = info["program_bytes"] + info["data_bytes"] + info["installer_bytes"] + margin
+    where = _existing(dest_dir)
+    free = shutil.disk_usage(where).free
+    db = DATA_DIR / "study.db"
+    if db.exists() and os.path.splitdrive(str(where.resolve()))[0].lower() == os.path.splitdrive(str(DATA_DIR.resolve()))[0].lower():
+        needed += db.stat().st_size
+    drive = os.path.splitdrive(str(where.resolve()))[0] or str(where)
+    return {"ok": free >= needed, "needed": needed, "free": free, "drive": drive}
 
 
 def _inside(path, folder):
@@ -112,9 +138,11 @@ def make_package(dest_dir, include_exe=True, include_data=True, progress=None, n
     prog = program_files(include_exe)
     data = data_files() if include_data else []
     total = sum(p.stat().st_size for p, _ in prog + data) + exe.stat().st_size
-    free = __import__("shutil").disk_usage(dest_dir).free
-    if free < total + (200 << 20):
-        raise RuntimeError(f"Not enough free space in {dest_dir}: about {total / 2**30:.1f} GB are needed, {free / 2**30:.1f} GB are free.")
+    info = {"program_bytes": sum(p.stat().st_size for p, _ in prog), "data_bytes": sum(p.stat().st_size for p, _ in data), "installer_bytes": exe.stat().st_size}
+    space = check_space(dest_dir, info)
+    if not space["ok"]:
+        raise RuntimeError(f"Not enough free space on {space['drive']}: the zip needs about {space['needed'] / 2**30:.1f} GB and only "
+                           f"{space['free'] / 2**30:.1f} GB are free. Free some space or save it on another drive.")
     stamp = datetime.now().strftime("%Y%m%d-%H%M")
     final = dest_dir / (name or f"StudyAssistant-{'Migration' if include_data else 'Clean'}-{stamp}.zip")
     part = final.with_name(final.name + ".part")
