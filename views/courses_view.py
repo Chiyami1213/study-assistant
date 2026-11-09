@@ -105,6 +105,7 @@ def _add_course_dialog():
         if photo and not photos.save_photo(cid, photo.getvalue()):
             st.toast("The course was added, but that photo could not be read.")
         st.session_state["courses_filter"] = status
+        st.session_state["_courses_filter_kept"] = status
         st.rerun()
 
 
@@ -150,6 +151,7 @@ def _edit_course_dialog(course):
         if status != cur:
             crud.set_course_status(cid, status)
             st.session_state["courses_filter"] = status
+            st.session_state["_courses_filter_kept"] = status
         crud.set_course_color(cid, color if color != crud.course_color({**course, "color": None}) else None)
         if photo and not photos.save_photo(cid, photo.getvalue()):
             st.toast("That photo could not be read.")
@@ -230,7 +232,12 @@ def render():
     head.title("Courses")
     if btn.button("Add Course", key="add_course_open"):
         _add_course_dialog()
-    st.session_state.setdefault("courses_filter", "Active")
+    # The filter, category and sort are remembered apart from their widgets (a widget's value is dropped while a course or a file is open), so Back
+    # from a course, or from a file opened in it, returns to the same tab, for example Completed.
+    for key in ("courses_filter", "courses_category", "courses_sort"):
+        st.session_state.setdefault(key, st.session_state.get(f"_{key}_kept") or ("Active" if key == "courses_filter" else None))
+        if st.session_state[key] is None:
+            del st.session_state[key]
     groups = {s: crud.courses_by_status(s) for s in crud.STATUSES}
     everyone = [c for s in crud.STATUSES for c in groups[s]]
     opened = settings.get_recent_courses()
@@ -247,6 +254,8 @@ def render():
     with f3:
         sort_by = st.selectbox("Sort by", SORTS, key="courses_sort", label_visibility="collapsed",
                                format_func=lambda s: f"Sort: {s}")
+    for key, value in (("courses_filter", choice), ("courses_category", category), ("courses_sort", sort_by)):
+        st.session_state[f"_{key}_kept"] = value
     courses = groups[choice]
     if category != "All Categories":
         courses = [c for c in courses if c.get("category") == category]
@@ -468,7 +477,7 @@ def _pie(rows, center_top, center_bottom):
     outer, inner = 84, 54
     angle = -math.pi / 2
     paths = ""
-    for i, r in enumerate(rows[:4]):
+    for i, r in enumerate(rows):                       # every part of the grade gets its own slice and colour (eight colours, then they repeat)
         sweep = r["percent"] / total * 2 * math.pi
         a0, a1 = angle, angle + sweep - 1e-4
         angle += sweep
@@ -476,7 +485,7 @@ def _pie(rows, center_top, center_bottom):
         (x0, y0), (x1, y1), (x2, y2), (x3, y3) = pt(outer, a0), pt(outer, a1), pt(inner, a1), pt(inner, a0)
         big = 1 if sweep > math.pi else 0
         paths += (f'<path class="syl-slice" d="M{x0:.2f},{y0:.2f} A{outer},{outer} 0 {big} 1 {x1:.2f},{y1:.2f} '
-                  f'L{x2:.2f},{y2:.2f} A{inner},{inner} 0 {big} 0 {x3:.2f},{y3:.2f} Z" fill="var(--s{i + 1})" stroke="var(--bg)" '
+                  f'L{x2:.2f},{y2:.2f} A{inner},{inner} 0 {big} 0 {x3:.2f},{y3:.2f} Z" fill="var(--s{i % 8 + 1})" stroke="var(--bg)" '
                   f'stroke-width="2.5"><title>{html.escape(r["item"])}: {r["percent"]:g}% of the grade</title></path>')
     return (f'<svg class="syl-pie" viewBox="0 0 180 180" role="img" aria-label="What each part of the grade is worth">{paths}'
             f'<text x="90" y="88" text-anchor="middle" class="syl-c1">{html.escape(center_top)}</text>'
@@ -493,7 +502,7 @@ def _weights(course, data):
     for i, r in enumerate(rows):
         got = syllabus.score(r.get("kind"), homework, events)
         mine = f"{got:.0%}" if got is not None else ("Not graded" if r.get("kind") else "None")
-        body += (f"<tr><td><span class='syl-sw' style='background:var(--s{min(i, 3) + 1})'></span>{html.escape(r['item'])}</td>"
+        body += (f"<tr><td><span class='syl-sw' style='background:var(--s{i % 8 + 1})'></span>{html.escape(r['item'])}</td>"
                  f"<td class='n'>{r['percent']:g}%</td><td class='n{' none' if got is None else ''}'>{mine}</td></tr>")
     est = syllabus.standing(data, homework, events)
     top, bottom = ("100%", "of the grade") if not est else (syllabus.letter(est[0], data)[0], f"{est[0]:.1f}% now")
@@ -618,8 +627,9 @@ def _homework(course):
         st.subheader("Homework")
         st.caption("No homework yet.")
         return
-    upcoming = [h for h in homework if not h["due_date"] or h["due_date"] >= today]
-    past = [h for h in homework if h["due_date"] and h["due_date"] < today]
+    finished = crud.course_status(course) == "Completed"               # a completed course has nothing upcoming, dated or not
+    upcoming = [] if finished else [h for h in homework if not h["due_date"] or h["due_date"] >= today]
+    past = list(homework) if finished else [h for h in homework if h["due_date"] and h["due_date"] < today]
 
     def rows(items):
         out = ""
@@ -632,11 +642,12 @@ def _homework(course):
                              extra=_grade_html(h), tab="Homework")
         return out
 
-    st.subheader(f"Upcoming Homework ({len(upcoming)})")
-    if upcoming:
-        st.markdown(f'<div class="dl-list">{rows(upcoming)}</div>', unsafe_allow_html=True)
-    else:
-        st.caption("Nothing due.")
+    if not finished:
+        st.subheader(f"Upcoming Homework ({len(upcoming)})")
+        if upcoming:
+            st.markdown(f'<div class="dl-list">{rows(upcoming)}</div>', unsafe_allow_html=True)
+        else:
+            st.caption("Nothing due.")
     st.subheader(f"Past Homework ({len(past)})")
     if past:
         st.markdown(f'<div class="dl-list">{rows(list(reversed(past)))}</div>', unsafe_allow_html=True)      # the most recent first
@@ -699,8 +710,9 @@ def _exams(course):
     its solution, my graded paper, the score and the reflection document."""
     today = date.today().isoformat()
     exams = _exam_items(course)
-    upcoming = [e for e in exams if e["date"] >= today and not e.get("done")]
-    past = [e for e in exams if e["date"] < today or e.get("done")]          # an exam marked complete on the Home page counts as past
+    finished = crud.course_status(course) == "Completed"
+    upcoming = [] if finished else [e for e in exams if e["date"] >= today and not e.get("done")]
+    past = list(exams) if finished else [e for e in exams if e["date"] < today or e.get("done")]          # an exam marked complete on the Home page counts as past
 
     def row(e, done):
         return _row_html(e["title"], _when(e["date"], e.get("time")), "Done" if done else "Upcoming", "done" if done else "open",
@@ -715,11 +727,12 @@ def _exams(course):
         st.subheader("Exams")
         st.caption("No midterms or finals yet.")
     else:
-        st.subheader(f"Upcoming Exams ({len(upcoming)})")
-        if upcoming:
-            st.markdown(f'<div class="dl-list">{"".join(row(e, False) for e in upcoming)}</div>', unsafe_allow_html=True)
-        else:
-            st.caption("No exams left this term.")
+        if not finished:
+            st.subheader(f"Upcoming Exams ({len(upcoming)})")
+            if upcoming:
+                st.markdown(f'<div class="dl-list">{"".join(row(e, False) for e in upcoming)}</div>', unsafe_allow_html=True)
+            else:
+                st.caption("No exams left this term.")
         st.subheader(f"Past Exams ({len(past)})")
         if past:
             st.markdown(f'<div class="dl-list">{"".join(row(e, True) for e in reversed(past))}</div>', unsafe_allow_html=True)

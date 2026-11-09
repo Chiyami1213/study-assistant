@@ -1321,6 +1321,7 @@ def _open_course(c):
     st.session_state["course_id"] = c["id"]
     st.session_state["open_course"] = c["id"]
     st.session_state["courses_filter"] = crud.course_status(c)
+    st.session_state["_courses_filter_kept"] = crud.course_status(c)
     st.rerun()
 
 
