@@ -414,19 +414,67 @@ def _words(text):
     return {w for w in re.findall(r"[a-z]{4,}", (text or "").lower())}
 
 
-def _best_page(path, first, last, context):
-    """The page in first..last (1-based) whose text shares most words with the text around the equation; `first` when none does."""
+def _best_page(path, first, last, context, candidates=None, heading=""):
+    """The page (1-based) among `candidates` (default first..last) whose text shares most words with the text around the equation, the words of the
+    heading counting three times; the first candidate when none does."""
     import pymupdf
-    want = _words(context)
-    if not want or last <= first:
-        return first
-    best, score = first, 0
+    pages = list(candidates) if candidates else list(range(first, last + 1))
+    want, head = _words(context), _words(heading)
+    if not pages or (not want and not head) or len(pages) == 1:
+        return pages[0] if pages else first
+    best, score = pages[0], 0
     with pymupdf.open(str(path)) as doc:
-        for pg in range(first, min(last, doc.page_count) + 1):
-            hit = len(want & _words(doc[pg - 1].get_text()))
+        for pg in pages:
+            if pg > doc.page_count:
+                break
+            words = _words(doc[pg - 1].get_text())
+            hit = len(want & words) + 3 * len(head & words)
             if hit > score:
                 best, score = pg, hit
     return best
+
+
+_SETS = {}
+
+
+def _slide_sets(path):
+    """The slide sets inside one lecture PDF, from the page headers ('3 Diatomic Properties-5 School of ...': the slide set's title and the number of its
+    first slide on that page): [{'title', 'pages': [(pdf page, slide number), ...]}]. Empty when the pdf has no such headers."""
+    import pymupdf
+    key = (str(path), path.stat().st_mtime)
+    if key in _SETS:
+        return _SETS[key]
+    sets = []
+    try:
+        with pymupdf.open(str(path)) as doc:
+            for i in range(min(doc.page_count, 600)):
+                head = " ".join(doc[i].get_text()[:400].split())
+                m = re.match(r"\d+\s+(.+?)-(\d+)\s+School of", head)
+                if not m:
+                    continue
+                title, n = m.group(1).strip(), int(m.group(2))
+                if not sets or sets[-1]["title"] != title:
+                    sets.append({"title": title, "pages": []})
+                sets[-1]["pages"].append((i + 1, n))
+    except Exception:
+        sets = []
+    _SETS[key] = sets
+    return sets
+
+
+def _set_pages(path, title, first, last):
+    """PDF pages of the slide set whose title shares a word with `title` ('Diatomic Molecules' ~ 'Diatomic Properties') that carry slides first..last
+    (a page holds two slides: n and n+1); None when the pdf has no slide sets or none matches."""
+    want = _words(title)
+    sets = _slide_sets(path)
+    if not want or not sets:
+        return None
+    scored = sorted(((len(want & _words(s["title"])), -i, s) for i, s in enumerate(sets)), reverse=True)
+    if not scored or scored[0][0] == 0:
+        return None
+    pages = scored[0][2]["pages"]
+    inside = [pg for pg, n in pages if n <= last and n + 1 >= first]
+    return inside or [pages[0][0]]
 
 
 def _printed_offset(path):
@@ -443,7 +491,7 @@ def _printed_offset(path):
     return votes.most_common(1)[0][0] if votes else 0
 
 
-def _lecture_source(note, src, ctx):
+def _lecture_source(note, src, ctx, heading=""):
     """(book, page) for a source line like 'Lec 14, slides 2-3', 'Lec 3-1, Perfect Gases 1-14' or 'Notes Eqs. (427)-(433)'; None if it names none."""
     import errata
     m = re.match(r"\s*Lec(?:ture)?\s*(\d+(?:-\d+)?)\s*,?\s*(.*)$", src or "", re.I)
@@ -458,7 +506,8 @@ def _lecture_source(note, src, ctx):
         same = [b for b in decks if (b.get("lecture") or "") == lecture]
         deck = next((b for b in same if title and title in b["title"].lower()), None) or (same[0] if same else _slides_book(note, lecture))
         if deck:
-            return deck, _best_page(data_path(deck["pdf_path"]), first, last, ctx)
+            path = data_path(deck["pdf_path"])
+            return deck, _best_page(path, first, last, ctx, _set_pages(path, title, first, last), heading)
     m = re.search(r"Eqs?\.?\s*\((\d{1,4})\)", src or "")
     if m:                                                     # equation numbers of the course lecture notes: the page that carries the tag
         for b in crud.list_books():
@@ -470,9 +519,10 @@ def _lecture_source(note, src, ctx):
     return None
 
 
-def _textbook_source(note, vk):
-    """(book, page) for a line like 'V&K III §8, pp. 77-82': the page of the course's textbook (printed numbers made PDF numbers)."""
-    m = re.search(r"\bpp?\.\s*(\d{1,4})", vk or "")
+def _textbook_source(note, vk, ctx="", heading=""):
+    """(book, page) for a line like 'V&K III §8, pp. 77-82': the page of the course's textbook (printed numbers made PDF numbers); of the range,
+    the page that fits the text around the equation."""
+    m = re.search(r"\bpp?\.\s*(\d{1,4})(?:\s*[–-]\s*(\d{1,4}))?", vk or "")
     books = [b for b in crud.list_books() if b["kind"] == "Textbook" and set(b["course_ids"]) & set(note["course_ids"])
              and b["pdf_path"].lower().endswith(".pdf")]
     if not books or not m:
@@ -481,7 +531,11 @@ def _textbook_source(note, vk):
     word = key.group(1).lower() if key else ""
     book = next((b for b in books if len(word) > 3 and (word in (b.get("author") or "").lower() or word in b["title"].lower())), None) or         next((b for b in books if word[:1] and (b.get("author") or b["title"]).lower().startswith(word[:1])), books[0])
     path = data_path(book["pdf_path"])
-    return book, int(m.group(1)) + _printed_offset(path)
+    off = _printed_offset(path)
+    first, last = int(m.group(1)), int(m.group(2) or m.group(1))
+    if last < first or last - first > 60:
+        last = first
+    return book, _best_page(path, first + off, last + off, ctx, None, heading)
 
 
 def _show_equation(wins, payload):
@@ -491,7 +545,7 @@ def _show_equation(wins, payload):
         return
     found = None
     ctx = f"{payload.get('ctx', '')}"
-    lecture, textbook = _lecture_source(note, payload.get("src", ""), ctx), _textbook_source(note, payload.get("vk", ""))
+    lecture, textbook = _lecture_source(note, payload.get("src", ""), ctx, payload.get("head", "")), _textbook_source(note, payload.get("vk", ""), ctx, payload.get("head", ""))
     found = (textbook or lecture) if payload.get("shift") else (lecture or textbook)
     if not found:
         st.toast("This source is not in the Library, or it names no page." if payload.get("chip") else "No source page is listed for this equation.", icon=":material/info:")

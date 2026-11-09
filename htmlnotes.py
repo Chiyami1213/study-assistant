@@ -124,7 +124,7 @@ _EQSRC = r"""<script>
     var chip = e.target.closest && e.target.closest('.src>span'); if (!chip || e.target.closest('.sa-slide')) return;
     var src = chip.parentElement, spans = src.querySelectorAll(':scope > span'), vkEl = src.querySelector(':scope > .vk');
     var first = null; [].forEach.call(spans, function (sp) { if (!first && !sp.classList.contains('vk')) first = sp; });
-    sendEq({note: BOOK, src: first ? text(first) : '', vk: vkEl ? text(vkEl) : '', eq: '', ctx: text(src._head).slice(0, 700), shift: chip.classList.contains('vk'), chip: true});
+    sendEq({note: BOOK, src: first ? text(first) : '', vk: vkEl ? text(vkEl) : '', eq: '', ctx: text(src._head).slice(0, 700), head: text(src._head), shift: chip.classList.contains('vk'), chip: true});
   }, true);
   document.addEventListener('click', function (e) {
     var eq = e.target.closest && e.target.closest('.eqb'); if (!eq) return;
@@ -133,7 +133,7 @@ _EQSRC = r"""<script>
     var src = eq._src, spans = src ? src.querySelectorAll('span') : [], ctx = text(eq._head), p = eq.previousElementSibling, n = 0;
     while (p && n < 3) { if (p.tagName === 'P') { ctx += ' ' + text(p); break; } p = p.previousElementSibling; n++; }
     var payload = {note: BOOK, src: spans.length ? text(spans[0]) : '', vk: src && src.querySelector('.vk') ? text(src.querySelector('.vk')) : '',
-                   eq: text(eq.querySelector('.eqn')), ctx: ctx.slice(0, 700), shift: !!e.shiftKey};
+                   eq: text(eq.querySelector('.eqn')), ctx: ctx.slice(0, 700), head: text(eq._head), shift: !!e.shiftKey};
     var inp = P.document.querySelector('.st-key-lab_tab_sink input'); if (!inp) return;
     var set = Object.getOwnPropertyDescriptor(P.HTMLInputElement.prototype, 'value').set;
     inp.focus(); set.call(inp, 'eq:' + encodeURIComponent(JSON.stringify(payload)) + '|' + Date.now());
