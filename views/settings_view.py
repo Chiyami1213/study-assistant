@@ -58,6 +58,22 @@ def render():
     _danger_zone()
 
 
+def _browse(key, add):
+    """Button callback: open the folder window; the chosen folder replaces the text in `key`, or (add) is added as a new line."""
+    import folderpick
+    current = st.session_state.get(key, "")
+    last_line = (current.splitlines() or [""])[-1] if add else current
+    chosen = folderpick.pick(last_line, "Choose a Folder")
+    if not chosen:
+        return
+    if add:
+        lines = [s.strip() for s in current.splitlines() if s.strip()]
+        if chosen not in lines:
+            lines.append(chosen)
+        chosen = "\n".join(lines)
+    st.session_state[key] = chosen
+
+
 def _backup_section():
     """Where the Library is backed up, the folders the original files live in, Back Up Now and the two ways to restore; then the danger zone."""
     import libbackup
@@ -66,10 +82,18 @@ def _backup_section():
                "brought back quickly if it is ever lost. The folders where you keep the original files are remembered too: files that are missing "
                "can be found again there by their size and content. Nothing in your own folders is ever changed or deleted.")
     cfg = settings.get_backup()
-    folder = st.text_input("Backup Folder", cfg.get("dir") or str(libbackup.DEFAULT_DIR), key="backup_dir",
-                           help="a folder outside the project, such as one on another drive or in onedrive")
-    sources = st.text_area("Folders With Your Original Files", "\n".join(cfg.get("sources", [])), key="backup_sources", height=110,
-                           help="one folder per line, such as your onedrive school documents folder. they are only read", placeholder="C:\\Users\\you\\OneDrive\\School Documents")
+    row = st.columns([6, 1.3], vertical_alignment="bottom")
+    st.session_state.setdefault("backup_dir", cfg.get("dir") or str(libbackup.DEFAULT_DIR))     # set before the box exists so a Browse click can change it
+    st.session_state.setdefault("backup_sources", "\n".join(cfg.get("sources", [])))
+    folder = row[0].text_input("Backup Folder", key="backup_dir",
+                               help="a folder outside the project, such as one on another drive or in onedrive")
+    row[1].button("Browse", icon=":material/folder_open:", key="backup_dir_browse", width="stretch", on_click=_browse, args=("backup_dir", False),
+                  help="choose the folder in a window")
+    row = st.columns([6, 1.3], vertical_alignment="bottom")
+    sources = row[0].text_area("Folders With Your Original Files", key="backup_sources", height=110,
+                               help="one folder per line, such as your onedrive school documents folder. they are only read", placeholder="C:\\Users\\you\\OneDrive\\School Documents")
+    row[1].button("Add Folder", icon=":material/create_new_folder:", key="backup_sources_browse", width="stretch", on_click=_browse, args=("backup_sources", True),
+                  help="choose a folder in a window and add it to the list")
     wanted = [s.strip() for s in sources.splitlines() if s.strip()]
     if folder.strip() != (cfg.get("dir") or str(libbackup.DEFAULT_DIR)) or wanted != cfg.get("sources", []):
         settings.set_backup(dir=folder.strip(), sources=wanted)
@@ -119,12 +143,17 @@ def _migrate_section():
                "A folder that is already there is renamed, never overwritten. For a clean copy without your files, copy the project folder by itself: "
                "the app creates its own empty data folder on first run.")
     st.caption(f"Your files are kept in {migrate.DATA_DIR}")
-    cols = st.columns([3, 1, 1])
-    dest = cols[0].text_input("Save the Zip In", str(Path.home() / "Desktop"), key="migrate_dest", help="a folder outside the project, such as the desktop or a usb drive")
+    cols = st.columns([3, 0.8, 1, 1])
+    st.session_state.setdefault("migrate_dest", str(Path.home() / "Desktop"))
+    dest = cols[0].text_input("Save the Zip In", key="migrate_dest", help="a folder outside the project, such as the desktop or a usb drive")
     with cols[1]:
         st.markdown("<div style='height:1.7rem'></div>", unsafe_allow_html=True)
-        include_data = st.toggle("Include My Files", True, key="migrate_data", help="off makes a clean installer with no personal files")
+        st.button("Browse", icon=":material/folder_open:", key="migrate_dest_browse", width="stretch", on_click=_browse, args=("migrate_dest", False),
+                  help="choose the folder in a window")
     with cols[2]:
+        st.markdown("<div style='height:1.7rem'></div>", unsafe_allow_html=True)
+        include_data = st.toggle("Include My Files", True, key="migrate_data", help="off makes a clean installer with no personal files")
+    with cols[3]:
         st.markdown("<div style='height:1.7rem'></div>", unsafe_allow_html=True)
         include_exe = st.toggle("Include the App", True, key="migrate_exe", help="includes the built app (exe) so the new laptop does not need python")
     if migrate.JOB["running"]:
