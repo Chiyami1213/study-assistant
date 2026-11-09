@@ -102,15 +102,30 @@ _EQSRC = r"""<script>
 (function () {
   var CFG = "__CFG__".split('|'), BOOK = CFG[0], P = window.parent;
   var css = document.createElement('style');
-  css.textContent = '.eqb{cursor:pointer}.eqb:hover{outline:2px solid #4c8dff;outline-offset:3px;border-radius:6px}';
+  css.textContent = '.eqb{cursor:pointer}.eqb:hover{outline:2px solid #4c8dff;outline-offset:3px;border-radius:6px}.src>span{cursor:pointer}.src>span:hover{filter:brightness(1.3);text-decoration:underline dotted}';
   document.head.appendChild(css);
   var cur = null, head = null;
   [].forEach.call(document.querySelectorAll('h2,h3,.src,.eqb'), function (el) {
-    if (el.classList.contains('src')) cur = el;
+    if (el.classList.contains('src')) { cur = el; el._head = head;
+      [].forEach.call(el.querySelectorAll(':scope > span'), function (sp) { sp.title = sp.classList.contains('vk') ? 'open this in the textbook' : 'open this in the lecture slides or notes'; }); }
     else if (el.classList.contains('eqb')) { el._src = cur; el._head = head; el.title = 'open its source (shift: textbook)'; }
     else head = el;
   });
   function text(el) { return el ? (el.textContent || '').replace(/\s+/g, ' ').trim() : ''; }
+  function sendEq(payload) {
+    var inp = P.document.querySelector('.st-key-lab_tab_sink input'); if (!inp) return;
+    var set = Object.getOwnPropertyDescriptor(P.HTMLInputElement.prototype, 'value').set;
+    inp.focus(); set.call(inp, 'eq:' + encodeURIComponent(JSON.stringify(payload)) + '|' + Date.now());
+    inp.dispatchEvent(new P.Event('input', {bubbles: true}));
+    inp.dispatchEvent(new P.KeyboardEvent('keydown', {key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true}));
+    inp.blur();
+  }
+  document.addEventListener('click', function (e) {                       // a chip of a source line: the lecture slides / notes, or the textbook
+    var chip = e.target.closest && e.target.closest('.src>span'); if (!chip || e.target.closest('.sa-slide')) return;
+    var src = chip.parentElement, spans = src.querySelectorAll(':scope > span'), vkEl = src.querySelector(':scope > .vk');
+    var first = null; [].forEach.call(spans, function (sp) { if (!first && !sp.classList.contains('vk')) first = sp; });
+    sendEq({note: BOOK, src: first ? text(first) : '', vk: vkEl ? text(vkEl) : '', eq: '', ctx: text(src._head).slice(0, 700), shift: chip.classList.contains('vk'), chip: true});
+  }, true);
   document.addEventListener('click', function (e) {
     var eq = e.target.closest && e.target.closest('.eqb'); if (!eq) return;
     if (e.target.closest('a,button,input,textarea,select')) return;

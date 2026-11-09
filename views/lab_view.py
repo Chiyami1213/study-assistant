@@ -479,7 +479,7 @@ def _textbook_source(note, vk):
         return None
     key = re.match(r"\s*([A-Za-z&]+)", vk or "")
     word = key.group(1).lower() if key else ""
-    book = next((b for b in books if len(word) > 3 and (word in (b.get("author") or "").lower() or word in b["title"].lower())), books[0])
+    book = next((b for b in books if len(word) > 3 and (word in (b.get("author") or "").lower() or word in b["title"].lower())), None) or         next((b for b in books if word[:1] and (b.get("author") or b["title"]).lower().startswith(word[:1])), books[0])
     path = data_path(book["pdf_path"])
     return book, int(m.group(1)) + _printed_offset(path)
 
@@ -494,7 +494,7 @@ def _show_equation(wins, payload):
     lecture, textbook = _lecture_source(note, payload.get("src", ""), ctx), _textbook_source(note, payload.get("vk", ""))
     found = (textbook or lecture) if payload.get("shift") else (lecture or textbook)
     if not found:
-        st.toast("No source page is listed for this equation.", icon=":material/info:")
+        st.toast("This source is not in the Library, or it names no page." if payload.get("chip") else "No source page is listed for this equation.", icon=":material/info:")
         return
     _open_pdf(wins, found[0], found[1])
 
