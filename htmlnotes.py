@@ -149,7 +149,9 @@ _F11 = """<script>
 document.addEventListener('keydown', function (e) {
   try {
     var P = window.parent, t = e.target, tag = (t && t.tagName || '').toLowerCase();
-    if (e.key === 'F11' && !e.ctrlKey && !e.altKey && !e.shiftKey && !e.metaKey) {
+    if (e.key === 'F5' && !e.altKey && P && P.__saRefresh) {
+      e.preventDefault(); if (e.ctrlKey || e.shiftKey || e.metaKey) P.__saReload(); else P.__saRefresh();                 // F5 inside a note
+    } else if (e.key === 'F11' && !e.ctrlKey && !e.altKey && !e.shiftKey && !e.metaKey) {
       if (P && P.__saFullscreen && P.pywebview && P.pywebview.api && P.pywebview.api.toggle_fullscreen) { e.preventDefault(); P.__saFullscreen(); }
     } else if (P && P.__saMenuToggle && P.__keyIs && tag !== 'input' && tag !== 'textarea' && tag !== 'select' && !(t && t.isContentEditable) && P.__keyIs(e, 'app', 'menu', 'm')) {
       e.preventDefault(); P.__saMenuToggle();                       // the key that hides or shows the menu bar, pressed inside a note

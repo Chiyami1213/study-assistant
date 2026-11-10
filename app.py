@@ -234,7 +234,7 @@ section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-h
     letter-spacing: 1px; text-shadow: 0 1px 3px #0008;}}
 [class*="st-key-tilemenu_"] button:hover p {{opacity: 0.8;}}
 
-.st-key-nav_back_hidden, .st-key-nav_forward_hidden, .st-key-menu_toggle_hidden {{position: absolute !important; width: 1px; height: 1px; overflow: hidden; opacity: 0;
+.st-key-nav_back_hidden, .st-key-nav_forward_hidden, .st-key-menu_toggle_hidden, .st-key-refresh_hidden {{position: absolute !important; width: 1px; height: 1px; overflow: hidden; opacity: 0;
     pointer-events: none;}}
 
 /* Course outline: hidden box that carries a clicked point to the app */
@@ -945,6 +945,17 @@ if (!win.__menuV1) {
     e.preventDefault(); win.__saMenuToggle();
   }, true);
 }
+// F5: the page is drawn again with fresh data and you stay where you are; Ctrl + F5 (or Shift + F5) loads the whole page again. Notes call this too.
+if (!win.__refreshV1) {
+  win.__refreshV1 = true;
+  win.__saRefresh = () => { const b = doc.querySelector('.st-key-refresh_hidden button'); if (b) b.click(); };
+  win.__saReload = () => win.location.reload();
+  doc.addEventListener('keydown', e => {
+    if (e.key !== 'F5' || e.altKey) return;
+    e.preventDefault();
+    if (e.ctrlKey || e.shiftKey || e.metaKey) win.__saReload(); else win.__saRefresh();
+  }, true);
+}
 // F11: full screen on and off in the desktop window (in a browser, F11 is the browser's own). Notes are in frames: they call this too.
 if (!win.__fsV1) {
   win.__fsV1 = true;
@@ -1399,6 +1410,9 @@ st.session_state.setdefault("pdf_page", 1)
 # ---- Back / forward navigation: the app keeps its own history of (page, open course, open file) ----
 st.session_state.setdefault("nav_history", [])
 st.session_state.setdefault("nav_forward", [])       # pages left by going back, newest last
+if st.button("Refresh", key="refresh_hidden"):        # clicked by F5 (hidden by CSS): the page is drawn again with fresh data, where you are
+    st.cache_data.clear()
+    st.rerun()
 if st.button("Menu", key="menu_toggle_hidden"):       # clicked by the key set in Settings (m): hides or shows the menu bar (hidden by CSS)
     settings.set_menu_hidden(not settings.get_menu_hidden())
     st.rerun()
