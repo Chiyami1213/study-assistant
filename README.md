@@ -1,6 +1,6 @@
 # Study Assistant
 
-Version 1.0.1 (`version.py`). See [CHANGELOG.md](CHANGELOG.md) for what changed in each release.
+Version 1.0.1 (`version.py`). See the [changelog](#changelog) below for what changed in each release.
 
 A personal study app for coursework: a course library (textbooks, lecture notes, homework and exam PDFs), a Note Reader for interactive HTML
 notes, homework and exam readers with drawing and grade explanations, a calendar, quizzes and a Home page with what is due. It runs locally
@@ -31,5 +31,20 @@ already there. To start clean instead, just copy this project folder.
 pip install pyinstaller
 python build_exe.py      # dist/StudyAssistant/StudyAssistant.exe and dist/installer/Install Study Assistant.exe
 ```
+
+## Changelog
+
+The full history is in [CHANGELOG.md](CHANGELOG.md).
+
+**1.0.1**
+- Course outlines build themselves from the syllabus topics (or the Lec 0 slides), otherwise from the lecture or chapter titles; Courses > Outline > Edit Outline edits
+  them as text and Auto Build rebuilds them. A replaced outline is copied to the data folder first.
+- PDF reader: zoom works in every view mode, drag the page to move it, Ctrl + wheel zooms, and a zoom step keeps your place.
+- Note Reader: an equation whose source line names several slide sets opens the set that matches its section.
+- Add File reads `Chapter 3`, `Ch 3` as the lecture number, so links to a newly imported note find it.
+
+**1.0**
+- First release: clean installs start empty, an installer that registers an uninstaller (keep or remove your files), Export My Files Only and Settings > Import,
+  the migration zip fix, Browse buttons, and equation and source-line clicks in the Note Reader.
 
 See `CLAUDE.md` for the conventions of the code base and the format of the notes the Note Reader reads.
