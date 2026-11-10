@@ -968,25 +968,23 @@ if (!win.__refreshV1) {
     if (e.ctrlKey || e.shiftKey || e.metaKey) win.__saReload(); else win.__saRefresh();
   }, true);
 }
-// Menu keys: while the menu bar is shown, the first letter of an item opens that page (H Home, C Calendar, L Library, N Note Reader, Courses on a second C, S Settings).
-// A letter shared by two items goes to the next one after the page you are on. Not while typing, not with a modifier key, and not in drawing mode (d p h e are the pen keys).
+// Menu keys: while the menu bar is shown, a letter opens a page: H Home, A Calendar, L Library, N Note Reader, C Courses, S Settings.
+// Not while typing, not with a modifier key, and not in drawing mode (d p h e are the pen keys there).
 if (!win.__menuKeysV1) {
   win.__menuKeysV1 = true;
+  const PAGE_OF = {h: 'Home', a: 'Calendar', l: 'Library', n: 'Note Reader', c: 'Courses', s: 'Settings'};
   win.__saMenuKey = e => {
     if (e.ctrlKey || e.altKey || e.metaKey || e.shiftKey || !e.key || e.key.length !== 1) return false;
+    const page = PAGE_OF[e.key.toLowerCase()]; if (!page) return false;
     const t = e.target, tag = (t && t.tagName || '').toLowerCase();
     if (tag === 'input' || tag === 'textarea' || tag === 'select' || (t && t.isContentEditable)) return false;
     if (doc.querySelector('.an-on')) return false;
     const rail = doc.querySelector('section[data-testid="stSidebar"] > div:first-child');
     if (!rail || rail.getBoundingClientRect().width < 30) return false;                      // the menu bar is hidden
     const nameOf = b => ([...((b.closest('[class*="st-key-"]') || {}).classList || [])].find(c => c.startsWith('st-key-nav_')) || '').slice(11).replace(/-/g, ' ');     // "Note Reader"
-    const items = [...rail.querySelectorAll('button')].filter(b => /^(Home|Calendar|Library|Note Reader|Courses|Settings)$/.test(nameOf(b)));
-    const key = e.key.toLowerCase();
-    const same = items.filter(b => nameOf(b).toLowerCase().startsWith(key));
-    if (!same.length) return false;
-    const now = items.findIndex(b => b.getAttribute('data-testid') === 'stBaseButton-primary');
-    const next = same.find(b => items.indexOf(b) > now) || same[0];
-    next.click();
+    const button = [...rail.querySelectorAll('button')].find(b => nameOf(b) === page);
+    if (!button) return false;
+    button.click();
     return true;
   };
   doc.addEventListener('keydown', e => { if (win.__saMenuKey(e)) e.preventDefault(); }, true);
