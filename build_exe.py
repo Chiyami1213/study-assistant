@@ -42,7 +42,7 @@ def main():
     out = ROOT / "dist" / "StudyAssistant"
     (out / "project_path.txt").write_text(str(ROOT), encoding="utf-8")
     print("Built:", out / "StudyAssistant.exe")
-    import build_installer                      # the installer that Settings > Migrate puts in the migration zip
+    import build_installer                      # the installer that goes into the release zip (build_release.py)
     print("Built:", build_installer.build())
 
 

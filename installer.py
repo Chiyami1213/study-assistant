@@ -2,7 +2,7 @@
 
 It sits next to a `payload` folder that holds
   payload\\program   the program (code, and the app's exe when it was included)   -> <Documents>\\study-assistant
-  payload\\data      (only in a full migration) your files and settings             -> %APPDATA%\\Study Assistant
+  payload\\data      (only in a zip that carries files) your files and settings             -> %APPDATA%\\Study Assistant
 It only COPIES from the payload. A destination folder that already has something in it is never overwritten or deleted: it is renamed to
 "<name> (old <date and time>)" first. Nothing outside the two folders is touched, except a Study Assistant shortcut on the Desktop.
 

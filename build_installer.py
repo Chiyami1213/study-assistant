@@ -1,7 +1,6 @@
 """Build the installer program:  python build_installer.py   ->   dist/installer/Install Study Assistant.exe
 
-The installer (installer.py) is one small exe. The Settings > Migrate section (migrate.py) puts it next to a payload folder in the zip it
-makes; build_clean_package() makes the same kind of zip with the program only, for a clean install on a new device."""
+The installer (installer.py) is one small exe. build_release.py puts it next to a payload folder in the zip that people download."""
 import subprocess
 import sys
 from pathlib import Path

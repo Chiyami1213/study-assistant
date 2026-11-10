@@ -65,26 +65,25 @@ Number (or "Midterm 1", "Final" in the title) pair it with the problem file and 
   click on a sub-problem (`<div class="part">` whose `.pl` label is the letter, e.g. `a)`) shows that part's lines. Problem numbers and
   letters must match the numbering of the problem PDF (the app finds them by their text).
 
-## Moving to another laptop (Settings > Migrate)
-- A clean copy: copy the project folder alone and run `python run.py` (after `pip install -r requirements.txt`); the app makes its own empty data folder.
-- With all of the user's files: Settings > Migrate (`migrate.py`) writes one zip with `Install Study Assistant.exe` (`installer.py`, built by
-  `build_installer.py` and by `build_exe.py` into `dist/installer/`), `payload/program` (project without `.git`, `static`, `build`, `data`; with
-  `dist/StudyAssistant` when "Include the App" is on) and `payload/data` (the data folder without `webview` and `Backups`, the database as a consistent copy).
-  On the new laptop the installer COPIES `payload/program` to `Documents\study-assistant` and `payload/data` to `AppData\Roaming\Study Assistant`; a folder that
-  is already there is renamed to `... (old date time)`, never overwritten or deleted.
-- Files only: Settings > Migrate > Export My Files Only (`migrate.make_package(files_only=True)`) writes a zip with just `payload/data/...` (no program, no
-  installer). On a laptop that already has the app (a clean install), Settings > Import (`dataimport.py`) takes that zip or a full migration zip: it adds
-  missing files, skips identical ones, copies a differing file to `Backups\Before Import <time>` before replacing it, and replaces the database through
-  sqlite's backup after copying the current one there. Nothing is deleted. Restart the app afterwards.
-- The installer also registers the program for the current user (HKCU `...\Uninstall\StudyAssistant`, no admin) so it appears in Settings > Apps /
-  Control Panel, and copies itself into the program folder as `Uninstall Study Assistant.exe` (`--uninstall`, marker `.study-assistant-install.json`).
-  The uninstaller removes the program folder, the Desktop shortcut and that registry entry and by default KEEPS the data folder; its window has a
-  "remove everything, including my files" choice (asks again, `--remove-files` for tests) that deletes the data folder too. It never enters a
-  link or junction, and refuses a folder without the marker or with a `.git`. The release number is `version.py` (`VERSION`, shown in Settings > About,
-  the installer and the installed-apps entry): raise it for each release. Never run it on the development copy. Test only with
-  `SA_INSTALL_PROGRAM_DIR` / `SA_INSTALL_DATA_DIR` and `SA_INSTALL_REG_KEY` (a test key name, removed afterwards).
+## Backup, export and release (the app does not build anything)
+- The app only manages the user's own files: Settings > Backup keeps the library backup (`libbackup.py`) and has Export My Files (`exportfiles.py`: one zip with
+  `payload/data/...`, the data folder without `webview` and `Backups`, the database as a consistent copy) and Import (`dataimport.py`: adds missing files, skips
+  identical ones, copies a differing file to `Backups\Before Import <time>` before replacing it, replaces the database through sqlite's backup after copying the
+  current one there; nothing is deleted; restart afterwards). The app never builds an exe or packages the program.
+- The developer builds the release from VS Code: `python build_release.py` builds the app (`build_exe.py`), the installer (`build_installer.py`, from `installer.py`) and
+  `dist/release/StudyAssistant-<version>-Windows-Installer.zip`: a CLEAN install (installer + `payload/program`, no personal files). It is uploaded as the asset of the
+  GitHub release; people extract it and run `Install Study Assistant.exe`. A clean copy can also be made by copying the project folder alone and running `python run.py`
+  (after `pip install -r requirements.txt`).
+- The installer COPIES `payload/program` to `Documents\study-assistant` (and `payload/data` to `AppData\Roaming\Study Assistant` when a zip has one); a folder that is
+  already there is renamed to `... (old date time)`, never overwritten or deleted. It also registers the program for the current user (HKCU
+  `...\Uninstall\StudyAssistant`, no admin) so it appears in Settings > Apps / Control Panel, and copies itself into the program folder as
+  `Uninstall Study Assistant.exe` (`--uninstall`, marker `.study-assistant-install.json`). The uninstaller removes the program folder, the Desktop shortcut and that
+  registry entry and by default KEEPS the data folder; its window has a "remove everything, including my files" choice (asks again, `--remove-files` for tests) that
+  deletes the data folder too. It never enters a link or junction, and refuses a folder without the marker or with a `.git`. Never run it on the development copy. Test
+  only with `SA_INSTALL_PROGRAM_DIR` / `SA_INSTALL_DATA_DIR` and `SA_INSTALL_REG_KEY` (a test key name, removed afterwards).
+- The release number is `version.py` (`VERSION`, shown in Settings > About, the installer and the installed-apps entry).
 - Do not store anything else elsewhere (user profile, registry). The only other extras are the Desktop shortcut and the optional backup folder.
-- `migrate.py` skips `static`, `build`, `data`, ... only directly under the project folder; deeper folders of the same name (the built app's
+- `build_release.py` skips `static`, `build`, `data`, ... only directly under the project folder; deeper folders of the same name (the built app's
   `streamlit\static` web page) must be copied, or the exe shows a black window with "Not Found".
 
 ## Course outlines (`courseoutline.py`, Courses > Outline)

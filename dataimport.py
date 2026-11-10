@@ -1,6 +1,6 @@
-"""Settings > Import: bring the files of an export (or of a migration zip) into this app's data folder.
+"""Settings > Backup > Import: bring the files of an export into this app's data folder.
 
-The zip is the one made by Settings > Migrate (Export My Files, or a full Migration Zip): the user's files are under `payload/data/`.
+The zip is the one made by Settings > Backup > Export My Files: the user's files are under `payload/data/`.
 Nothing is deleted: a file that is not there yet is added; a file that is there with the same content is left alone; a file that is there
 and differs is first copied to <data folder>\\Backups\\Before Import <date time>\\ and then replaced. The database is replaced through sqlite's own
 backup (so it also works while the app has it open), after the current one was copied to the same Backups folder. The zip itself is only read.
@@ -52,7 +52,7 @@ def inspect(path):
     except zipfile.BadZipFile:
         raise RuntimeError("That file is not a zip, or it is damaged.")
     if not members:
-        raise RuntimeError("This zip holds no Study Assistant files. Use a zip made by Settings > Migrate (Export My Files or Create Migration Zip).")
+        raise RuntimeError("This zip holds no Study Assistant files. Use a zip made by Settings > Backup > Export My Files.")
     return {"files": len(members), "bytes": sum(i.file_size for i, _ in members), "has_db": any(r == "study.db" for _, r in members)}
 
 

@@ -44,8 +44,6 @@ def render():
             st.rerun()
 
     _backup_section()
-    _migrate_section()
-    _import_section()
     st.header("Keyboard Shortcuts")
     st.caption("Type a key, such as d, or a combination, such as ctrl+z. Esc is the Escape key. A shortcut works when you are not typing in a box.")
     _keys_section("Homework and Exam Reader", "reader", [
@@ -79,7 +77,7 @@ def _browse(key, add):
 
 
 def _backup_section():
-    """Where the Library is backed up, the folders the original files live in, Back Up Now and the two ways to restore; then the danger zone."""
+    """Where the Library is backed up, the folders the original files live in, Back Up Now and the two ways to restore; then Export and Import."""
     import libbackup
     st.header("Backup")
     st.caption("Keeps a copy of every Library file, what each one is, the database and the settings in a folder you choose, so the Library can be "
@@ -135,69 +133,8 @@ def _backup_section():
                     st.error(f"Could not restore: {e}")
     if cfg.get("last"):
         st.caption(f"Last backup: {cfg['last'].replace('T', ' ')}")
+    _export_import_section()
 
-
-
-def _migrate_section():
-    """Make one zip with the program and (optionally) all of the user's files, for another laptop; an installer inside it sets everything up."""
-    import migrate
-    st.header("Migrate")
-    st.caption("To move to another laptop: make a migration zip here, copy it over, extract it and run the installer inside. The installer puts the program in "
-               "Documents\\study-assistant and your files (database, settings, imported files, covers, photos, grades) in AppData\\Roaming\\Study Assistant. "
-               "A folder that is already there is renamed, never overwritten. For a clean copy without your files, copy the project folder by itself: "
-               "the app creates its own empty data folder on first run.")
-    st.caption(f"Your files are kept in {migrate.DATA_DIR}")
-    cols = st.columns([3, 0.8, 1, 1])
-    st.session_state.setdefault("migrate_dest", str(Path.home() / "Desktop"))
-    dest = cols[0].text_input("Save the Zip In", key="migrate_dest", help="a folder outside the project, such as the desktop or a usb drive")
-    with cols[1]:
-        st.markdown("<div style='height:1.7rem'></div>", unsafe_allow_html=True)
-        st.button("Browse", icon=":material/folder_open:", key="migrate_dest_browse", width="stretch", on_click=_browse, args=("migrate_dest", False),
-                  help="choose the folder in a window")
-    with cols[2]:
-        st.markdown("<div style='height:1.7rem'></div>", unsafe_allow_html=True)
-        include_data = st.toggle("Include My Files", True, key="migrate_data", help="off makes a clean installer with no personal files")
-    with cols[3]:
-        st.markdown("<div style='height:1.7rem'></div>", unsafe_allow_html=True)
-        include_exe = st.toggle("Include the App", True, key="migrate_exe", help="includes the built app (exe) so the new laptop does not need python")
-    if migrate.JOB["running"]:
-        _migrate_progress()
-    else:
-        job = migrate.JOB
-        if job["result"]:
-            st.success(f"Done: {job['result']}")
-        if job["error"]:
-            st.error(job["error"])
-        enough = True
-        try:
-            info = migrate.estimate(include_exe, include_data)
-            space = migrate.check_space(dest.strip() or ".", info)
-            enough = space["ok"]
-            gb = (info["program_bytes"] + info["data_bytes"]) / 2**30
-            st.caption(f"About {gb:.1f} GB ({info['program_files'] + info['data_files']} files) will be packed. "
-                       f"Free space on {space['drive']}: {space['free'] / 2**30:.1f} GB; the zip needs up to {space['needed'] / 2**30:.1f} GB. "
-                       + ("" if info["installer"] else "The installer exe is built automatically the first time."))
-            if not enough:
-                st.error(f"Not enough free space on {space['drive']}: {(space['needed'] - space['free']) / 2**30:.1f} GB more are needed. "
-                         "Free some space or choose a folder on another drive.")
-        except OSError as e:
-            st.warning(f"That folder cannot be used: {e}")
-            enough = False
-        export_ok = True
-        try:
-            e_info = {**migrate.estimate(False, True), "program_bytes": 0, "installer_bytes": 0}
-            export_ok = migrate.check_space(dest.strip() or ".", e_info)["ok"]
-        except OSError:
-            export_ok = False
-        a, b, _ = st.columns([1, 1, 1.2])
-        if a.button("Create Migration Zip", icon=":material/folder_zip:", key="migrate_make", disabled=not enough, width="stretch",
-                    help="packs the program and your files into one zip; nothing is changed or removed"):
-            if migrate.start(dest.strip(), include_exe, include_data):
-                st.rerun()
-        if b.button("Export My Files Only", icon=":material/upload_file:", key="migrate_export", disabled=not export_ok, width="stretch",
-                    help="a zip of your files without the program; on a laptop that already has the app, bring it in with the import section below"):
-            if migrate.start(dest.strip(), False, True, files_only=True):
-                st.rerun()
 
 
 def _browse_file(key):
@@ -208,15 +145,48 @@ def _browse_file(key):
         st.session_state[key] = chosen
 
 
-def _import_section():
-    """Bring the files of an export (Settings > Migrate > Export My Files Only, or a migration zip) into this app."""
+def _export_import_section():
+    """Part of Backup: one zip with the user's own files, to keep as a backup or to bring to another device, and the import of such a zip."""
     import dataimport
-    st.header("Import")
-    st.caption("On a new laptop, install Study Assistant first, then choose the zip made by Export My Files Only (or a migration zip) here. Your files are added "
-               "to this app; a file that is already here and differs is copied to Backups\\Before Import first, so nothing is lost. Restart the app afterwards.")
+    import exportfiles
+    st.subheader("Export and Import")
+    st.caption("Export My Files makes one zip with your database, settings and imported files (covers, photos, grades and drawings too), to keep as a backup or to take to another "
+               "device. On that device, install Study Assistant, then choose the zip under Import. Nothing is deleted: a file that is already there and differs is copied to "
+               f"Backups\\Before Import first. Your files are kept in {exportfiles.DATA_DIR}.")
+    cols = st.columns([6, 1.3], vertical_alignment="bottom")
+    st.session_state.setdefault("export_dest", str(Path.home() / "Desktop"))
+    dest = cols[0].text_input("Save the Export In", key="export_dest", help="a folder outside the program folder, such as the desktop, onedrive or a usb drive")
+    cols[1].button("Browse", icon=":material/folder_open:", key="export_dest_browse", width="stretch", on_click=_browse, args=("export_dest", False),
+                   help="choose the folder in a window")
+    if exportfiles.JOB["running"]:
+        _export_progress()
+    else:
+        job = exportfiles.JOB
+        if job["result"]:
+            st.success(f"Done: {job['result']}")
+        if job["error"]:
+            st.error(job["error"])
+        enough = True
+        try:
+            info = exportfiles.estimate()
+            space = exportfiles.check_space(dest.strip() or ".", info)
+            enough = space["ok"]
+            st.caption(f"About {info['bytes'] / 2**30:.1f} GB ({info['files']} files) will be packed. "
+                       f"Free space on {space['drive']}: {space['free'] / 2**30:.1f} GB; the zip needs up to {space['needed'] / 2**30:.1f} GB.")
+            if not enough:
+                st.error(f"Not enough free space on {space['drive']}: {(space['needed'] - space['free']) / 2**30:.1f} GB more are needed. "
+                         "Free some space or choose a folder on another drive.")
+        except OSError as e:
+            st.warning(f"That folder cannot be used: {e}")
+            enough = False
+        if st.button("Export My Files", icon=":material/upload_file:", key="export_make", disabled=not enough,
+                     help="packs your files into one zip; nothing is changed or removed"):
+            if exportfiles.start(dest.strip()):
+                st.rerun()
+
     row = st.columns([6, 1.3], vertical_alignment="bottom")
     zip_path = row[0].text_input("Zip to Import", key="import_zip", placeholder="C:\\Users\\you\\Desktop\\StudyAssistant-Files-20261109-1200.zip",
-                                 help="the zip file made by export my files only, or by create migration zip")
+                                 help="a zip made by export my files")
     row[1].button("Browse", icon=":material/folder_open:", key="import_zip_browse", width="stretch", on_click=_browse_file, args=("import_zip",),
                   help="choose the zip in a window")
     if dataimport.JOB["running"]:
@@ -253,9 +223,9 @@ def _import_progress():
 
 
 @st.fragment(run_every=1.5)
-def _migrate_progress():
-    import migrate
-    job = migrate.JOB
+def _export_progress():
+    import exportfiles
+    job = exportfiles.JOB
     if job["running"]:
         st.progress(min(max(job["fraction"], 0.0), 1.0), text=job["message"][:90])
     else:
