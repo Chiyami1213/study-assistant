@@ -234,7 +234,7 @@ section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-h
     letter-spacing: 1px; text-shadow: 0 1px 3px #0008;}}
 [class*="st-key-tilemenu_"] button:hover p {{opacity: 0.8;}}
 
-.st-key-nav_back_hidden, .st-key-nav_forward_hidden, .st-key-menu_toggle_hidden, .st-key-refresh_hidden {{position: absolute !important; width: 1px; height: 1px; overflow: hidden; opacity: 0;
+.st-key-nav_back_hidden, .st-key-nav_forward_hidden, .st-key-menu_toggle_hidden, .st-key-refresh_hidden, .st-key-screenshot_hidden {{position: absolute !important; width: 1px; height: 1px; overflow: hidden; opacity: 0;
     pointer-events: none;}}
 
 /* Course outline: hidden box that carries a clicked point to the app */
@@ -945,6 +945,15 @@ if (!win.__menuV1) {
     e.preventDefault(); win.__saMenuToggle();
   }, true);
 }
+// F2: a screenshot of the app window is saved in the data folder (screenshots). Notes call this too.
+if (!win.__shotV1) {
+  win.__shotV1 = true;
+  win.__saScreenshot = () => { const b = doc.querySelector('.st-key-screenshot_hidden button'); if (b) b.click(); };
+  doc.addEventListener('keydown', e => {
+    if (e.key !== 'F2' || e.ctrlKey || e.altKey || e.shiftKey || e.metaKey) return;
+    e.preventDefault(); win.__saScreenshot();
+  }, true);
+}
 // F5: the page is drawn again with fresh data and you stay where you are; Ctrl + F5 (or Shift + F5) loads the whole page again. Notes call this too.
 if (!win.__refreshV1) {
   win.__refreshV1 = true;
@@ -1410,6 +1419,13 @@ st.session_state.setdefault("pdf_page", 1)
 # ---- Back / forward navigation: the app keeps its own history of (page, open course, open file) ----
 st.session_state.setdefault("nav_history", [])
 st.session_state.setdefault("nav_forward", [])       # pages left by going back, newest last
+if st.button("Screenshot", key="screenshot_hidden"):  # clicked by F2 (hidden by CSS): a picture of the app window is saved in the data folder
+    import screenshot
+    try:
+        st.toast(f"Screenshot saved in {screenshot.FOLDER}", icon=":material/photo_camera:")
+        screenshot.take()
+    except Exception as e:
+        st.toast(f"The screenshot could not be saved: {e}", icon=":material/error:")
 if st.button("Refresh", key="refresh_hidden"):        # clicked by F5 (hidden by CSS): the page is drawn again with fresh data, where you are
     st.cache_data.clear()
     st.rerun()

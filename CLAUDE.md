@@ -7,7 +7,7 @@ Personal Streamlit + SQLite study app (`python run.py`). Code is in `app.py`, `v
   git-ignored caches and build output.)
 - The user's own files live in the DATA folder `database.DATA_DIR` = `%APPDATA%\Study Assistant` (the env variable
   `STUDY_ASSISTANT_DATA` overrides it; an old `project\data` is still used only if it holds `study.db` and the roaming folder does not exist): `study.db`,
-  `settings.json`, `quizzes/`, `pdfs/`, `covers/`, `course_photos/`, `grading/`, `syllabus/`, `annotations/`, `equation_sheets/`, `webview/`, `Backups/`.
+  `settings.json`, `quizzes/`, `pdfs/`, `covers/`, `course_photos/`, `grading/`, `syllabus/`, `annotations/`, `equation_sheets/`, `screenshots/` (F2), `webview/`, `Backups/`.
   Never edit files in it by hand. In code use `database.DATA_DIR`, `data_path(rel)` and `stored_path(path)`; never build paths from `BASE_DIR / "data"`.
   Book paths in the database are relative to the data folder (`pdfs\book_x.pdf`; older rows may start with `data\`).
 

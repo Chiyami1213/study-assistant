@@ -149,7 +149,9 @@ _F11 = """<script>
 document.addEventListener('keydown', function (e) {
   try {
     var P = window.parent, t = e.target, tag = (t && t.tagName || '').toLowerCase();
-    if (e.key === 'F5' && !e.altKey && P && P.__saRefresh) {
+    if (e.key === 'F2' && !e.ctrlKey && !e.altKey && !e.shiftKey && !e.metaKey && P && P.__saScreenshot) {
+      e.preventDefault(); P.__saScreenshot();                                         // F2 inside a note
+    } else if (e.key === 'F5' && !e.altKey && P && P.__saRefresh) {
       e.preventDefault(); if (e.ctrlKey || e.shiftKey || e.metaKey) P.__saReload(); else P.__saRefresh();                 // F5 inside a note
     } else if (e.key === 'F11' && !e.ctrlKey && !e.altKey && !e.shiftKey && !e.metaKey) {
       if (P && P.__saFullscreen && P.pywebview && P.pywebview.api && P.pywebview.api.toggle_fullscreen) { e.preventDefault(); P.__saFullscreen(); }

@@ -44,6 +44,20 @@ side, and let the app keep track of deadlines, grades and outlines. It runs enti
   </tr>
 </table>
 
+## Keyboard shortcuts
+
+| Key | What it does |
+| --- | --- |
+| **F2** | Saves a screenshot of the app window in `%APPDATA%\Study Assistant\screenshots` |
+| **F5** | Refreshes the page with fresh data and keeps your place (**Ctrl + F5** loads the whole page again) |
+| **F11** | Full screen on and off |
+| **m** | Hides the menu bar, or shows it again (point at the left edge to peek at it); the key can be changed in Settings |
+| **Ctrl + F** | Finds text in the note or PDF under the pointer |
+| **Ctrl + mouse wheel** | Zooms the PDF reader (drag the page to move it) |
+| **d**, **p**, **h**, **e**, **Ctrl + Z** | Drawing mode, pen, highlighter, eraser and undo in the PDF reader |
+
+Settings > Keyboard Shortcuts lists the keys that can be changed.
+
 ## Download and install (Windows)
 
 Download `StudyAssistant-1.0.0-Windows-Installer.zip` from the [Releases](../../releases) page, extract the whole zip, and run `Install Study Assistant.exe` from the
@@ -69,6 +83,11 @@ deleted: a file that is already there and differs is copied aside first.
 ## Changelog
 
 The full history is in [CHANGELOG.md](CHANGELOG.md).
+
+**1.0.1** (next release, not released yet)
+- F2 saves a screenshot of the app window; F5 refreshes the page; F11 turns full screen on and off.
+- Press m to hide the menu bar (point at the left edge to show it); Settings has a switch and a key box for it.
+- The Exams tab of a course shows the Preparation page for past exams too.
 
 **1.0.0**
 - First release. Clean installs start empty; an installer that registers an uninstaller (keep or remove your files).
