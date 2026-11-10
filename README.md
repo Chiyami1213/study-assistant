@@ -51,6 +51,7 @@ side, and let the app keep track of deadlines, grades and outlines. It runs enti
 | **F2** | Saves a screenshot of the app window in `%APPDATA%\Study Assistant\screenshots` |
 | **F5** | Refreshes the page with fresh data and keeps your place (**Ctrl + F5** loads the whole page again) |
 | **F11** | Full screen on and off |
+| **h**, **c**, **l**, **n**, **s** | While the menu bar is shown: opens Home, Calendar, Library, Note Reader or Settings (**c** again goes to Courses, then back to Calendar) |
 | **m** | Hides the menu bar, or shows it again (point at the left edge to peek at it); the key can be changed in Settings |
 | **Ctrl + F** | Finds text in the note or PDF under the pointer |
 | **Ctrl + mouse wheel** | Zooms the PDF reader (drag the page to move it) |
@@ -86,7 +87,7 @@ The full history is in [CHANGELOG.md](CHANGELOG.md).
 
 **1.0.1** (next release, not released yet)
 - F2 saves a screenshot of the app window; F5 refreshes the page; F11 turns full screen on and off.
-- Press m to hide the menu bar (point at the left edge to show it); Settings has a switch and a key box for it.
+- Press m to hide the menu bar (point at the left edge to show it); Settings has a switch and a key box for it. While the menu bar is shown, the first letter of an item opens that page.
 - The Exams tab of a course shows the Preparation page for past exams too.
 
 **1.0.0**

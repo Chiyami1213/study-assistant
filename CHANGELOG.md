@@ -12,6 +12,9 @@
   page, and pressing the key again brings it back. Settings has a Hide the Menu Bar switch and a key box to change the key; the choice is remembered.
 - **Instructor's notes on a homework.** A homework can carry the notes the instructor gave (what to hand in, hints); they are shown under its row on the course's
   Homework tab.
+- **Menu keys.** While the menu bar is shown (or peeking at the left edge), the first letter of a menu item opens that page: **h** Home, **c** Calendar, **l** Library,
+  **n** Note Reader, **s** Settings. A letter shared by two items goes to the next one after the page you are on, so **c** goes Calendar, Courses, Calendar ...
+  The keys do not work while typing in a box, with Ctrl, Alt or Shift, or in drawing mode.
 - **Preparation link on past exams.** The Exams tab of a course now shows the Preparation page next to Solution, Reflection and Graded for exams that are over too
   (it was only shown for upcoming exams).
 

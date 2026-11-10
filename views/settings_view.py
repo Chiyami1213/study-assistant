@@ -52,7 +52,7 @@ def render():
     _backup_section()
     st.header("Keyboard Shortcuts")
     st.caption("Type a key, such as d, or a combination, such as ctrl+z. Esc is the Escape key. A shortcut works when you are not typing in a box. "
-               "These keys are fixed: F2 saves a screenshot of the app window, F5 refreshes the page (Ctrl + F5 loads it again) and F11 turns full screen on and off.")
+               "These keys are fixed: F2 saves a screenshot of the app window, F5 refreshes the page (Ctrl + F5 loads it again), F11 turns full screen on and off, and while the menu bar is shown the first letter of a menu item opens that page (c again for Courses).")
     _keys_section("Homework and Exam Reader", "reader", [
         ("draw", "Drawing Mode (On and Off)", "turns drawing mode on; pressing it again turns it off"),
         ("pen", "Pen", "the pen, while drawing"), ("highlighter", "Highlighter", "the highlighter, while drawing"),
