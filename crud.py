@@ -291,6 +291,11 @@ def set_homework_status(hw_id, status):
     _exec("UPDATE homework_pairs SET status=? WHERE id=?", (status, hw_id))
 
 
+def set_homework_notes(hw_id, text):
+    """What the instructor said about a homework (what to hand in, hints): shown under its row on the course page."""
+    _exec("UPDATE homework_pairs SET problem_md=? WHERE id=?", ((text or "").strip(), hw_id))
+
+
 def set_homework_grade(hw_id, score, points, note=None):
     """The grade a homework received: score out of points (both None when not graded yet), and the grader's comments."""
     _exec("UPDATE homework_pairs SET score=?, points=?, grade_note=? WHERE id=?",

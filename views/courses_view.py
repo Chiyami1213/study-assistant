@@ -418,7 +418,7 @@ def _grade_html(item):
 
 
 def _row_html(title, when, status, css, detail=None, book=None, solution=None, extra="", graded=None, tab="Overview", guide=None, reflection=None, stats=None):
-    sub = (f'<div class="dl-sub">{html.escape(detail)}</div>' if detail else "") + extra
+    sub = (f'<div class="dl-sub">{html.escape(detail).replace(chr(10), "<br>")}</div>' if detail else "") + extra
     name = html.escape(title)
     if book:                                              # opens the homework PDF, and Back returns to the Overview
         name = f'<a href="#" data-ol-book="{book["id"]}" data-ol-page="1" data-ol-tab="{tab}" title="open the pdf">{name}</a>'
@@ -636,6 +636,7 @@ def _homework(course):
         for h in items:
             status, css = _homework_status(h, today)
             out += _row_html(h["title"], _when(h["due_date"], h.get("due_time")), status, css,
+                             detail=(h.get("problem_md") or "").strip() or None,                 # the instructor's notes on this homework
                              book=_homework_book(course["id"], h["title"]),
                              solution=_homework_book(course["id"], h["title"], "Homework Solution"),
                              graded=_homework_book(course["id"], h["title"], "Graded Homework"),
