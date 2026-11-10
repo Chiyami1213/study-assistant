@@ -57,6 +57,9 @@ def render():
         ("find", "Find in the Page", "opens the find bar of the note under the pointer"),
         ("leave_full", "Leave Full Screen", "returns from the full screen note to the windows")])
     _danger_zone()
+    st.header("About")
+    from version import VERSION
+    st.caption(f"Study Assistant version {VERSION}")
 
 
 def _browse(key, add):

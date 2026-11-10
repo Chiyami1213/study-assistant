@@ -8,11 +8,13 @@ It only COPIES from the payload. A destination folder that already has something
 
 It also registers the program for the current user only (no administrator needed) in Windows' list of installed apps (Settings > Apps, Control
 Panel > Programs), with an uninstaller: "Uninstall Study Assistant.exe" in the program folder (this same exe, run with --uninstall). The uninstaller
-removes the program folder, the desktop shortcut and that registry entry. It NEVER removes your files (the data folder), never follows a link or
-junction, and refuses to touch a folder that was not made by this installer or that holds a git repository.
+removes the program folder, the desktop shortcut and that registry entry. By default it KEEPS your files (the data folder); a tick box in its window
+("also delete my files", off by default, asks again) or --remove-files makes it a clean uninstall that deletes the data folder too. It never follows a
+link or junction, and refuses to touch a folder that was not made by this installer or that holds a git repository.
 
-Command line (for tests): --silent runs without a window; --uninstall uninstalls (with --silent: without a window); the folders can be set with
-SA_INSTALL_PROGRAM_DIR and SA_INSTALL_DATA_DIR, and the registry entry's name with SA_INSTALL_REG_KEY (a test install only registers when it is set)."""
+Command line (for tests): --silent runs without a window; --uninstall uninstalls (with --silent: without a window; add --remove-files to delete the
+data folder as well); the folders can be set with SA_INSTALL_PROGRAM_DIR and SA_INSTALL_DATA_DIR, and the registry entry's name with
+SA_INSTALL_REG_KEY (a test install only registers when it is set)."""
 import json
 import os
 import shutil
@@ -22,6 +24,8 @@ import sys
 import threading
 from datetime import datetime
 from pathlib import Path
+
+from version import VERSION
 
 APP_NAME = "Study Assistant"
 UNINSTALL_NAME = "Uninstall Study Assistant.exe"
@@ -101,7 +105,7 @@ def register(program, data, size_bytes):
             command = f'"{program / UNINSTALL_NAME}" --uninstall'
         else:
             command = f'"{Path(sys.executable).with_name("pythonw.exe")}" "{program / UNINSTALL_SCRIPT}" --uninstall'
-        values = {"DisplayName": APP_NAME, "DisplayVersion": datetime.now().strftime("%Y.%m.%d"), "Publisher": APP_NAME,
+        values = {"DisplayName": APP_NAME, "DisplayVersion": VERSION, "Publisher": APP_NAME,
                   "InstallLocation": str(program), "InstallDate": datetime.now().strftime("%Y%m%d"),
                   "DisplayIcon": str(exe if exe.exists() else program / UNINSTALL_NAME), "UninstallString": command,
                   "QuietUninstallString": command + " --silent"}
@@ -135,9 +139,10 @@ def is_link(path):
     return stat.S_ISLNK(st.st_mode) or bool(getattr(st, "st_file_attributes", 0) & 0x400)
 
 
-def remove_tree(folder, keep, skipped):
-    """Delete what is inside `folder` (files, then empty folders) without ever entering a link or junction, the paths in `keep`,
-    or a folder named data that holds a study.db. Whatever is left out or cannot be deleted is added to `skipped`."""
+def remove_tree(folder, keep, skipped, protect_db=True):
+    """Delete what is inside `folder` (files, then empty folders) without ever entering a link or junction, or the paths in `keep`.
+    With protect_db a folder that holds a study.db (a data folder inside the program folder) is left alone too. Whatever is left out or
+    cannot be deleted is added to `skipped`."""
     for entry in list(os.scandir(folder)):
         path = Path(entry.path)
         if path in keep:
@@ -145,10 +150,10 @@ def remove_tree(folder, keep, skipped):
         if is_link(path):
             skipped.append(path)
         elif entry.is_dir(follow_symlinks=False):
-            if (path / "study.db").exists():
+            if protect_db and (path / "study.db").exists():
                 skipped.append(path)
                 continue
-            remove_tree(path, keep, skipped)
+            remove_tree(path, keep, skipped, protect_db)
             try:
                 path.rmdir()
             except OSError:
@@ -170,8 +175,9 @@ def shortcut_target(link):
         return ""
 
 
-def uninstall(log, progress):
-    """Remove the program folder, the desktop shortcut and the installed-apps entry. Your files (the data folder) are never removed."""
+def uninstall(log, progress, remove_files=False):
+    """Remove the program folder, the desktop shortcut and the installed-apps entry. Your files (the data folder) are kept unless remove_files
+    is set (a clean uninstall), in which case the data folder is deleted too."""
     program = here()
     marker = program / MARKER
     if not marker.exists():
@@ -181,12 +187,23 @@ def uninstall(log, progress):
     info = json.loads(marker.read_text(encoding="utf-8"))
     data = Path(info.get("data") or targets()[1])
     own = Path(sys.executable) if getattr(sys, "frozen", False) else Path(__file__).resolve()
-    keep = {own, marker, data}
+    if remove_files:
+        if "study assistant" not in data.name.lower() or data == program or data in program.parents or is_link(data):
+            raise RuntimeError(f"{data} does not look like the Study Assistant data folder, so nothing was removed.")
+    keep = {own, marker} if remove_files else {own, marker, data}
     progress(0.1)
     skipped = []
     log(f"Removing the program from {program}")
     remove_tree(program, keep, skipped)
-    progress(0.7)
+    progress(0.6)
+    if remove_files and data.exists():
+        log(f"Deleting your files in {data}")
+        remove_tree(data, set(), skipped, protect_db=False)
+        try:
+            data.rmdir()
+        except OSError:
+            skipped.append(data)
+    progress(0.8)
     desktop_link = Path(info["shortcut"]) if info.get("shortcut") else None
     if desktop_link and desktop_link.exists() and shortcut_target(desktop_link).lower().startswith(str(program).lower()):
         desktop_link.unlink()
@@ -200,7 +217,10 @@ def uninstall(log, progress):
             log(f"  {p}")
     else:
         marker.unlink(missing_ok=True)
-    log(f"Your files in {data} were NOT removed. Delete that folder yourself if you no longer want them.")
+    if remove_files:
+        log("Your files were deleted (clean uninstall)." if not any(str(p).startswith(str(data)) for p in left) else "Some of your files could not be deleted (see above).")
+    else:
+        log(f"Your files in {data} were kept. Delete that folder yourself if you no longer want them.")
     progress(1.0)
     return own, program, not left
 
@@ -214,7 +234,7 @@ def finish_removal(own, program, clean):
                   "if(-not (Get-ChildItem -LiteralPath '%s' -Force)){ Remove-Item -LiteralPath '%s' -ErrorAction SilentlyContinue }" % (own, program, program))
         subprocess.Popen(["powershell", "-NoProfile", "-WindowStyle", "Hidden", "-Command", script], stdin=subprocess.DEVNULL,
                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                         creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0) | getattr(subprocess, "DETACHED_PROCESS", 0))
+                         creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0) | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0))
     else:
         try:
             own.unlink()
@@ -260,7 +280,7 @@ def install(log, progress):
         else:
             shutil.copyfile(Path(__file__), program / UNINSTALL_SCRIPT)
         size = sum(p.stat().st_size for p in program.rglob("*") if p.is_file())
-        (program / MARKER).write_text(json.dumps({"installed": datetime.now().isoformat(timespec="seconds"), "program": str(program), "data": str(data),
+        (program / MARKER).write_text(json.dumps({"version": VERSION, "installed": datetime.now().isoformat(timespec="seconds"), "program": str(program), "data": str(data),
                                                   "shortcut": str(Path.home() / "Desktop" / "Study Assistant.lnk") if made_shortcut else "",
                                                   "reg_key": reg_key_name()}, indent=1), encoding="utf-8")
         log("It can be uninstalled from Settings > Apps > Installed apps (Study Assistant)." if register(program, data, size)
@@ -273,16 +293,25 @@ def install(log, progress):
 
 def main_uninstall():
     if "--silent" in sys.argv:
-        finish_removal(*uninstall(print, lambda f: None))
+        finish_removal(*uninstall(print, lambda f: None, "--remove-files" in sys.argv))
         return
     import tkinter as tk
     from tkinter import messagebox, ttk
     root = tk.Tk()
-    root.title("Uninstall Study Assistant")
-    root.geometry("560x340")
-    tk.Label(root, text="Uninstall Study Assistant", font=("Segoe UI", 16, "bold")).pack(pady=(14, 2))
+    root.title(f"Uninstall Study Assistant {VERSION}")
+    root.geometry("580x470")
+    try:
+        data = Path(json.loads((here() / MARKER).read_text(encoding="utf-8")).get("data") or targets()[1])
+    except (OSError, ValueError):
+        data = targets()[1]
+    tk.Label(root, text=f"Uninstall Study Assistant {VERSION}", font=("Segoe UI", 16, "bold")).pack(pady=(14, 2))
     tk.Label(root, text=f"This removes the program from {here()}, the Desktop shortcut and the entry in the list of installed apps.\n"
-                        f"Your files in {targets()[1]} are kept.", wraplength=520, justify="left").pack(pady=6)
+                        f"Your files are in {data}. What should happen to them?", wraplength=540, justify="left").pack(pady=6)
+    choice = tk.IntVar(value=0)
+    tk.Radiobutton(root, text="Keep my files (recommended): the Library, notes, grades, settings and backups stay on this computer", variable=choice, value=0,
+                   wraplength=520, justify="left").pack(anchor="w", padx=24)
+    tk.Radiobutton(root, text="Remove everything, including my files (clean uninstall): this cannot be undone", variable=choice, value=1,
+                   fg="#b00020", wraplength=520, justify="left").pack(anchor="w", padx=24)
     bar = ttk.Progressbar(root, length=500, maximum=1.0)
     bar.pack(pady=6)
     box = tk.Text(root, height=8, width=68, state="disabled")
@@ -303,14 +332,19 @@ def main_uninstall():
 
     def work():
         try:
-            result["done"] = uninstall(lambda m: root.after(0, log, m), lambda f: root.after(0, lambda: bar.config(value=f)))
+            result["done"] = uninstall(lambda m: root.after(0, log, m), lambda f: root.after(0, lambda: bar.config(value=f)), bool(choice.get()))
             root.after(0, lambda: btn.config(text="Close", state="normal", command=close))
         except Exception as e:
             msg = str(e)
             root.after(0, lambda: (log(f"Stopped: {msg}"), messagebox.showerror("Uninstall Study Assistant", msg), btn.config(text="Close", state="normal", command=root.destroy)))
 
     def start():
-        if messagebox.askyesno("Uninstall Study Assistant", "Remove Study Assistant from this computer?\nYour own files are kept."):
+        if choice.get():
+            ask = (f"Remove Study Assistant AND delete all of your files in\n{data}?\n\nThe Library copies, grades, notes, settings and backups there are "
+                   "deleted for good. Your original files in your own folders and OneDrive are not touched.")
+        else:
+            ask = "Remove Study Assistant from this computer?\nYour own files are kept."
+        if messagebox.askyesno("Uninstall Study Assistant", ask, icon="warning" if choice.get() else "question", default="no" if choice.get() else "yes"):
             btn.config(state="disabled")
             threading.Thread(target=work, daemon=True).start()
 
@@ -329,11 +363,11 @@ def main():
     import tkinter as tk
     from tkinter import messagebox, ttk
     root = tk.Tk()
-    root.title("Study Assistant Installer")
+    root.title(f"Study Assistant {VERSION} Installer")
     root.geometry("580x400")
     program, data = targets()
     full = (here() / "payload" / "data").is_dir()
-    tk.Label(root, text="Study Assistant", font=("Segoe UI", 16, "bold")).pack(pady=(14, 2))
+    tk.Label(root, text=f"Study Assistant {VERSION}", font=("Segoe UI", 16, "bold")).pack(pady=(14, 2))
     tk.Label(root, text=("This installs the program and brings all of your files along." if full
                          else "This installs a clean copy of the program, without any personal files."), wraplength=540).pack()
     tk.Label(root, text=f"Program folder:  {program}\nYour files:  {data if full else '(created empty on first run: ' + str(data) + ')'}",

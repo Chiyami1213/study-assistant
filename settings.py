@@ -216,8 +216,13 @@ def set_eye_rest(**values):
 DEFAULT_SEMESTER = {"start": "2026-08-24", "end": "2026-12-08", "exam_end": "2026-12-18"}
 
 
+def semester_set():
+    """True once the term dates were saved (Calendar > Edit Schedule). A clean install has none, so Home shows no term countdown."""
+    return bool(_load().get("semester"))
+
+
 def get_semester():
-    """Term dates (ISO): classes start, classes end, end of the exam period."""
+    """Term dates (ISO): classes start, classes end, end of the exam period (the calendar uses these defaults until they are saved)."""
     sem = _load().get("semester", {})
     return {k: sem.get(k, v) for k, v in DEFAULT_SEMESTER.items()}
 

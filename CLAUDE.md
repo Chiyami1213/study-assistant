@@ -78,8 +78,10 @@ Number (or "Midterm 1", "Final" in the title) pair it with the problem file and 
   sqlite's backup after copying the current one there. Nothing is deleted. Restart the app afterwards.
 - The installer also registers the program for the current user (HKCU `...\Uninstall\StudyAssistant`, no admin) so it appears in Settings > Apps /
   Control Panel, and copies itself into the program folder as `Uninstall Study Assistant.exe` (`--uninstall`, marker `.study-assistant-install.json`).
-  The uninstaller removes only the program folder, the Desktop shortcut and that registry entry; it never removes the data folder, never enters a
-  link or junction, and refuses a folder without the marker or with a `.git`. Never run it on the development copy. Test only with
+  The uninstaller removes the program folder, the Desktop shortcut and that registry entry and by default KEEPS the data folder; its window has a
+  "remove everything, including my files" choice (asks again, `--remove-files` for tests) that deletes the data folder too. It never enters a
+  link or junction, and refuses a folder without the marker or with a `.git`. The release number is `version.py` (`VERSION`, shown in Settings > About,
+  the installer and the installed-apps entry): raise it for each release. Never run it on the development copy. Test only with
   `SA_INSTALL_PROGRAM_DIR` / `SA_INSTALL_DATA_DIR` and `SA_INSTALL_REG_KEY` (a test key name, removed afterwards).
 - Do not store anything else elsewhere (user profile, registry). The only other extras are the Desktop shortcut and the optional backup folder.
 - `migrate.py` skips `static`, `build`, `data`, ... only directly under the project folder; deeper folders of the same name (the built app's

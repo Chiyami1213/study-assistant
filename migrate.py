@@ -19,6 +19,7 @@ from datetime import datetime
 from pathlib import Path
 
 from database import BASE_DIR, DATA_DIR
+from version import VERSION
 
 INSTALLER_NAME = "Install Study Assistant.exe"
 SKIP_PROGRAM_DIRS = {".git", "__pycache__", "build", "static", "data", ".venv", "venv", "node_modules", ".claude", ".pytest_cache", ".idea"}
@@ -112,7 +113,7 @@ def _inside(path, folder):
 
 
 def _readme(full, include_exe):
-    lines = ["Study Assistant: " + ("migration package (program and all of your files)" if full else "clean installation package (no personal files)"),
+    lines = [f"Study Assistant {VERSION}: " + ("migration package (program and all of your files)" if full else "clean installation package (no personal files)"),
              f"Made {datetime.now():%Y-%m-%d %H:%M}.", "",
              "1. Extract this whole zip (right click > Extract All).",
              f"2. Open the extracted folder and run \"{INSTALLER_NAME}\". Keep the payload folder next to it.",
@@ -126,7 +127,7 @@ def _readme(full, include_exe):
 
 
 def _readme_files():
-    lines = ["Study Assistant: export of your files (no program)", f"Made {datetime.now():%Y-%m-%d %H:%M}.", "",
+    lines = [f"Study Assistant {VERSION}: export of your files (no program)", f"Made {datetime.now():%Y-%m-%d %H:%M}.", "",
              "On the other laptop: install Study Assistant, open it, go to Settings > Import, choose this zip and press Import.",
              "Files that are already there and differ are kept in Backups\\Before Import ... inside the data folder; nothing is deleted.", ""]
     return "\r\n".join(lines)

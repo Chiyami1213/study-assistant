@@ -33,11 +33,12 @@ def _term_stats(today):
 
 def render():
     st.title("Home")
-    chips = "".join(f'<div class="home-stat"><b>{big}</b><span>{small}</span></div>' for big, small in _term_stats(date.today()))
-    st.markdown(f'<div class="home-stats">{chips}</div>', unsafe_allow_html=True)
+    if settings.semester_set():                       # the week and the days to winter break, from the term dates saved in the Calendar
+        chips = "".join(f'<div class="home-stat"><b>{big}</b><span>{small}</span></div>' for big, small in _term_stats(date.today()))
+        st.markdown(f'<div class="home-stats">{chips}</div>', unsafe_allow_html=True)
     courses = crud.list_courses(active_only=True)
     if not courses:
-        st.info("Add a course under Courses to get started."); return
+        st.info("Add a course under Courses to get started. Set the term dates in the Calendar (Edit Schedule) to see the week and the days left in the term."); return
 
     # Progress = completed homework / total homework of each course
     homework = {c["id"]: crud.list_homework(c["id"]) for c in courses}

@@ -38,20 +38,6 @@ def stored_path(path):
     """What to store in the database for a file inside DATA_DIR: its path relative to DATA_DIR."""
     return str(Path(path).relative_to(DATA_DIR))
 
-USER_COURSES = [  # (code, name, sidebar icon)
-    ("AE 6009", "Viscous Fluid Flow", "svg:boundary_layer"),
-    ("AE 6451", "Electric Propulsion", "svg:ion_rings"),
-    ("AE 6765", "Kinetics & Thermodynamics of Gases", ":material/thermostat:"),
-    ("PHYS 6105", "Quantum Mechanics I", "svg:spin_electron"),
-]
-
-LIBRARY_COURSES = [  # custom subjects without a course number: (name, sidebar icon)
-    ("Anatomy", "svg:anatomy_body"),
-    ("Tonal Harmony", ":material/piano:"),
-    ("Macroeconomics", "svg:macro_globe"),
-    ("Pyrochemistry", "svg:flame"),
-]
-
 SCHEMA = """
 PRAGMA foreign_keys = ON;
 
@@ -344,21 +330,6 @@ def init_db() -> None:
             conn.execute("ALTER TABLE courses ADD COLUMN sort_order INTEGER")
         if "section" not in cols:
             conn.execute("ALTER TABLE courses ADD COLUMN section TEXT NOT NULL DEFAULT 'courses'")
-        have = {r["name"] for r in conn.execute("SELECT name FROM courses")}
-        for name, icon in LIBRARY_COURSES:
-            if name not in have:
-                conn.execute("INSERT INTO courses(code,name,icon,section,semester,target_hours) "
-                             "VALUES ('',?,?,'library','',0)", (name, icon))
-        if conn.execute("SELECT COUNT(*) FROM courses").fetchone()[0] == 0:
-            _seed(conn)
-
-
-def _seed(conn: sqlite3.Connection) -> None:
-    conn.executemany("INSERT INTO courses(code,name,icon,semester,target_hours) VALUES (?,?,?,?,?)",
-                     [(c, n, i, "Fall 2026", 60) for c, n, i in USER_COURSES])
-    conn.execute("INSERT INTO courses(code,name,icon,is_active,semester,target_hours) "
-                 "VALUES ('AAE 532','Orbital Mechanics','svg:orbit_planet',0,'',0)")  # completed
-    conn.commit()
 
 
 if __name__ == "__main__":
