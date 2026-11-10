@@ -18,7 +18,7 @@ import streamlit as st
 import covers
 from database import BASE_DIR
 
-ZOOMS = [50, 75, 100, 125, 150, 175, 200, 250, 300]
+ZOOMS = [50, 75, 100, 125, 150, 175, 200, 250, 300, 400]
 _cache = OrderedDict()                 # (path, mtime, page_index, width) -> JPEG bytes
 _lock = threading.Lock()
 CACHE_PAGES = 60
@@ -306,7 +306,7 @@ def pdf_reader(path, key, height=640, start=1, title=None, on_page=None, marks=N
         cols[3].number_input("Page", 1, total, key=page_key, label_visibility="collapsed", on_change=_bump, args=(key,))
         cols[4].markdown(f'<div class="rd-total">/{total}</div>', unsafe_allow_html=True)
         cols[5].button("Next  ›", key=f"{key}_next", width="stretch", on_click=_step_page, args=(page_key, 1, total))
-        cols[7].markdown(f'<div class="rd-zoom">{st.session_state[zoom_key]}%</div>', unsafe_allow_html=True)
+        cols[7].markdown(f'<div class="rd-zoom" title="ctrl + mouse wheel zooms; drag the page to move it">{st.session_state[zoom_key]}%</div>', unsafe_allow_html=True)
         cols[8].button("", key=f"{key}_zin", icon=":material/zoom_in:", width="stretch", on_click=_step_zoom, args=(zoom_key, 1), help="zoom in")
         cols[9].button("", key=f"{key}_zout", icon=":material/zoom_out:", width="stretch", on_click=_step_zoom, args=(zoom_key, -1), help="zoom out")
         modes = _modes()
@@ -336,8 +336,8 @@ def pdf_reader(path, key, height=640, start=1, title=None, on_page=None, marks=N
         f'<img src="data:image/jpeg;base64,{base64.b64encode(page_image(path, mtime, n - 1, width)).decode()}" '
         f'style="width:100%" alt="Page {n}">{_boxes(by_page.get(n - 1), active)}</div>' for n in shown)
     box = f' style="height:{height}px"' if height else ""
-    st.markdown(f'<div class="rd-scroll{"" if height else " rd-fill"}"{box}{drawn}><div class="rd-spread">{imgs}</div></div>',
-                unsafe_allow_html=True)
+    st.markdown(f'<div class="rd-scroll{"" if height else " rd-fill"}" data-key="{key}" data-zoom="{zoom}" data-mode="{mode}" data-goto="{page}"'
+                f'{box}{drawn}><div class="rd-spread">{imgs}</div></div>', unsafe_allow_html=True)
     step = len(shown)
     neighbours = [i for i in (page - 1 + step, page - 1 + 2 * step, page - 1 - step) if 0 <= i < total]   # next spread, then back
     _prefetch(path, mtime, neighbours, width)
@@ -363,6 +363,6 @@ def _scrolling_view(path, key, page, zoom, total, height, mtime, per_row=1, by_p
         pages = "".join(f'<div class="rd-row">{"".join(cells[i:i + per_row])}</div>' for i in range(0, len(cells), per_row))
     box = f' style="height:{height}px"' if height else ""
     token = st.session_state.get(f"{key}_tok", 0)
-    st.markdown(f'<div class="rd-scroll rd-cont{"" if height else " rd-fill"}" data-key="{key}" data-goto="{page}" '
-                f'data-token="{token}" data-total="{total}"{box}{drawn}><div class="rd-live">Page {page} / {total}</div>{pages}</div>',
+    st.markdown(f'<div class="rd-scroll rd-cont{"" if height else " rd-fill"}" data-key="{key}" data-goto="{page}" data-zoom="{zoom}" '
+                f'data-mode="{"scroll2" if per_row == 2 else "scroll"}" data-token="{token}" data-total="{total}"{box}{drawn}><div class="rd-live">Page {page} / {total}</div>{pages}</div>',
                 unsafe_allow_html=True)

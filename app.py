@@ -448,7 +448,7 @@ section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-h
 [class*="st-key-reader_"] [data-testid="stNumberInput"] [data-baseweb="input"] {{height: 1.9rem; align-items: center;}}
 .rd-scroll {{overflow: auto; background: #3a3d45; border-radius: 8px; padding: 12px; text-align: center;}}
 .rd-scroll img {{display: block; margin: 0 auto; max-width: none; box-shadow: 0 2px 10px #0008; background: #fff;}}
-.rd-spread {{display: flex; justify-content: center; align-items: flex-start; gap: 6px;}}
+.rd-spread {{display: flex; justify-content: safe center; align-items: flex-start; gap: 6px;}}      /* safe: a zoomed page that is wider than the window starts at the left edge, so all of it can be reached */
 .rd-spread img {{margin: 0;}}
 
 /* Note Reader: the tabs share a row with Rename and Export (the toolbar ignores clicks except on its buttons) */
@@ -516,9 +516,9 @@ section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-h
 .rd-cont {{position: relative; scroll-behavior: auto;}}
 .rd-pg {{margin: 0 auto 14px; background: #fff; box-shadow: 0 2px 10px #0008; overflow: hidden;}}
 .rd-pg img {{display: block; width: 100%; height: 100%; object-fit: contain; margin: 0; box-shadow: none; max-width: 100%;}}
-.rd-row {{display: flex; justify-content: center; align-items: flex-start; gap: 6px; margin-bottom: 14px;}}
-.rd-row .rd-pg {{margin: 0;}}
-.rd-pagewrap {{position: relative; line-height: 0;}}
+.rd-row {{display: flex; justify-content: safe center; align-items: flex-start; gap: 6px; margin-bottom: 14px;}}
+.rd-row .rd-pg {{margin: 0; flex: none;}}
+.rd-pagewrap {{position: relative; line-height: 0; flex: none;}}                                   /* flex none: the page keeps the zoomed width instead of shrinking to the window */
 .rd-pg {{position: relative;}}
 .rd-err {{position: absolute; border: 2px solid #e5484d; background: rgba(229, 72, 77, 0.14); border-radius: 4px; z-index: 2; cursor: help;}}
 .rd-err.rd-sent {{border-color: #d9a21b; background: rgba(217, 162, 27, 0.2);}}
@@ -925,6 +925,79 @@ if (!win.__labTabsV2) {
     }, 900);
   });
 }
+// PDF reader, every view: drag the page to move around, Ctrl + wheel (or pinch) to zoom, and keep the place when the zoom changes.
+if (!win.__rdPanV1) {
+  win.__rdPanV1 = true;
+  const POS = win.__rdPos = win.__rdPos || {};
+  const css = doc.createElement('style');
+  css.textContent = '.rd-scroll.rd-pannable{cursor:grab}.rd-panning,.rd-panning *{cursor:grabbing !important;user-select:none !important}';
+  doc.head.appendChild(css);
+  // a reader whose zoom has just changed (the page element is updated in place, or drawn again): scroll so the same point stays in the middle
+  win.__rdPanInit = c => {
+    if (!c.dataset.key) return;
+    const key = c.dataset.key;
+    const rec = () => { POS[key] = {zoom: c._zoom, mode: c.dataset.mode, goto: c.dataset.goto,
+                  fx: (c.scrollLeft + c.clientWidth / 2) / (c.scrollWidth || 1), fy: (c.scrollTop + c.clientHeight / 2) / (c.scrollHeight || 1)}; };
+    const fresh = !c._pan;
+    if (fresh) {                                                            // first time this element is seen
+      c._pan = true; c._zoom = null; c._quiet = 0;
+      c.addEventListener('scroll', () => { if (c._zoom === c.dataset.zoom && Date.now() > c._quiet) rec(); });
+    }
+    if (c._zoom === c.dataset.zoom) return;
+    const s = POS[key], dz = c.dataset.zoom;
+    if (s && s.mode === c.dataset.mode && s.goto === c.dataset.goto && (s.zoom !== dz || (fresh && s.at && Date.now() - s.at < 6000))) {
+      c.scrollLeft = s.fx * c.scrollWidth - c.clientWidth / 2;
+      c.scrollTop = s.fy * c.scrollHeight - c.clientHeight / 2;
+      c._applied = c.dataset.token + ':' + c.dataset.goto;               // the scrolling view must not jump back to the top of the page
+      c._zoom = dz;
+      c._quiet = Date.now() + 1200;                                         // the scrolling this causes is not the user's
+      POS[key] = {zoom: dz, mode: s.mode, goto: s.goto, fx: s.fx, fy: s.fy, at: Date.now()};     // the reader may be drawn a second time while it updates: restore again
+      setTimeout(() => { if (c.isConnected) rec(); }, 1300);
+    } else c._zoom = dz;
+  };
+  setInterval(() => {
+    doc.querySelectorAll('.rd-scroll').forEach(c => {
+      win.__rdPanInit(c);
+      c.classList.toggle('rd-pannable', c.scrollWidth > c.clientWidth + 2 || c.scrollHeight > c.clientHeight + 2);
+    });
+  }, 250);
+  let pan = null, swallow = false;
+  doc.addEventListener('mousedown', e => { if (e.button === 1 && e.target.closest && e.target.closest('.rd-scroll')) e.preventDefault(); }, true);   // no auto-scroll circle
+  doc.addEventListener('dragstart', e => { if (e.target.closest && e.target.closest('.rd-scroll')) e.preventDefault(); }, true);      // the page image is moved by panning, not dragged away
+  doc.addEventListener('pointerdown', e => {
+    if (e.button !== 0 && e.button !== 1) return;
+    const c = e.target.closest && e.target.closest('.rd-scroll'); if (!c) return;
+    if (e.target.closest('.an-barwrap, .an-bar, button, input, textarea, select, a, .rd-live')) return;
+    if (e.button === 0 && c.classList.contains('an-on')) return;           // drawing mode: the pen has the left button (the middle button still moves the page)
+    if (c.scrollWidth <= c.clientWidth + 2 && c.scrollHeight <= c.clientHeight + 2) return;
+    pan = {c, x: e.clientX, y: e.clientY, l: c.scrollLeft, t: c.scrollTop, moved: false};
+  }, true);
+  doc.addEventListener('pointermove', e => {
+    if (!pan) return;
+    const dx = e.clientX - pan.x, dy = e.clientY - pan.y;
+    if (!pan.moved && Math.hypot(dx, dy) < 5) return;
+    if (!pan.moved) { pan.moved = true; pan.c.classList.add('rd-panning'); }
+    pan.c.scrollLeft = pan.l - dx; pan.c.scrollTop = pan.t - dy;
+    e.preventDefault();
+  }, true);
+  const endPan = () => {
+    if (!pan) return;
+    pan.c.classList.remove('rd-panning');
+    if (pan.moved) { swallow = true; setTimeout(() => { swallow = false; }, 0); }       // the click that ends a drag is not a click on what is under the pointer
+    pan = null;
+  };
+  doc.addEventListener('pointerup', endPan, true);
+  doc.addEventListener('pointercancel', endPan, true);
+  doc.addEventListener('click', e => { if (swallow) { e.stopPropagation(); e.preventDefault(); } }, true);
+  doc.addEventListener('wheel', e => {
+    if (!(e.ctrlKey || e.metaKey)) return;                                   // Ctrl + wheel, and a trackpad pinch (which arrives as Ctrl + wheel)
+    const c = e.target.closest && e.target.closest('.rd-scroll'); if (!c || !c.dataset.key) return;
+    e.preventDefault();
+    const now = Date.now(); if (now - (win.__rdWheel || 0) < 250) return; win.__rdWheel = now;
+    const k = c.dataset.key.replace(/[^A-Za-z0-9_-]/g, '-');
+    const b = doc.querySelector('[class*="st-key-' + k + (e.deltaY < 0 ? '_zin' : '_zout') + '"] button'); if (b) b.click();
+  }, {passive: false, capture: true});
+}
 // Scrolling PDF view: jump to the requested page, keep the page badge current, retry page images that are not ready.
 if (!win.__rdScrollV1) {
   win.__rdScrollV1 = true;
@@ -941,6 +1014,7 @@ if (!win.__rdScrollV1) {
   };
   setInterval(() => {
     doc.querySelectorAll('.rd-cont').forEach(c => {
+      if (win.__rdPanInit) win.__rdPanInit(c);                                        // restores the place after a zoom before the page jump below can run
       if (!c._hooked) {
         c._hooked = true;
         c.addEventListener('scroll', () => {

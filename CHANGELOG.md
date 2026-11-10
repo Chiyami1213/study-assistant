@@ -10,6 +10,10 @@ Fixes after 1.0:
   one unknown range, so clicking an equation opened page 1 of the slides. The line is now split at `;` and the part whose title best matches the
   equation's section heading is used, then the slide set is found inside the PDF (equations 4.9 to 4.11 of the Chapter 6 notes now open the
   Translational Properties slides).
+- **PDF reader zoom and pan in every view mode.** In single page, double page and continuous double page view the zoom buttons did not widen the page (it
+  shrank back to the window width); a zoomed page now keeps its width and can be scrolled to every edge. Drag the page with the mouse to move it
+  (the middle button also pans in drawing mode), Ctrl + wheel or a trackpad pinch zooms, and a zoom step keeps the point in the middle of the view
+  where it was (continuous view used to jump back to the top of the page last navigated to). A 400% step was added.
 - **Chapter links to a newly imported note.** The Add File window only guessed the Lecture number from a leading `Lec 3`, so a note such as
   `AE6765 Chapter 3 Notes.html` was added with an empty Lecture box and links such as `Lec 3 §2.1` or `Ch3` could not find it. `Chapter 3`, `Ch 3` and
   `Ch. 3` in the file name or title now fill the Lecture box (it can still be edited).
