@@ -10,7 +10,6 @@ import re
 import crud
 import errata
 import htmlnotes
-import notesfs
 import outline
 import reader
 import settings
@@ -54,7 +53,7 @@ def _placed(path, mtime, items_json):
 
 
 def _errata_marks(book, path):
-    """Errata of the HTML notes open next to this PDF (another window, or the chapter being built), for the same
+    """Errata of the HTML notes open next to this PDF (another window, or the note the Notes window shows), for the same
     course, placed on this PDF's pages. Errata name pages and equations of the course lecture notes, so only a PDF of that
     kind carries marks."""
     if book["kind"] != "Lecture Notes":
@@ -67,10 +66,10 @@ def _errata_marks(book, path):
             if f.exists():
                 sources.append((set(other["course_ids"]), f.read_text(encoding="utf-8", errors="replace"), f"book:{other['id']}"))
     lab = settings.get_lab()
-    if any(w["type"] == "notes" for w in _windows()) and lab.get("course"):
-        ch = crud.get_chapter(lab.get("chapters", {}).get(str(lab["course"])) or 0)
-        if ch and notesfs.is_html(ch["notes"]):
-            sources.append(({lab["course"]}, ch["notes"], f"book:{ch['source_book_id']}" if ch.get("source_book_id") else f"chapter:{ch['id']}"))
+    if any(w["type"] == "notes" for w in _windows()) and lab.get("course"):          # the note the Notes window shows
+        shown = crud.get_book(lab.get("notes", {}).get(str(lab["course"])) or 0)
+        if shown and shown["pdf_path"].lower().endswith((".html", ".htm")) and data_path(shown["pdf_path"]).exists():
+            sources.append(({lab["course"]}, data_path(shown["pdf_path"]).read_text(encoding="utf-8", errors="replace"), f"book:{shown['id']}"))
     items, seen = [], set()
     for courses, text, src in sources:
         if courses & set(book["course_ids"]):
@@ -288,9 +287,8 @@ ICONS = {"notes": '<svg viewBox="0 0 24 24" width="16" height="16" fill="current
 def _tab_title(win):
     if win["type"] == "notes":
         lab = settings.get_lab()
-        ch = crud.get_chapter(lab["chapters"].get(str(lab.get("course")))) if lab.get("chapters") and lab.get("course") else None
         course = crud.get_course(lab["course"]) if lab.get("course") else None
-        return f"{course['code'] or course['name']} · {ch['title']}" if ch and course else "Notes"
+        return f"{course['code'] or course['name']} · Notes" if course else "Notes"
     book = crud.get_book(win["book"]) if win.get("book") else None
     return book["title"] if book else "Reference"
 

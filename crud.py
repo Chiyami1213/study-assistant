@@ -2,8 +2,6 @@
 import re
 from datetime import date, timedelta
 
-import notesfs
-import outline
 import settings
 from database import get_conn
 
@@ -570,48 +568,6 @@ def replace_outline(course_id, items):
               it.get("book_id") or None, it.get("page") or None)
              for i, it in enumerate(items)])
         conn.commit()
-
-
-# ---------- Note Reader: one notebook per course, made of chapters ----------
-# A chapter's text lives in files under notes/ (see notesfs.py); the database keeps its title and order.
-def _chapter(row):
-    if not row:
-        return None
-    course = get_course(row["course_id"])
-    return {**row, **notesfs.load(course, row)} if course else row
-
-
-def list_chapters(course_id):
-    return [_chapter(r) for r in _all("SELECT * FROM lab_chapters WHERE course_id=? ORDER BY position, id", (course_id,))]
-
-
-def get_chapter(chapter_id):
-    return _chapter(_one("SELECT * FROM lab_chapters WHERE id=?", (chapter_id,)))
-
-
-def add_chapter(course_id, title="Untitled Chapter", notes="", exercises="", source_book=None):
-    if not notes:                                        # a new chapter starts as a standard interactive page
-        notes = outline.blank_page(title)
-    last = _one("SELECT MAX(position) AS p FROM lab_chapters WHERE course_id=?", (course_id,))["p"]
-    cid = _exec("INSERT INTO lab_chapters(course_id,title,notes,exercises,position,source_book_id) VALUES (?,?,?,?,?,?)",
-                (course_id, title, notes, "", (last if last is not None else -1) + 1, source_book))
-    notesfs.save(get_course(course_id), {"id": cid, "title": title}, {"notes": notes})
-    return cid
-
-
-def update_chapter(chapter_id, title, sections):
-    row = _one("SELECT * FROM lab_chapters WHERE id=?", (chapter_id,))
-    _exec("UPDATE lab_chapters SET title=?, notes=?, exercises=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
-          (title, sections.get("notes", ""), "", chapter_id))
-    notesfs.save(get_course(row["course_id"]), {**row, "title": title}, sections)    # renames the folder with the title
-
-
-def delete_chapter(chapter_id):
-    row = _one("SELECT * FROM lab_chapters WHERE id=?", (chapter_id,))
-    if row:
-        notesfs.trash(get_course(row["course_id"]), row)
-    _exec("DELETE FROM lab_chapters WHERE id=?", (chapter_id,))
-
 
 
 # ---------- Quizzes ----------

@@ -6,14 +6,28 @@ It sits next to a `payload` folder that holds
 It only COPIES from the payload. A destination folder that already has something in it is never overwritten or deleted: it is renamed to
 "<name> (old <date and time>)" first. Nothing outside the two folders is touched, except a Study Assistant shortcut on the Desktop.
 
-Command line (for tests): --silent runs without a window; the folders can be set with SA_INSTALL_PROGRAM_DIR and SA_INSTALL_DATA_DIR."""
+It also registers the program for the current user only (no administrator needed) in Windows' list of installed apps (Settings > Apps, Control
+Panel > Programs), with an uninstaller: "Uninstall Study Assistant.exe" in the program folder (this same exe, run with --uninstall). The uninstaller
+removes the program folder, the desktop shortcut and that registry entry. It NEVER removes your files (the data folder), never follows a link or
+junction, and refuses to touch a folder that was not made by this installer or that holds a git repository.
+
+Command line (for tests): --silent runs without a window; --uninstall uninstalls (with --silent: without a window); the folders can be set with
+SA_INSTALL_PROGRAM_DIR and SA_INSTALL_DATA_DIR, and the registry entry's name with SA_INSTALL_REG_KEY (a test install only registers when it is set)."""
+import json
 import os
 import shutil
+import stat
 import subprocess
 import sys
 import threading
 from datetime import datetime
 from pathlib import Path
+
+APP_NAME = "Study Assistant"
+UNINSTALL_NAME = "Uninstall Study Assistant.exe"
+UNINSTALL_SCRIPT = "uninstall_study_assistant.py"                 # used instead of the exe when this runs from source
+MARKER = ".study-assistant-install.json"                          # written into the program folder by the installer; the uninstaller needs it
+REG_PARENT = r"Software\Microsoft\Windows\CurrentVersion\Uninstall"
 
 
 def here():
@@ -67,6 +81,148 @@ def shortcut(program):
         return False
 
 
+def reg_key_name():
+    return os.environ.get("SA_INSTALL_REG_KEY") or "StudyAssistant"
+
+
+def wants_registry():
+    """A test install (SA_INSTALL_PROGRAM_DIR set) leaves the registry alone unless a test key name is given."""
+    return os.name == "nt" and (not os.environ.get("SA_INSTALL_PROGRAM_DIR") or bool(os.environ.get("SA_INSTALL_REG_KEY")))
+
+
+def register(program, data, size_bytes):
+    """Add the program to the current user's list of installed apps (HKCU, no administrator needed). Returns True when it worked."""
+    if not wants_registry():
+        return False
+    try:
+        import winreg
+        exe = program / "dist" / "StudyAssistant" / "StudyAssistant.exe"
+        if getattr(sys, "frozen", False):
+            command = f'"{program / UNINSTALL_NAME}" --uninstall'
+        else:
+            command = f'"{Path(sys.executable).with_name("pythonw.exe")}" "{program / UNINSTALL_SCRIPT}" --uninstall'
+        values = {"DisplayName": APP_NAME, "DisplayVersion": datetime.now().strftime("%Y.%m.%d"), "Publisher": APP_NAME,
+                  "InstallLocation": str(program), "InstallDate": datetime.now().strftime("%Y%m%d"),
+                  "DisplayIcon": str(exe if exe.exists() else program / UNINSTALL_NAME), "UninstallString": command,
+                  "QuietUninstallString": command + " --silent"}
+        with winreg.CreateKeyEx(winreg.HKEY_CURRENT_USER, REG_PARENT + "\\" + reg_key_name(), 0, winreg.KEY_WRITE) as key:
+            for name, value in values.items():
+                winreg.SetValueEx(key, name, 0, winreg.REG_SZ, value)
+            winreg.SetValueEx(key, "EstimatedSize", 0, winreg.REG_DWORD, int(size_bytes // 1024))
+            winreg.SetValueEx(key, "NoModify", 0, winreg.REG_DWORD, 1)
+            winreg.SetValueEx(key, "NoRepair", 0, winreg.REG_DWORD, 1)
+        return True
+    except Exception:
+        return False
+
+
+def unregister(name=None):
+    if os.name != "nt":
+        return
+    try:
+        import winreg
+        winreg.DeleteKey(winreg.HKEY_CURRENT_USER, REG_PARENT + "\\" + (name or reg_key_name()))
+    except OSError:
+        pass
+
+
+def is_link(path):
+    """True for a symbolic link or a Windows junction. These are never followed or emptied."""
+    try:
+        st = os.lstat(path)
+    except OSError:
+        return False
+    return stat.S_ISLNK(st.st_mode) or bool(getattr(st, "st_file_attributes", 0) & 0x400)
+
+
+def remove_tree(folder, keep, skipped):
+    """Delete what is inside `folder` (files, then empty folders) without ever entering a link or junction, the paths in `keep`,
+    or a folder named data that holds a study.db. Whatever is left out or cannot be deleted is added to `skipped`."""
+    for entry in list(os.scandir(folder)):
+        path = Path(entry.path)
+        if path in keep:
+            continue
+        if is_link(path):
+            skipped.append(path)
+        elif entry.is_dir(follow_symlinks=False):
+            if (path / "study.db").exists():
+                skipped.append(path)
+                continue
+            remove_tree(path, keep, skipped)
+            try:
+                path.rmdir()
+            except OSError:
+                skipped.append(path)
+        else:
+            try:
+                os.chmod(path, stat.S_IWRITE)
+                path.unlink()
+            except OSError:
+                skipped.append(path)
+
+
+def shortcut_target(link):
+    try:
+        out = subprocess.run(["powershell", "-NoProfile", "-Command", "(New-Object -ComObject WScript.Shell).CreateShortcut('%s').TargetPath" % link],
+                             capture_output=True, text=True, timeout=60, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        return out.stdout.strip()
+    except Exception:
+        return ""
+
+
+def uninstall(log, progress):
+    """Remove the program folder, the desktop shortcut and the installed-apps entry. Your files (the data folder) are never removed."""
+    program = here()
+    marker = program / MARKER
+    if not marker.exists():
+        raise RuntimeError(f"{program} was not made by the Study Assistant installer, so nothing was removed.")
+    if (program / ".git").exists():
+        raise RuntimeError(f"{program} holds a git repository (a development copy), so nothing was removed.")
+    info = json.loads(marker.read_text(encoding="utf-8"))
+    data = Path(info.get("data") or targets()[1])
+    own = Path(sys.executable) if getattr(sys, "frozen", False) else Path(__file__).resolve()
+    keep = {own, marker, data}
+    progress(0.1)
+    skipped = []
+    log(f"Removing the program from {program}")
+    remove_tree(program, keep, skipped)
+    progress(0.7)
+    desktop_link = Path(info["shortcut"]) if info.get("shortcut") else None
+    if desktop_link and desktop_link.exists() and shortcut_target(desktop_link).lower().startswith(str(program).lower()):
+        desktop_link.unlink()
+        log("The Desktop shortcut was removed.")
+    unregister(info.get("reg_key"))
+    log("The entry in the list of installed apps was removed.")
+    left = [p for p in skipped if p != own]
+    if left:
+        log(f"{len(left)} items could not be removed (a link, or a file that is in use: close Study Assistant and run the uninstaller again):")
+        for p in left[:6]:
+            log(f"  {p}")
+    else:
+        marker.unlink(missing_ok=True)
+    log(f"Your files in {data} were NOT removed. Delete that folder yourself if you no longer want them.")
+    progress(1.0)
+    return own, program, not left
+
+
+def finish_removal(own, program, clean):
+    """The uninstaller cannot delete itself while it runs: a hidden helper waits, deletes it, then removes the program folder if it is empty."""
+    if not clean:
+        return
+    if getattr(sys, "frozen", False):
+        script = ("$p='%s'; for($i=0;$i -lt 30;$i++){ Remove-Item -LiteralPath $p -Force -ErrorAction SilentlyContinue; if(-not (Test-Path -LiteralPath $p)){break}; Start-Sleep 1 }; "
+                  "if(-not (Get-ChildItem -LiteralPath '%s' -Force)){ Remove-Item -LiteralPath '%s' -ErrorAction SilentlyContinue }" % (own, program, program))
+        subprocess.Popen(["powershell", "-NoProfile", "-WindowStyle", "Hidden", "-Command", script], stdin=subprocess.DEVNULL,
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                         creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0) | getattr(subprocess, "DETACHED_PROCESS", 0))
+    else:
+        try:
+            own.unlink()
+            program.rmdir()
+        except OSError:
+            pass
+
+
 def install(log, progress):
     payload = here() / "payload"
     program_src, data_src = payload / "program", payload / "data"
@@ -95,13 +251,78 @@ def install(log, progress):
         state["n"] = 2
     else:
         log("This is a clean install: no personal files are brought along. The app makes its own empty data folder the first time it runs.")
-    log("A Study Assistant shortcut was put on the Desktop." if shortcut(program)
+    made_shortcut = shortcut(program)
+    log("A Study Assistant shortcut was put on the Desktop." if made_shortcut
         else "Start it with: python run.py (in the program folder, after pip install -r requirements.txt).")
+    try:                                                    # what the uninstaller needs: this program, and a marker that this folder is ours
+        if getattr(sys, "frozen", False):
+            shutil.copyfile(sys.executable, program / UNINSTALL_NAME)
+        else:
+            shutil.copyfile(Path(__file__), program / UNINSTALL_SCRIPT)
+        size = sum(p.stat().st_size for p in program.rglob("*") if p.is_file())
+        (program / MARKER).write_text(json.dumps({"installed": datetime.now().isoformat(timespec="seconds"), "program": str(program), "data": str(data),
+                                                  "shortcut": str(Path.home() / "Desktop" / "Study Assistant.lnk") if made_shortcut else "",
+                                                  "reg_key": reg_key_name()}, indent=1), encoding="utf-8")
+        log("It can be uninstalled from Settings > Apps > Installed apps (Study Assistant)." if register(program, data, size)
+            else "It could not be added to the list of installed apps, so there is no uninstaller entry.")
+    except OSError as e:
+        log(f"The uninstaller could not be set up: {e}")
     progress(1.0)
     log("Done. You can close this window and open Study Assistant. The extracted package folder is no longer needed.")
 
 
+def main_uninstall():
+    if "--silent" in sys.argv:
+        finish_removal(*uninstall(print, lambda f: None))
+        return
+    import tkinter as tk
+    from tkinter import messagebox, ttk
+    root = tk.Tk()
+    root.title("Uninstall Study Assistant")
+    root.geometry("560x340")
+    tk.Label(root, text="Uninstall Study Assistant", font=("Segoe UI", 16, "bold")).pack(pady=(14, 2))
+    tk.Label(root, text=f"This removes the program from {here()}, the Desktop shortcut and the entry in the list of installed apps.\n"
+                        f"Your files in {targets()[1]} are kept.", wraplength=520, justify="left").pack(pady=6)
+    bar = ttk.Progressbar(root, length=500, maximum=1.0)
+    bar.pack(pady=6)
+    box = tk.Text(root, height=8, width=68, state="disabled")
+    box.pack(padx=10)
+    btn = tk.Button(root, text="Uninstall", width=14)
+    btn.pack(pady=8)
+    result = {}
+
+    def log(msg):
+        box.config(state="normal")
+        box.insert("end", msg + "\n")
+        box.see("end")
+        box.config(state="disabled")
+
+    def close():
+        finish_removal(*result["done"]) if "done" in result else None
+        root.destroy()
+
+    def work():
+        try:
+            result["done"] = uninstall(lambda m: root.after(0, log, m), lambda f: root.after(0, lambda: bar.config(value=f)))
+            root.after(0, lambda: btn.config(text="Close", state="normal", command=close))
+        except Exception as e:
+            msg = str(e)
+            root.after(0, lambda: (log(f"Stopped: {msg}"), messagebox.showerror("Uninstall Study Assistant", msg), btn.config(text="Close", state="normal", command=root.destroy)))
+
+    def start():
+        if messagebox.askyesno("Uninstall Study Assistant", "Remove Study Assistant from this computer?\nYour own files are kept."):
+            btn.config(state="disabled")
+            threading.Thread(target=work, daemon=True).start()
+
+    btn.config(command=start)
+    root.protocol("WM_DELETE_WINDOW", close)
+    root.mainloop()
+
+
 def main():
+    if "--uninstall" in sys.argv:
+        main_uninstall()
+        return
     if "--silent" in sys.argv:
         install(print, lambda f: None)
         return
@@ -109,7 +330,7 @@ def main():
     from tkinter import messagebox, ttk
     root = tk.Tk()
     root.title("Study Assistant Installer")
-    root.geometry("580x360")
+    root.geometry("580x400")
     program, data = targets()
     full = (here() / "payload" / "data").is_dir()
     tk.Label(root, text="Study Assistant", font=("Segoe UI", 16, "bold")).pack(pady=(14, 2))
@@ -117,7 +338,8 @@ def main():
                          else "This installs a clean copy of the program, without any personal files."), wraplength=540).pack()
     tk.Label(root, text=f"Program folder:  {program}\nYour files:  {data if full else '(created empty on first run: ' + str(data) + ')'}",
              justify="left", fg="#444", wraplength=540).pack(pady=6)
-    tk.Label(root, text="Existing folders are never overwritten: they are renamed first.", fg="#444").pack()
+    tk.Label(root, text="Existing folders are never overwritten: they are renamed first. Study Assistant will be listed under Settings > Apps, where it can be uninstalled.",
+             fg="#444", wraplength=540).pack()
     bar = ttk.Progressbar(root, length=520, maximum=1.0)
     bar.pack(pady=8)
     box = tk.Text(root, height=8, width=70, state="disabled")

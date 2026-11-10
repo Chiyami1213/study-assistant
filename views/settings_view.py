@@ -45,6 +45,7 @@ def render():
 
     _backup_section()
     _migrate_section()
+    _import_section()
     st.header("Keyboard Shortcuts")
     st.caption("Type a key, such as d, or a combination, such as ctrl+z. Esc is the Escape key. A shortcut works when you are not typing in a box.")
     _keys_section("Homework and Exam Reader", "reader", [
@@ -179,9 +180,73 @@ def _migrate_section():
         except OSError as e:
             st.warning(f"That folder cannot be used: {e}")
             enough = False
-        if st.button("Create Migration Zip", icon=":material/folder_zip:", key="migrate_make", disabled=not enough, help="packs the program and your files into one zip; nothing is changed or removed"):
+        export_ok = True
+        try:
+            e_info = {**migrate.estimate(False, True), "program_bytes": 0, "installer_bytes": 0}
+            export_ok = migrate.check_space(dest.strip() or ".", e_info)["ok"]
+        except OSError:
+            export_ok = False
+        a, b, _ = st.columns([1, 1, 1.2])
+        if a.button("Create Migration Zip", icon=":material/folder_zip:", key="migrate_make", disabled=not enough, width="stretch",
+                    help="packs the program and your files into one zip; nothing is changed or removed"):
             if migrate.start(dest.strip(), include_exe, include_data):
                 st.rerun()
+        if b.button("Export My Files Only", icon=":material/upload_file:", key="migrate_export", disabled=not export_ok, width="stretch",
+                    help="a zip of your files without the program; on a laptop that already has the app, bring it in with the import section below"):
+            if migrate.start(dest.strip(), False, True, files_only=True):
+                st.rerun()
+
+
+def _browse_file(key):
+    """Button callback: open the file window; the chosen file replaces the text in `key`."""
+    import folderpick
+    chosen = folderpick.pick_file(st.session_state.get(key, ""), "Choose the Zip to Import")
+    if chosen:
+        st.session_state[key] = chosen
+
+
+def _import_section():
+    """Bring the files of an export (Settings > Migrate > Export My Files Only, or a migration zip) into this app."""
+    import dataimport
+    st.header("Import")
+    st.caption("On a new laptop, install Study Assistant first, then choose the zip made by Export My Files Only (or a migration zip) here. Your files are added "
+               "to this app; a file that is already here and differs is copied to Backups\\Before Import first, so nothing is lost. Restart the app afterwards.")
+    row = st.columns([6, 1.3], vertical_alignment="bottom")
+    zip_path = row[0].text_input("Zip to Import", key="import_zip", placeholder="C:\\Users\\you\\Desktop\\StudyAssistant-Files-20261109-1200.zip",
+                                 help="the zip file made by export my files only, or by create migration zip")
+    row[1].button("Browse", icon=":material/folder_open:", key="import_zip_browse", width="stretch", on_click=_browse_file, args=("import_zip",),
+                  help="choose the zip in a window")
+    if dataimport.JOB["running"]:
+        _import_progress()
+        return
+    job = dataimport.JOB
+    if job["result"]:
+        r = job["result"]
+        st.success(f"Imported: {r['added']} files added, {r['replaced']} replaced, {r['same']} already the same. Close and reopen the app to use them."
+                   + (f" The replaced ones were kept in {r['backup']}." if r["backup"] else ""))
+    if job["error"]:
+        st.error(job["error"])
+    info = None
+    if zip_path.strip():
+        try:
+            info = dataimport.inspect(zip_path)
+            st.caption(f"This zip holds {info['files']} files ({info['bytes'] / 2**30:.2f} GB)" + ("" if info["has_db"] else " and no database") + ".")
+        except RuntimeError as e:
+            st.warning(str(e))
+    if st.button("Import", icon=":material/download:", key="import_go", disabled=info is None,
+                 help="adds the files of the zip to this app; nothing is deleted"):
+        if dataimport.start(zip_path):
+            st.rerun()
+
+
+@st.fragment(run_every=1.5)
+def _import_progress():
+    import dataimport
+    job = dataimport.JOB
+    if job["running"]:
+        st.progress(min(max(job["fraction"], 0.0), 1.0), text=job["message"][:90])
+    else:
+        st.rerun()
 
 
 @st.fragment(run_every=1.5)

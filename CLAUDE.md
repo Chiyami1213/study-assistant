@@ -7,7 +7,7 @@ Personal Streamlit + SQLite study app (`python run.py`). Code is in `app.py`, `v
   git-ignored caches and build output.)
 - The user's own files live in the DATA folder `database.DATA_DIR` = `%APPDATA%\Study Assistant` (the env variable
   `STUDY_ASSISTANT_DATA` overrides it; an old `project\data` is still used only if it holds `study.db` and the roaming folder does not exist): `study.db`,
-  `settings.json`, `notes/`, `quizzes/`, `pdfs/`, `covers/`, `course_photos/`, `grading/`, `syllabus/`, `annotations/`, `equation_sheets/`, `webview/`, `Backups/`.
+  `settings.json`, `quizzes/`, `pdfs/`, `covers/`, `course_photos/`, `grading/`, `syllabus/`, `annotations/`, `equation_sheets/`, `webview/`, `Backups/`.
   Never edit files in it by hand. In code use `database.DATA_DIR`, `data_path(rel)` and `stored_path(path)`; never build paths from `BASE_DIR / "data"`.
   Book paths in the database are relative to the data folder (`pdfs\book_x.pdf`; older rows may start with `data\`).
 
@@ -27,7 +27,7 @@ Personal Streamlit + SQLite study app (`python run.py`). Code is in `app.py`, `v
 
 Notes are built outside the app and imported into the Library as type Notes (one `.html` file per chapter, stored under
 `pdfs/` (data folder)). The Note Reader (`views/lab_view.py`) shows a course's notes and builds its tabs from the parts each note has.
-The older `<data folder>/notes/<course code>/<id>-<title>/notes.html` chapters are no longer edited.
+The app has no note builder any more (the old `notes/` chapter folders and the `lab_chapters` table were removed).
 
 - A note is ONE self-contained interactive HTML page (inline CSS and JavaScript, no build step, no external images, no links
   to other pages; in-page `#anchors` are fine). Math: MathJax from jsdelivr (`https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-svg.js`),
@@ -72,8 +72,19 @@ Number (or "Midterm 1", "Final" in the title) pair it with the problem file and 
   `dist/StudyAssistant` when "Include the App" is on) and `payload/data` (the data folder without `webview` and `Backups`, the database as a consistent copy).
   On the new laptop the installer COPIES `payload/program` to `Documents\study-assistant` and `payload/data` to `AppData\Roaming\Study Assistant`; a folder that
   is already there is renamed to `... (old date time)`, never overwritten or deleted.
-- Do not store anything elsewhere (user profile, registry). The only extras are the Desktop shortcut made by the installer and the optional backup folder.
+- Files only: Settings > Migrate > Export My Files Only (`migrate.make_package(files_only=True)`) writes a zip with just `payload/data/...` (no program, no
+  installer). On a laptop that already has the app (a clean install), Settings > Import (`dataimport.py`) takes that zip or a full migration zip: it adds
+  missing files, skips identical ones, copies a differing file to `Backups\Before Import <time>` before replacing it, and replaces the database through
+  sqlite's backup after copying the current one there. Nothing is deleted. Restart the app afterwards.
+- The installer also registers the program for the current user (HKCU `...\Uninstall\StudyAssistant`, no admin) so it appears in Settings > Apps /
+  Control Panel, and copies itself into the program folder as `Uninstall Study Assistant.exe` (`--uninstall`, marker `.study-assistant-install.json`).
+  The uninstaller removes only the program folder, the Desktop shortcut and that registry entry; it never removes the data folder, never enters a
+  link or junction, and refuses a folder without the marker or with a `.git`. Never run it on the development copy. Test only with
+  `SA_INSTALL_PROGRAM_DIR` / `SA_INSTALL_DATA_DIR` and `SA_INSTALL_REG_KEY` (a test key name, removed afterwards).
+- Do not store anything else elsewhere (user profile, registry). The only other extras are the Desktop shortcut and the optional backup folder.
+- `migrate.py` skips `static`, `build`, `data`, ... only directly under the project folder; deeper folders of the same name (the built app's
+  `streamlit\static` web page) must be copied, or the exe shows a black window with "Not Found".
 
 ## Conventions
 - Interface text uses APA title case; hover tooltips are all lower case.
-- Exams, homework and the course outlines live in the database (use the app or `crud.py`), not in `notes/`.
+- Exams, homework and the course outlines live in the database (use the app or `crud.py`).

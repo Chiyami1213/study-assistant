@@ -220,18 +220,6 @@ CREATE TABLE IF NOT EXISTS lab_notes (
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
--- Note Reader: one notebook per course, made of chapters.
-CREATE TABLE IF NOT EXISTS lab_chapters (
-    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    course_id  INTEGER NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
-    title      TEXT NOT NULL DEFAULT 'Untitled Chapter',
-    notes      TEXT NOT NULL DEFAULT '',
-    exercises  TEXT NOT NULL DEFAULT '',
-    position   INTEGER NOT NULL DEFAULT 0,
-    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    source_book_id INTEGER              -- the Library note the chapter was started from (its quiz questions)
-);
-
 -- Quiz attempts: one row per finished quiz (a chapter or lecture of a course).
 CREATE TABLE IF NOT EXISTS quiz_attempts (
     id        INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -339,8 +327,6 @@ def init_db() -> None:
             conn.execute("ALTER TABLE books ADD COLUMN orig_name TEXT")           # the file name the file had when it was added
         if "done" not in [r["name"] for r in conn.execute("PRAGMA table_info(events)")]:
             conn.execute("ALTER TABLE events ADD COLUMN done INTEGER NOT NULL DEFAULT 0")      # an exam marked complete before its date
-        if "source_book_id" not in [r["name"] for r in conn.execute("PRAGMA table_info(lab_chapters)")]:
-            conn.execute("ALTER TABLE lab_chapters ADD COLUMN source_book_id INTEGER")
         for col in ("notes_used", "hints_used"):
             if col not in [r["name"] for r in conn.execute("PRAGMA table_info(quiz_attempts)")]:
                 conn.execute(f"ALTER TABLE quiz_attempts ADD COLUMN {col} INTEGER NOT NULL DEFAULT 0")

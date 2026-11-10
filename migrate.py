@@ -36,11 +36,16 @@ def _is_link(path):
 
 
 def _walk(root, skip_dirs, skip_rel=()):
-    """Yield (file, path relative to root) under root, skipping the named folders, links and temporary files."""
+    """Yield (file, path relative to root) under root, skipping links and temporary files and the named folders.
+
+    The named folders (static, build, data ...) are skipped only directly under root: deeper ones belong to the program (the built app has
+    streamlit\\static, its web page, and many libraries have a data folder), so they must be copied. __pycache__ is skipped everywhere."""
     for dp, dns, fns in os.walk(root):
         here = Path(dp)
         rel = here.relative_to(root)
-        dns[:] = sorted(d for d in dns if d not in skip_dirs and not _is_link(here / d) and (rel / d).as_posix() not in skip_rel)
+        top = not rel.parts
+        dns[:] = sorted(d for d in dns if not (d == "__pycache__" or (top and d in skip_dirs)) and not _is_link(here / d)
+                        and (rel / d).as_posix() not in skip_rel)
         for f in sorted(fns):
             p = here / f
             if p.suffix.lower() in SKIP_SUFFIX or _is_link(p):
@@ -120,31 +125,43 @@ def _readme(full, include_exe):
     return "\r\n".join(lines) + "\r\n"
 
 
-def make_package(dest_dir, include_exe=True, include_data=True, progress=None, name=None):
-    """Write the zip into dest_dir and return its path. progress(fraction, message) is called along the way. Raises RuntimeError with a clear reason."""
+def _readme_files():
+    lines = ["Study Assistant: export of your files (no program)", f"Made {datetime.now():%Y-%m-%d %H:%M}.", "",
+             "On the other laptop: install Study Assistant, open it, go to Settings > Import, choose this zip and press Import.",
+             "Files that are already there and differ are kept in Backups\\Before Import ... inside the data folder; nothing is deleted.", ""]
+    return "\r\n".join(lines)
+
+
+def make_package(dest_dir, include_exe=True, include_data=True, progress=None, name=None, files_only=False):
+    """Write the zip into dest_dir and return its path. progress(fraction, message) is called along the way. Raises RuntimeError with a clear reason.
+    files_only: an export of the user's files alone (no program, no installer), to be brought in with Settings > Import on a laptop that already has the app."""
     progress = progress or (lambda f, m: None)
     dest_dir = Path(dest_dir)
     if _inside(dest_dir, BASE_DIR) or _inside(dest_dir, DATA_DIR):
         raise RuntimeError("Choose a folder outside the project and outside the data folder (the Desktop, a USB drive, ...).")
     exe = installer_exe()
-    if not exe.exists() and not getattr(sys, "frozen", False):
+    if files_only:
+        include_data, include_exe = True, False
+    elif not exe.exists() and not getattr(sys, "frozen", False):
         progress(0.0, "Building the installer...")
         import build_installer
         build_installer.build()
-    if not exe.exists():
+    if not files_only and not exe.exists():
         raise RuntimeError("The installer exe is not built yet. Run  python build_installer.py  once in the project folder, then try again.")
     dest_dir.mkdir(parents=True, exist_ok=True)
     progress(0.0, "Listing the files...")
-    prog = program_files(include_exe)
+    prog = [] if files_only else program_files(include_exe)
     data = data_files() if include_data else []
-    total = sum(p.stat().st_size for p, _ in prog + data) + exe.stat().st_size
-    info = {"program_bytes": sum(p.stat().st_size for p, _ in prog), "data_bytes": sum(p.stat().st_size for p, _ in data), "installer_bytes": exe.stat().st_size}
+    exe_bytes = 0 if files_only else exe.stat().st_size
+    total = (sum(p.stat().st_size for p, _ in prog + data) + exe_bytes) or 1
+    info = {"program_bytes": sum(p.stat().st_size for p, _ in prog), "data_bytes": sum(p.stat().st_size for p, _ in data), "installer_bytes": exe_bytes}
     space = check_space(dest_dir, info)
     if not space["ok"]:
         raise RuntimeError(f"Not enough free space on {space['drive']}: the zip needs about {space['needed'] / 2**30:.1f} GB and only "
                            f"{space['free'] / 2**30:.1f} GB are free. Free some space or save it on another drive.")
     stamp = datetime.now().strftime("%Y%m%d-%H%M")
-    final = dest_dir / (name or f"StudyAssistant-{'Migration' if include_data else 'Clean'}-{stamp}.zip")
+    kind = "Files" if files_only else ("Migration" if include_data else "Clean")
+    final = dest_dir / (name or f"StudyAssistant-{kind}-{stamp}.zip")
     part = final.with_name(final.name + ".part")
     done = 0
     expected = {}
@@ -168,8 +185,11 @@ def make_package(dest_dir, include_exe=True, include_data=True, progress=None, n
                         progress(min(done / total, 0.99), f"Packing {arc}")
                 expected[arc] = Path(src).stat().st_size
 
-            z.writestr("README.txt", _readme(include_data, include_exe))
-            add(exe, INSTALLER_NAME)
+            if files_only:
+                z.writestr("README.txt", _readme_files())
+            else:
+                z.writestr("README.txt", _readme(include_data, include_exe))
+                add(exe, INSTALLER_NAME)
             for p, rel in prog:
                 add(p, "payload/program/" + rel.as_posix())
             if include_data:
@@ -211,7 +231,7 @@ JOB = {"running": False, "fraction": 0.0, "message": "", "result": None, "error"
 _lock = threading.Lock()
 
 
-def start(dest_dir, include_exe=True, include_data=True):
+def start(dest_dir, include_exe=True, include_data=True, files_only=False):
     with _lock:
         if JOB["running"]:
             return False
@@ -221,7 +241,7 @@ def start(dest_dir, include_exe=True, include_data=True):
         try:
             def cb(f, m):
                 JOB.update(fraction=f, message=m)
-            JOB["result"] = str(make_package(dest_dir, include_exe, include_data, cb))
+            JOB["result"] = str(make_package(dest_dir, include_exe, include_data, cb, files_only=files_only))
         except Exception as e:
             JOB["error"] = str(e)
         finally:
