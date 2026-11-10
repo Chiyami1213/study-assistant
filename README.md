@@ -1,6 +1,6 @@
 # Study Assistant
 
-Version 1.0.1 (`version.py`).
+Version 1.0.1 (`version.py`). See [CHANGELOG.md](CHANGELOG.md) for what changed in each release.
 
 A personal study app for coursework: a course library (textbooks, lecture notes, homework and exam PDFs), a Note Reader for interactive HTML
 notes, homework and exam readers with drawing and grade explanations, a calendar, quizzes and a Home page with what is due. It runs locally
