@@ -14,8 +14,8 @@ page = render_sidebar(
     items=[
         MenuItem("Home", ":material/home:"),
         MenuItem("Courses", ":material/folder:", sections=[
-            Section("Active", [MenuItem("AE 6009", ":material/rocket_launch:")]),
-            Section("Completed", [MenuItem("AAE 333", ":material/inventory_2:")]),
+            Section("Active", [MenuItem("MATH 301", ":material/rocket_launch:")]),
+            Section("Completed", [MenuItem("MATH 101", ":material/inventory_2:")]),
         ]),
     ],
     bottom_items=[MenuItem("Settings", ":material/settings:")],

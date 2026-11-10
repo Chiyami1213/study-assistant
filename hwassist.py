@@ -18,9 +18,9 @@ import unitex
 from database import BASE_DIR, data_path
 
 ROOT = BASE_DIR / "homework"
-PROBLEM = re.compile(r"^\s*(\d{1,2})\.\s+([A-Z].{3,})$")             # "2. Rotational Energies ..."        (AE 6765)
-PROBLEM_BARE = re.compile(r"^\s*(\d{1,2})\s*$")                        # "1" on its own line, the title on the next (PHYS 6105)
-PROBLEM_PAREN = re.compile(r"^\s*(\d{1,2})\)\s+(\S.*)$")                 # "1) A uniform beam ..."                (AE 6451)
+PROBLEM = re.compile(r"^\s*(\d{1,2})\.\s+([A-Z].{3,})$")             # "2. Rotational Energies ..."
+PROBLEM_BARE = re.compile(r"^\s*(\d{1,2})\s*$")                        # "1" on its own line, the title on the next 
+PROBLEM_PAREN = re.compile(r"^\s*(\d{1,2})\)\s+(\S.*)$")                 # "1) A uniform beam ..."
 PART = re.compile(r"^\s*\(?([a-h])\)\s+(.*)$")                          # "a) ..." or "(a) 5 points ..."
 TITLE = re.compile(r"^[A-Z0-9][A-Za-z0-9’'“”\-,:?\. ]{3,70}$")                       # a short heading line, no math
 POINTS = re.compile(r"^\d+(\.\d+)?\s*points?\s*", re.I)

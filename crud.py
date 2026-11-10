@@ -59,7 +59,7 @@ def course_status(course):
 
 
 def _natural_key(text):
-    """Alphabetical with numbers compared numerically (AE 532 < AE 6009)."""
+    """Alphabetical with numbers compared numerically (MATH 9 < MATH 101)."""
     return [int(t) if t.isdigit() else t.lower() for t in re.split(r"(\d+)", text or "")]
 
 
@@ -85,7 +85,7 @@ def set_course_status(course_id, status):
 
 
 def term_label(course):
-    """'Fall 2026, Georgia Tech' - semester and school, whichever are set."""
+    """'Fall 2026, State University' - semester and school, whichever are set."""
     return ", ".join(x for x in (course.get("semester"), course.get("school")) if x)
 
 

@@ -106,7 +106,7 @@ def _finish_cluster(cluster):
 def _day_items(first, last, skip_timed_exams=False):
     """All-day items (homework due dates and your own events) as {date: [(label, color)]}, earliest first.
 
-    Labels read like "Due 22:00 AE 6765 HW 5" (homework) and "19:00 AE 6765 Midterm 2" (events)."""
+    Labels read like "Due 22:00 MATH 101 HW 5" (homework) and "19:00 MATH 101 Midterm 2" (events)."""
     courses = _course_map()
     rows = {}
 

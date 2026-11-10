@@ -1,7 +1,7 @@
 """Course photos.
 
 An uploaded photo is copied into data/course_photos as a JPEG named after its course (for example
-AE_6009_Viscous_Fluid_Flow.jpg), at the uploaded resolution. The app never keeps a link to the file you picked, so
+MATH_101_Linear_Algebra.jpg), at the uploaded resolution. The app never keeps a link to the file you picked, so
 the original can be deleted. If a course is renamed, its photo file is renamed to match.
 """
 import re
@@ -42,7 +42,7 @@ def _legacy_path(course_id):
 
 
 def _logical_name(course_id, code, name):
-    """AE 6009 + Viscous Fluid Flow -> AE_6009_Viscous_Fluid_Flow.jpg (unique across courses)."""
+    """MATH 101 + Linear Algebra -> MATH_101_Linear_Algebra.jpg (unique across courses)."""
     parts = [code] if code else []
     if name and name != code:
         parts.append(name)

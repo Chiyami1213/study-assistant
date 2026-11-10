@@ -19,7 +19,8 @@ ROOT = Path(__file__).parent
 INSTALLER = ROOT / "dist" / "installer" / "Install Study Assistant.exe"
 OUT = ROOT / "dist" / "release"
 SKIP_TOP = {".git", "__pycache__", "build", "static", "data", ".venv", "venv", "node_modules", ".claude", ".pytest_cache", ".idea"}   # only directly under the project
-SKIP_REL = {"dist/installer", "dist/release"}
+SKIP_REL = {"dist/installer", "dist/release", "exports", "docs", "dist/StudyAssistant/project_path.txt"}
+SKIP_FILES = {"CLAUDE.md", ".gitignore", "build_exe.py", "build_installer.py", "build_release.py"}      # developer files: people do not need them
 SKIP_SUFFIX = {".pyc", ".spec", ".tmp", ".part"}
 STORE = {".pdf", ".jpg", ".jpeg", ".png", ".webp", ".zip", ".gif"}
 
@@ -42,7 +43,7 @@ def program_files():
                         and (rel / d).as_posix() not in SKIP_REL)
         for f in sorted(fns):
             p = here / f
-            if p.suffix.lower() not in SKIP_SUFFIX and not _is_link(p):
+            if p.suffix.lower() not in SKIP_SUFFIX and not _is_link(p) and not (top and f in SKIP_FILES) and (rel / f).as_posix() not in SKIP_REL:
                 out.append((p, rel / f))
     return out
 

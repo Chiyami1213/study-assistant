@@ -119,7 +119,7 @@ CHAPTER_RE = re.compile(r"(?<![A-Za-z])(?:chapter|chap|ch)\.?[\s_\-]*(\d+)(?!\d)
 
 
 def guess_lecture(*texts):
-    """The lecture (chapter) number a file name or title names: 'Lec 3-4 ...' -> '3-4', 'AE6765 Chapter 3 Notes' -> '3', 'Ch2' -> '2'; '' if none.
+    """The lecture (chapter) number a file name or title names: 'Lec 3-4 ...' -> '3-4', 'MATH101 Chapter 3 Notes' -> '3', 'Ch2' -> '2'; '' if none.
     The notes of a course are found by this number (a note link 'Lec 3 s2.1' or 'Ch3', the Notes tab order), so an imported note should have it."""
     for text in texts:
         text = (text or "").replace("_", " ")

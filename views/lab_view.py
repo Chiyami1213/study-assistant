@@ -89,7 +89,7 @@ def _reference(win):
         st.info("Add a file in the Library to read it here."); return
     courses = {c["id"]: c for c in crud.list_courses(section=None)}
 
-    def label(b):                    # "AE 6009 · Notes · Adding Angular Momenta"
+    def label(b):                    # "MATH 101 · Notes · Eigenvalues"
         codes = " / ".join(courses[i]["code"] or courses[i]["name"] for i in b["course_ids"] if i in courses) or "No Course"
         return f"{codes} · {b['kind']} · {b['title']}"
 

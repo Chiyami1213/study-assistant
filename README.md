@@ -21,12 +21,35 @@ side, and let the app keep track of deadlines, grades and outlines. It runs enti
 - **Backup and moving.** Automatic snapshots, a library backup in a folder you choose, and Export My Files / Import to keep a copy or take everything to another
   computer.
 
+## Screenshots
+
+(With made-up courses and files.)
+
+<table>
+  <tr>
+    <td><img src="docs/screenshots/home.png" alt="Home: what is due next and the week of the term"><br><sub><b>Home</b>: what is due next and the week of the term</sub></td>
+    <td><img src="docs/screenshots/calendar.png" alt="Calendar: the weekly class schedule with deadlines and exams"><br><sub><b>Calendar</b>: the class schedule with deadlines and exams</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/note-reader.png" alt="Note Reader: an interactive note beside the slide its equation comes from"><br><sub><b>Note Reader</b>: click an equation and its source slide opens beside the note</sub></td>
+    <td><img src="docs/screenshots/library.png" alt="Library: lecture slides, notes and textbooks sorted by course"><br><sub><b>Library</b>: slides, notes and textbooks sorted by course</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/course-outline.png" alt="A course outline built from the lecture titles"><br><sub><b>Course outline</b>: built from the syllabus or the lecture titles, and editable</sub></td>
+    <td><img src="docs/screenshots/backup.png" alt="Settings: backup, export and import"><br><sub><b>Backup</b>: library backup, Export My Files and Import</sub></td>
+  </tr>
+</table>
+
 ## Download and install (Windows)
 
 Download `StudyAssistant-1.0-Windows-Installer.zip` from the [Releases](../../releases) page, extract the whole zip, and run `Install Study Assistant.exe` from the
 extracted folder (keep the `payload` folder next to it). It installs the app for your user only (no administrator needed), puts a shortcut on the desktop and
 lists Study Assistant under Settings > Apps, where it can be uninstalled (your files are kept unless you choose to remove them). Windows 10 or 11 is needed.
-Windows may ask you to confirm the first start, because the exe is not code-signed. The app starts empty; add your own courses and files.
+The app starts empty; add your own courses and files.
+
+> **Your antivirus or firewall may warn about the installer or the app, and may even call it malware.** This is a false alarm: the program is packaged with PyInstaller
+> and is not code-signed, which security software often distrusts. If it blocks the file, choose "More info > Run anyway" (Windows SmartScreen), or allow / restore the file in
+> your security software, and ignore the warning. Only download it from this page, and the whole source code is here to read.
 
 ## Where your files go
 

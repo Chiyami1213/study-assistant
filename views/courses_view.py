@@ -91,9 +91,9 @@ def _add_course_dialog():
     c1, c2 = st.columns(2)
     status = c1.selectbox("Status", list(crud.STATUSES))
     name = c2.text_input("Name")
-    code = c1.text_input("Course Number (Optional for Self-Study)", placeholder="PHYS 6105")
+    code = c1.text_input("Course Number (Optional for Self-Study)", placeholder="MATH 101")
     sem = c2.text_input("Semester", value="Fall 2026")
-    school = c1.text_input("School", placeholder="Georgia Tech")
+    school = c1.text_input("School", placeholder="Your University")
     with c1:
         category = _category_picker("add_cat")
     with c2:

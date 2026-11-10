@@ -7,8 +7,8 @@ st.set_page_config(page_title="Hover Sidebar Demo", page_icon=":material/menu:",
 
 # Example data. In a real app these lists could come from a database; the order you pass in is the order shown.
 if "active" not in st.session_state:
-    st.session_state["active"] = ["AE 6009", "AE 6451", "PHYS 6105"]
-    st.session_state["done"] = ["AAE 333", "AAE 334", "ECON 251"]
+    st.session_state["active"] = ["MATH 301", "PHYS 201", "CHEM 110"]
+    st.session_state["done"] = ["MATH 101", "MATH 102", "ECON 101"]
 
 SVG_ICONS = {  # optional custom drawings: 24x24 viewBox, black strokes (they are tinted by the theme)
     "wave": "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.6' "
@@ -20,7 +20,7 @@ items = [
     MenuItem("Calendar", ":material/calendar_month:"),
     MenuItem("Library", ":material/library_books:"),
     MenuItem("Courses", ":material/folder:", sections=[
-        Section("Active", [MenuItem(c, "svg:wave" if c == "AE 6009" else ":material/rocket_launch:")
+        Section("Active", [MenuItem(c, "svg:wave" if c == "MATH 301" else ":material/rocket_launch:")
                            for c in st.session_state["active"]]),
         Section("Completed", [MenuItem(c, ":material/inventory_2:") for c in st.session_state["done"]]),
     ]),

@@ -81,7 +81,7 @@ def _cover_html(book):
 
 
 def detect_course(filename, title=""):
-    """Course id guessed from a file name (then the title): 'PHYS_6105 notes.pdf' -> PHYS 6105."""
+    """Course id guessed from a file name (then the title): 'MATH_101 notes.pdf' -> MATH 101."""
     courses = crud.list_courses(section=None)
     for text in (filename, title):
         if not text:

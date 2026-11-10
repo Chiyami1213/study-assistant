@@ -40,7 +40,7 @@ def main():
             str(ROOT / "launcher.py")]
     subprocess.run(cmd, check=True, cwd=ROOT)
     out = ROOT / "dist" / "StudyAssistant"
-    (out / "project_path.txt").write_text(str(ROOT), encoding="utf-8")
+    (out / "project_path.txt").unlink(missing_ok=True)      # an older build wrote the developer's own path here: never ship it (the exe finds app.py in its parent folders)
     print("Built:", out / "StudyAssistant.exe")
     import build_installer                      # the installer that goes into the release zip (build_release.py)
     print("Built:", build_installer.build())
