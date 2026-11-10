@@ -234,7 +234,7 @@ section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-h
     letter-spacing: 1px; text-shadow: 0 1px 3px #0008;}}
 [class*="st-key-tilemenu_"] button:hover p {{opacity: 0.8;}}
 
-.st-key-nav_back_hidden, .st-key-nav_forward_hidden {{position: absolute !important; width: 1px; height: 1px; overflow: hidden; opacity: 0;
+.st-key-nav_back_hidden, .st-key-nav_forward_hidden, .st-key-menu_toggle_hidden {{position: absolute !important; width: 1px; height: 1px; overflow: hidden; opacity: 0;
     pointer-events: none;}}
 
 /* Course outline: hidden box that carries a clicked point to the app */
@@ -594,6 +594,15 @@ NAV_ICON_CSS = "".join(icons.css_for_nav(f"nav_{label}", icon) for label, (icon,
                        if icons.is_custom(icon))
 COURSE_ICON_CSS = NAV_ICON_CSS + "".join(icons.css_for_course(c["id"], c["icon"]) for c in crud.list_courses(section=None) if icons.is_custom(c["icon"]))
 st.markdown(CSS + f"<style>{COURSE_ICON_CSS}</style>", unsafe_allow_html=True)
+# The menu bar is hidden (key m, or Settings): only a thin edge is left, and pointing at it shows the menu above the page. The same element is always drawn
+# (empty when the menu is shown), so the page scripts below are not rebuilt when it changes.
+HIDDEN_MENU_CSS = f"""<style>
+section[data-testid="stSidebar"], section[data-testid="stSidebar"] > div:first-child:not(:hover) {{
+    width: 8px !important; min-width: 8px !important; max-width: 8px !important;}}
+section[data-testid="stSidebar"] > div:first-child:not(:hover) {{background: transparent !important; border-right: none !important; box-shadow: none !important;}}
+section[data-testid="stSidebar"] > div:first-child:not(:hover) button {{opacity: 0; pointer-events: none;}}
+</style>"""
+st.markdown(HIDDEN_MENU_CSS if settings.get_menu_hidden() else "<style></style>", unsafe_allow_html=True)
 
 # Collapse the rail after a click; re-arm when the mouse leaves it.
 components.html("""
@@ -924,6 +933,27 @@ if (!win.__labTabsV2) {
       else win.open(url, '_blank', 'popup=yes,width=1000,height=820');
     }, 900);
   });
+}
+// The menu bar: the key set in Settings (m) hides it, or shows it again. Notes are in frames: they call this too.
+if (!win.__menuV1) {
+  win.__menuV1 = true;
+  win.__saMenuToggle = () => { const b = doc.querySelector('.st-key-menu_toggle_hidden button'); if (b) b.click(); };
+  doc.addEventListener('keydown', e => {
+    const t = e.target, tag = (t && t.tagName || '').toLowerCase();
+    if (tag === 'input' || tag === 'textarea' || tag === 'select' || (t && t.isContentEditable)) return;      // not while typing in a box
+    if (!win.__keyIs(e, 'app', 'menu', 'm')) return;
+    e.preventDefault(); win.__saMenuToggle();
+  }, true);
+}
+// F11: full screen on and off in the desktop window (in a browser, F11 is the browser's own). Notes are in frames: they call this too.
+if (!win.__fsV1) {
+  win.__fsV1 = true;
+  const can = () => !!(win.pywebview && win.pywebview.api && win.pywebview.api.toggle_fullscreen);
+  win.__saFullscreen = () => { if (can()) win.pywebview.api.toggle_fullscreen(); };
+  doc.addEventListener('keydown', e => {
+    if (e.key !== 'F11' || e.ctrlKey || e.altKey || e.shiftKey || e.metaKey || !can()) return;
+    e.preventDefault(); win.__saFullscreen();
+  }, true);
 }
 // PDF reader, every view: drag the page to move around, Ctrl + wheel (or pinch) to zoom, and keep the place when the zoom changes.
 if (!win.__rdPanV1) {
@@ -1369,6 +1399,9 @@ st.session_state.setdefault("pdf_page", 1)
 # ---- Back / forward navigation: the app keeps its own history of (page, open course, open file) ----
 st.session_state.setdefault("nav_history", [])
 st.session_state.setdefault("nav_forward", [])       # pages left by going back, newest last
+if st.button("Menu", key="menu_toggle_hidden"):       # clicked by the key set in Settings (m): hides or shows the menu bar (hidden by CSS)
+    settings.set_menu_hidden(not settings.get_menu_hidden())
+    st.rerun()
 if st.button("Back", key="nav_back_hidden"):          # clicked by the mouse back button (hidden by CSS)
     navigation.go_back()
 if st.button("Forward", key="nav_forward_hidden"):    # clicked by the mouse forward button (hidden by CSS)

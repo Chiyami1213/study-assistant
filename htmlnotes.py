@@ -144,6 +144,20 @@ _EQSRC = r"""<script>
 })();
 </script>"""
 
+# F11 inside a note (a frame of the app): the app window goes full screen, or back (the page itself does this for the rest of the window).
+_F11 = """<script>
+document.addEventListener('keydown', function (e) {
+  try {
+    var P = window.parent, t = e.target, tag = (t && t.tagName || '').toLowerCase();
+    if (e.key === 'F11' && !e.ctrlKey && !e.altKey && !e.shiftKey && !e.metaKey) {
+      if (P && P.__saFullscreen && P.pywebview && P.pywebview.api && P.pywebview.api.toggle_fullscreen) { e.preventDefault(); P.__saFullscreen(); }
+    } else if (P && P.__saMenuToggle && P.__keyIs && tag !== 'input' && tag !== 'textarea' && tag !== 'select' && !(t && t.isContentEditable) && P.__keyIs(e, 'app', 'menu', 'm')) {
+      e.preventDefault(); P.__saMenuToggle();                       // the key that hides or shows the menu bar, pressed inside a note
+    }
+  } catch (err) {}
+}, true);
+</script>"""
+
 # Esc inside a note shown full screen in the Note Reader clicks the page's Exit Full Screen button (unless the find bar used the key).
 _ESC = """<script>
 document.addEventListener('keydown', function (e) {
@@ -482,7 +496,7 @@ def safe_html(text, goto=None, questions=None, errata_source=None, resume=None, 
     """The note's HTML with the link guard added just before the closing body tag (or at the end). `goto` is the id of
     a section to scroll to once the page has loaded (the Exercises tab opens the page at #exercises). `questions` (the
     app's question dicts) replace the note's own Self-check, so the note and the course Quiz tab agree."""
-    script = _SCRIPT + _FIND
+    script = _SCRIPT + _FIND + _F11
     if links:
         script += _LINKS
     if marks:

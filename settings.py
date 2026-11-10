@@ -148,7 +148,19 @@ def set_appearance(choice):
 DEFAULT_KEYS = {
     "reader": {"draw": "d", "pen": "p", "highlighter": "h", "eraser": "e", "undo": "ctrl+z", "leave": "esc"},     # homework and exam PDFs
     "notes": {"find": "ctrl+f", "leave_full": "esc"},                                                              # the Note Reader
+    "app": {"menu": "m"},                                                                                          # hide or show the menu bar
 }
+
+
+def get_menu_hidden():
+    """True when the menu bar (the rail on the left) is hidden: it then shows only while the pointer rests at the left edge."""
+    return bool(_load().get("menu_hidden", False))
+
+
+def set_menu_hidden(hidden):
+    data = _load()
+    data["menu_hidden"] = bool(hidden)
+    _save(data)
 
 
 def get_keys():

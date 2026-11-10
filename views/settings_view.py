@@ -24,6 +24,12 @@ def render():
                 settings.set_appearance(key)
                 st.rerun()
 
+    hidden = settings.get_menu_hidden()
+    if st.toggle("Hide the Menu Bar", hidden, help="hides the menu bar on the left so the page uses the whole window; pointing at the left edge shows it, and the menu bar key brings it back"
+                 ) != hidden:
+        settings.set_menu_hidden(not hidden)
+        st.rerun()
+
     st.header("Eye Rest")
     st.caption("A reminder to look away from the screen after every 20 minutes of studying.")
     eye = settings.get_eye_rest()
@@ -51,6 +57,8 @@ def render():
         ("pen", "Pen", "the pen, while drawing"), ("highlighter", "Highlighter", "the highlighter, while drawing"),
         ("eraser", "Eraser", "the eraser, while drawing"), ("undo", "Undo", "undoes the last drawing, while drawing"),
         ("leave", "Leave Drawing Mode", "turns drawing mode off")])
+    _keys_section("Menu Bar", "app", [
+        ("menu", "Hide or Show the Menu Bar", "hides the menu bar so the page uses the whole window; pointing at the left edge shows it, and pressing the key again brings it back")])
     _keys_section("Note Reader", "notes", [
         ("find", "Find in the Page", "opens the find bar of the note under the pointer"),
         ("leave_full", "Leave Full Screen", "returns from the full screen note to the windows")])

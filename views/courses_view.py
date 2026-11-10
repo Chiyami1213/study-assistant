@@ -719,7 +719,7 @@ def _exams(course):
                          f"Covers {e['covers']}" if e.get("covers") else None,
                          book=_exam_book(course["id"], e["title"]), solution=_exam_book(course["id"], e["title"], "Exam Solution"),
                          graded=_exam_book(course["id"], e["title"], "Graded Exam"), extra=_grade_html(e), tab="Exams",
-                         guide=None if done else _exam_book(course["id"], e["title"], "Exam Preparation"),
+                         guide=_exam_book(course["id"], e["title"], "Exam Preparation"),           # for a past exam too: what the preparation said
                          reflection=_exam_book(course["id"], e["title"], "Exam Reflection", "Reflection") if done else None,
                          stats=_exam_book(course["id"], e["title"], "Exam Reflection", "Statistics") if done else None)
 

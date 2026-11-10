@@ -16,7 +16,7 @@ import time
 import urllib.request
 from pathlib import Path
 
-PORT = 8765
+PORT = int(os.environ.get("STUDY_ASSISTANT_PORT") or 8765)         # the variable is for tests: a second copy on another port
 TITLE = "Study Assistant"
 
 
@@ -110,7 +110,14 @@ class Api:
 
     def open_window(self, url):
         import webview
-        webview.create_window(TITLE, url, width=1100, height=850, min_size=(600, 400), background_color="#0e1117")
+        webview.create_window(TITLE, url, width=1100, height=850, min_size=(600, 400), background_color="#0e1117", js_api=Api())
+
+    def toggle_fullscreen(self):
+        """F11 in the page: the window that has the focus goes full screen, or back to a window."""
+        import webview
+        window = webview.active_window() or (webview.windows[0] if webview.windows else None)
+        if window:
+            window.toggle_fullscreen()
 
 
 def main():
