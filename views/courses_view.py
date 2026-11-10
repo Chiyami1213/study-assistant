@@ -762,14 +762,55 @@ def _open_pdf_from_outline():
             st.rerun()
 
 
+def _fill_outline(key, items):
+    import courseoutline
+    st.session_state[key] = courseoutline.to_text(items)
+
+
+@st.dialog("Edit Outline", width="large")
+def _outline_dialog(course):
+    """The outline as text: one point per line, two spaces of indent per level. Save keeps it as the user's own (it is no longer rebuilt)."""
+    import courseoutline
+    import settings
+    cid = course["id"]
+    key = f"outline_text_{cid}"
+    st.caption("One point per line, indented two spaces for each level (topic, sub topic, point, detail). A line may start with its marker (I. A. 1. a. or Lec 3); "
+               "markers left out are numbered for you. Put [9 Hours] or a web address at the end of a line. Points keep the file they open.")
+    st.text_area("Outline", key=key, height=430, label_visibility="collapsed")
+    syllabus, titles = courseoutline.from_syllabus(cid), courseoutline.from_titles(cid)
+    a, b, c, d = st.columns(4)
+    a.button("Use Syllabus Topics", key=f"outline_use_syl_{cid}", disabled=not syllabus, width="stretch", on_click=_fill_outline, args=(key, syllabus),
+             help="fills the box with the topics listed in the syllabus or the lec 0 slides; nothing is saved until you press save")
+    b.button("Use Lecture Titles", key=f"outline_use_titles_{cid}", disabled=not titles, width="stretch", on_click=_fill_outline, args=(key, titles),
+             help="fills the box with the lecture or chapter titles in the library; nothing is saved until you press save")
+    if c.button("Save", key=f"outline_save_{cid}", type="primary", width="stretch", help="keeps this outline; the one it replaces is copied to the outlines folder"):
+        rows = crud.list_outline(cid)
+        items = courseoutline.from_text(st.session_state[key], rows, cid)
+        courseoutline.save_previous(cid)
+        crud.replace_outline(cid, items)
+        settings.set_outline_state(cid, "manual")
+        st.rerun()
+    if d.button("Cancel", key=f"outline_cancel_{cid}", width="stretch"):
+        st.rerun()
+
+
 def _outline(course):
     """The course outline: main topics (I., II., ...), their sub topics (A., B., ...), and under each sub topic a
     folded list of its numbered points (1., 2., ...)."""
+    import courseoutline
+    state = courseoutline.ensure(course["id"])               # builds it when there is none (syllabus topics, else lecture titles) and keeps an automatic one current
     items = crud.list_outline(course["id"])
+    made = {"syllabus": "Built from the syllabus", "titles": "Built from the lecture and chapter titles"}.get(state.get("source"))
+    note = (f"{made}. It follows your Library until you edit it." if made else "Edited by you." if items else
+            "No outline yet: add lectures or a syllabus with a topic list to the Library, or build one with Edit Outline.")
+    cap, edit = st.columns([6, 1.4], vertical_alignment="center")
+    cap.caption(note)
+    if edit.button("Edit Outline", icon=":material/edit:", key=f"outline_edit_{course['id']}", width="stretch",
+                   help="write your own outline, or start from the syllabus topics or the lecture titles"):
+        st.session_state[f"outline_text_{course['id']}"] = courseoutline.to_text(items)
+        _outline_dialog(course)
     if not items:
-        st.caption("No outline yet.")
         return
-
 
     def label(it):
         text = html.escape(it["title"])
@@ -785,7 +826,7 @@ def _outline(course):
     opened = st.session_state.get(key, False)
     if any(it["level"] == "1" for it in items):
         _, btn = st.columns([6, 1.4], vertical_alignment="center")
-        if btn.button("Collapse All" if opened else "Expand All", key=f"outline_toggle_{course['id']}"):
+        if btn.button("Collapse All" if opened else "Expand All", key=f"outline_toggle_{course['id']}", width="stretch"):
             st.session_state[key] = not opened
             st.rerun()
     open_attr = " open" if opened else ""

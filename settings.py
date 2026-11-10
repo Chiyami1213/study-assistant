@@ -233,6 +233,17 @@ def set_semester(start, end, exam_end):
     _save(data)
 
 
+def get_outline_state(course_id):
+    """How a course's outline was made: {source: "syllabus" | "titles" | "manual", sig: ...}; {} when it was never set."""
+    return _load().get("outlines", {}).get(str(course_id), {})
+
+
+def set_outline_state(course_id, source, sig=""):
+    data = _load()
+    data.setdefault("outlines", {})[str(course_id)] = {"source": source, "sig": sig}
+    _save(data)
+
+
 def get_collapsed():
     """Sidebar sections the user folded (remembered between sessions)."""
     return set(_load().get("collapsed_sections", []))

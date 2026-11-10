@@ -10,6 +10,12 @@ Fixes after 1.0:
   one unknown range, so clicking an equation opened page 1 of the slides. The line is now split at `;` and the part whose title best matches the
   equation's section heading is used, then the slide set is found inside the PDF (equations 4.9 to 4.11 of the Chapter 6 notes now open the
   Translational Properties slides).
+- **Course outlines build themselves, and stay editable.** A course with no outline gets one from the topic list in its syllabus or Lec 0 slides
+  ("Course Outline", "Course Topics" ...), otherwise from its lecture titles (or, when the lecture files only have names such as "Week 3 Lecture", its
+  chapter notes). An automatic outline follows the Library (a new lecture adds a point) until it is edited. **Courses > Outline > Edit Outline** edits the
+  outline as plain text (one point per line, indent for each level, markers numbered for you, `[9 Hours]` and links kept), with Use Syllabus Topics and
+  Use Lecture Titles to start from; saving makes it your own and it is never replaced automatically. Every outline that is replaced is first copied to
+  the `outlines` folder of the data folder. The AE 6765 outline now has all its points, including the a. b. c. details.
 - **PDF reader zoom and pan in every view mode.** In single page, double page and continuous double page view the zoom buttons did not widen the page (it
   shrank back to the window width); a zoomed page now keeps its width and can be scrolled to every edge. Drag the page with the mouse to move it
   (the middle button also pans in drawing mode), Ctrl + wheel or a trackpad pinch zooms, and a zoom step keeps the point in the middle of the view

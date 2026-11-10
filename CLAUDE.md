@@ -87,6 +87,12 @@ Number (or "Midterm 1", "Final" in the title) pair it with the problem file and 
 - `migrate.py` skips `static`, `build`, `data`, ... only directly under the project folder; deeper folders of the same name (the built app's
   `streamlit\static` web page) must be copied, or the exe shows a black window with "Not Found".
 
+## Course outlines (`courseoutline.py`, Courses > Outline)
+- A course with no outline gets one automatically: the topic list of its syllabus / Lec 0 slides if it has one (`parse_topics`), else the lecture titles
+  (`from_titles`; the chapter notes when the lecture files only have generic names). `ensure()` runs when the Outline tab is drawn; the state of each outline
+  ({source: syllabus | titles | manual}) is in `settings.json` (`outlines`). An outline with no state, or edited through Edit Outline, is "manual" and is never touched.
+- Anything that replaces an outline first copies it to `<data folder>/outlines/`. The editor is a text form (`to_text` / `from_text`).
+
 ## Conventions
 - Interface text uses APA title case; hover tooltips are all lower case.
 - Exams, homework and the course outlines live in the database (use the app or `crud.py`).
