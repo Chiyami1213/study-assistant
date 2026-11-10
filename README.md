@@ -6,6 +6,13 @@ A personal study app for coursework: a course library (textbooks, lecture notes,
 notes, homework and exam readers with drawing and grade explanations, a calendar, quizzes and a Home page with what is due. It runs locally
 (Streamlit + SQLite) in its own desktop window; nothing is sent anywhere.
 
+## Download and install (Windows)
+
+Download `StudyAssistant-1.0.1-Windows-Installer.zip` from the [Releases](../../releases) page, extract the whole zip, and run `Install Study Assistant.exe` from the
+extracted folder (keep the `payload` folder next to it). It installs the app for your user only (no administrator needed), puts a shortcut on the desktop and
+lists Study Assistant under Settings > Apps, where it can be uninstalled (your files are kept unless you choose to remove them). Windows may ask you to confirm
+the first start, because the exe is not code-signed. The app starts empty; add your own courses and files.
+
 ## Run
 
 ```
