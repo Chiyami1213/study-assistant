@@ -2,3 +2,6 @@
 maxUploadSize = 102400  # MB (effectively no limit)
 runOnSave = true
 enableStaticServing = true   # serves static/ (rendered PDF pages for the scrolling reader)
+
+[client]
+toolbarMode = "minimal"           # no Deploy button or menu in the top right

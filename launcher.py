@@ -94,6 +94,7 @@ def run_server(port, parent_pid=None):
     options = {"server.headless": True, "server.port": port, "server.address": "127.0.0.1",
                "global.developmentMode": False, "browser.gatherUsageStats": False,
                "server.fileWatcherType": "auto", "server.runOnSave": True,
+               "client.toolbarMode": "minimal",
                "server.enableStaticServing": True}
     bootstrap.load_config_options(options)
     bootstrap.run(str(project / "app.py"), False, [], options)

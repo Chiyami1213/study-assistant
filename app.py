@@ -71,6 +71,9 @@ section[data-testid="stSidebar"].nav-collapsed > div:first-child {{
 [data-testid="stSidebarContent"] {{padding: 0 !important;}}
 [data-testid="stSidebarUserContent"] {{padding: 1rem 0 !important; width: {EXPANDED_W}px;}}
 header[data-testid="stHeader"] {{z-index: 1; background: transparent;}}
+/* Streamlit's own top-right interface (Deploy, the three-dot menu, "Running...") is not part of this app */
+[data-testid="stToolbar"], [data-testid="stMainMenu"], [data-testid="stAppDeployButton"], [data-testid="stToolbarActions"], [data-testid="stStatusWidget"], #MainMenu {{
+    display: none !important; visibility: hidden !important;}}
 
 /* Nav buttons (no radio dots) */
 [data-testid="stSidebar"] button {{
