@@ -762,6 +762,18 @@ def _open_pdf_from_outline():
             st.rerun()
 
 
+def _auto_build(course_id):
+    """Build the outline from the syllabus topics, else the lecture titles; it then follows the Library again until it is edited."""
+    import courseoutline
+    items, source = courseoutline.auto_items(course_id)
+    if not items:
+        st.toast("There is nothing to build from yet: add the lectures, or a syllabus with a topic list, to the Library.", icon=":material/info:")
+        return
+    courseoutline.save_previous(course_id)
+    crud.replace_outline(course_id, items)
+    settings.set_outline_state(course_id, source, courseoutline.signature(items))
+
+
 def _fill_outline(key, items):
     import courseoutline
     st.session_state[key] = courseoutline.to_text(items)
@@ -803,8 +815,19 @@ def _outline(course):
     made = {"syllabus": "Built from the syllabus", "titles": "Built from the lecture and chapter titles"}.get(state.get("source"))
     note = (f"{made}. It follows your Library until you edit it." if made else "Edited by you." if items else
             "No outline yet: add lectures or a syllabus with a topic list to the Library, or build one with Edit Outline.")
-    cap, edit = st.columns([6, 1.4], vertical_alignment="center")
+    cap, auto, edit = st.columns([5, 1.7, 1.4], vertical_alignment="center")
     cap.caption(note)
+    built, source = courseoutline.auto_items(course["id"])
+    mine = bool(items) and state.get("source") in ("manual", None)
+    if mine:                                                  # an outline of the user's own is only replaced after they confirm
+        with auto.popover("Auto Build", icon=":material/auto_fix_high:", width="stretch", disabled=not built,
+                          help="builds the outline again from the syllabus topics or the lecture titles"):
+            st.caption("Replace your outline with one built from the " + ("syllabus topics" if source == "syllabus" else "lecture titles")
+                       + "? Your current outline is copied to the outlines folder first.")
+            st.button("Replace and Build", key=f"outline_auto_yes_{course['id']}", type="primary", on_click=_auto_build, args=(course["id"],))
+    else:
+        auto.button("Auto Build", icon=":material/auto_fix_high:", key=f"outline_auto_{course['id']}", width="stretch", disabled=not built,
+                    on_click=_auto_build, args=(course["id"],), help="builds the outline from the syllabus topics or, if it lists none, the lecture titles")
     if edit.button("Edit Outline", icon=":material/edit:", key=f"outline_edit_{course['id']}", width="stretch",
                    help="write your own outline, or start from the syllabus topics or the lecture titles"):
         st.session_state[f"outline_text_{course['id']}"] = courseoutline.to_text(items)

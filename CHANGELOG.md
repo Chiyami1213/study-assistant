@@ -14,7 +14,8 @@ Fixes after 1.0:
   ("Course Outline", "Course Topics" ...), otherwise from its lecture titles (or, when the lecture files only have names such as "Week 3 Lecture", its
   chapter notes). An automatic outline follows the Library (a new lecture adds a point) until it is edited. **Courses > Outline > Edit Outline** edits the
   outline as plain text (one point per line, indent for each level, markers numbered for you, `[9 Hours]` and links kept), with Use Syllabus Topics and
-  Use Lecture Titles to start from; saving makes it your own and it is never replaced automatically. Every outline that is replaced is first copied to
+  Use Lecture Titles to start from; saving makes it your own and it is never replaced automatically. **Auto Build** on the Outline tab builds it again at any time (it asks first when the outline is the user's own, and then the
+  outline follows the Library again). Every outline that is replaced is first copied to
   the `outlines` folder of the data folder. The AE 6765 outline now has all its points, including the a. b. c. details.
 - **PDF reader zoom and pan in every view mode.** In single page, double page and continuous double page view the zoom buttons did not widen the page (it
   shrank back to the window width); a zoomed page now keeps its width and can be scrolled to every edge. Drag the page with the mouse to move it
