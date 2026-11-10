@@ -21,7 +21,7 @@ import libbackup
 import syllabus
 import navigation
 import pdfmeta
-from pdfmeta import split_lecture, strip_notes_prefix
+from pdfmeta import guess_lecture, split_lecture, strip_notes_prefix
 from database import BASE_DIR, PDF_DIR, data_path, stored_path
 
 COLUMNS = 6
@@ -192,7 +192,7 @@ def _add_dialog(default_course=None):
     # Notes: a leading "Lec 3" in the title or file name becomes the Lecture label, not part of the title.
     lec_guess, clean_title = split_lecture(info["title"])
     if not lec_guess and up:
-        lec_guess = split_lecture(up.name.rsplit(".", 1)[0].replace("_", " "))[0]
+        lec_guess = guess_lecture(up.name.rsplit(".", 1)[0], info["title"])          # "Lec 3", or "Chapter 3" in an html note's name or title
     title = st.text_input("Title", key=_auto("title", crud.fix_course_ids(strip_notes_prefix(clean_title) if is_notes else info["title"])))     # "AE333" -> "AE 333"
     lecture = ""
     if is_hw:                                                        # "hw4.pdf" -> homework number 4, title "HW 4"

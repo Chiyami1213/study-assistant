@@ -495,7 +495,16 @@ def _lecture_source(note, src, ctx, heading=""):
     m = re.match(r"\s*Lec(?:ture)?\s*(\d+(?:-\d+)?)\s*,?\s*(.*)$", src or "", re.I)
     if m:
         lecture, rest = m.group(1), m.group(2).strip()
-        pages = re.fullmatch(r"(?:(?P<title>[A-Za-z][^\d]*?)\s+)?(?:slides?\s+)?(?P<a>\d+)(?:\s*[\u2013-]\s*(?P<b>\d+))?", rest, re.I)
+        one = r"(?:(?P<title>[A-Za-z][^\d;]*?)\s+)?(?:slides?\s+)?(?P<a>\d+)(?:\s*[\u2013-]\s*(?P<b>\d+))?"
+        pages = None
+        parts = [s.strip() for s in rest.split(";") if s.strip()] or [rest]       # "Independent Energy Modes 1\u20135; Translational Properties 1\u201311": several slide sets
+        if len(parts) > 1:                                                         # the part whose title shares the most words with the equation's heading
+            hw = _words(f"{heading} {ctx}")
+            parts.sort(key=lambda s: -len(_words(re.sub(r"[\d\u2013-]+\s*$", "", s)) & hw))
+        for part in parts:
+            pages = re.fullmatch(one, part, re.I)
+            if pages:
+                break
         first = int(pages.group("a")) if pages else 1
         last = int(pages.group("b") or first) if pages else first
         title = (pages.group("title") or "").strip().lower() if pages else ""

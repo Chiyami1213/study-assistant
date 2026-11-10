@@ -115,6 +115,23 @@ def split_lecture(title):
     return lecture, (title[m.end():].strip() or title.strip())
 
 
+CHAPTER_RE = re.compile(r"(?<![A-Za-z])(?:chapter|chap|ch)\.?[\s_\-]*(\d+)(?!\d)", re.I)
+
+
+def guess_lecture(*texts):
+    """The lecture (chapter) number a file name or title names: 'Lec 3-4 ...' -> '3-4', 'AE6765 Chapter 3 Notes' -> '3', 'Ch2' -> '2'; '' if none.
+    The notes of a course are found by this number (a note link 'Lec 3 s2.1' or 'Ch3', the Notes tab order), so an imported note should have it."""
+    for text in texts:
+        text = (text or "").replace("_", " ")
+        lec = split_lecture(text)[0]
+        if lec:
+            return lec
+        m = CHAPTER_RE.search(text)
+        if m:
+            return m.group(1)
+    return ""
+
+
 NOTES_PREFIX_RE = re.compile(r"^\s*Notes?\s*[:\-–—]?\s+", re.I)
 
 
