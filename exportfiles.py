@@ -18,7 +18,7 @@ from pathlib import Path
 from database import BASE_DIR, DATA_DIR
 from version import VERSION
 
-SKIP_DATA_DIRS = {"webview", "Backups", "__pycache__"}          # browser cache; safety copies (the other device makes its own)
+SKIP_DATA_DIRS = {"webview", "Backups", "logs", "__pycache__"}          # browser cache; safety copies (the other device makes its own)
 SKIP_SUFFIX = {".pyc", ".spec", ".tmp", ".part"}
 STORE = {".pdf", ".jpg", ".jpeg", ".png", ".webp", ".heic", ".zip", ".gif"}      # already compressed: stored as they are
 

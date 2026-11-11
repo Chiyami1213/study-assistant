@@ -95,6 +95,7 @@ def run_server(port, parent_pid=None):
                "global.developmentMode": False, "browser.gatherUsageStats": False,
                "server.fileWatcherType": "auto", "server.runOnSave": True,
                "client.toolbarMode": "minimal",
+               "server.disconnectedSessionTTL": 86400,      # a window that lost its connection (sleep, a locked screen, a busy computer) comes back to the same page for a day, not 2 minutes
                "server.enableStaticServing": True}
     bootstrap.load_config_options(options)
     bootstrap.run(str(project / "app.py"), False, [], options)
@@ -121,43 +122,93 @@ class Api:
             window.toggle_fullscreen()
 
 
+def start_server(project, log=None):
+    """The hidden Streamlit server as a child process. From the exe its messages go to <data folder>\\logs\\server.log; from `python run.py` they print here."""
+    creation = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+    cmd = [sys.executable, "--server", str(PORT), "--parent", str(os.getpid())] if getattr(sys, "frozen", False) \
+        else [sys.executable, str(Path(__file__).resolve()), "--server", str(PORT), "--parent", str(os.getpid())]
+    quiet = getattr(sys, "frozen", False)
+    return subprocess.Popen(cmd, cwd=project, creationflags=creation if quiet else 0,
+                            stdout=(log or subprocess.DEVNULL) if quiet else None,
+                            stderr=(log or subprocess.DEVNULL) if quiet else None, stdin=subprocess.DEVNULL)
+
+
+def open_log(data_dir):
+    """The server's log file (kept small: it starts again when it passes 2 MB)."""
+    try:
+        folder = data_dir / "logs"
+        folder.mkdir(parents=True, exist_ok=True)
+        path = folder / "server.log"
+        if path.exists() and path.stat().st_size > 2 << 20:
+            path.write_text("", encoding="utf-8")
+        f = open(path, "ab")
+        f.write(f"\n--- {time.strftime('%Y-%m-%d %H:%M:%S')} server starting\n".encode("utf-8"))
+        f.flush()
+        return f
+    except OSError:
+        return None
+
+
 def main():
     import webview
 
     project = find_project()
-    server = None
+    sys.path.insert(0, str(project))
+    from database import DATA_DIR
+    holder = {"server": None, "log": None}
     if not port_open(PORT):        # a copy that is already running keeps serving; this window just attaches to it
-        creation = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
-        cmd = [sys.executable, "--server", str(PORT), "--parent", str(os.getpid())] if getattr(sys, "frozen", False) \
-            else [sys.executable, str(Path(__file__).resolve()), "--server", str(PORT), "--parent", str(os.getpid())]
-        quiet = getattr(sys, "frozen", False)      # from the exe the server is silent; from `python run.py` it prints here
-        server = subprocess.Popen(cmd, cwd=project, creationflags=creation if quiet else 0,
-                                  stdout=subprocess.DEVNULL if quiet else None,
-                                  stderr=subprocess.DEVNULL if quiet else None, stdin=subprocess.DEVNULL)
+        holder["log"] = open_log(DATA_DIR) if getattr(sys, "frozen", False) else None
+        holder["server"] = start_server(project, holder["log"])
 
     url = f"http://127.0.0.1:{PORT}"
     window = webview.create_window(TITLE, html=SPLASH, width=1440, height=900, min_size=(900, 600),
                                    background_color="#0e1117", js_api=Api())
 
-    def wait_then_load():
-        for _ in range(600):
+    def wait_healthy(seconds=60):
+        for _ in range(int(seconds * 10)):
             try:
                 with urllib.request.urlopen(url + "/_stcore/health", timeout=1) as r:
                     if r.status == 200:
-                        break
+                        return True
             except Exception:
                 time.sleep(0.1)
+        return False
+
+    def wait_then_load():
+        wait_healthy()
         window.load_url(url)
 
+    def keep_server_alive():
+        """If the server this window started stops on its own (a crash), start it again and reload the page: the window would otherwise stay on 'Connection error'."""
+        restarts = []
+        while True:
+            time.sleep(2)
+            server = holder["server"]
+            if server is None or server.poll() is None:
+                continue
+            restarts = [t for t in restarts if time.time() - t < 600]
+            if len(restarts) >= 5:                    # not a loop of crashes
+                return
+            restarts.append(time.time())
+            if holder["log"]:
+                holder["log"].write(f"\n--- {time.strftime('%Y-%m-%d %H:%M:%S')} the server stopped (exit {server.returncode}); starting it again\n".encode("utf-8"))
+                holder["log"].flush()
+            holder["server"] = start_server(project, holder["log"])
+            if wait_healthy():
+                try:
+                    window.evaluate_js("location.reload()")
+                except Exception:
+                    pass
+
     threading.Thread(target=wait_then_load, daemon=True).start()
-    sys.path.insert(0, str(project))
-    from database import DATA_DIR
+    threading.Thread(target=keep_server_alive, daemon=True).start()
     storage = DATA_DIR / "webview"                 # the browser-side settings live with the user's other files
     storage.mkdir(parents=True, exist_ok=True)       # keeps the theme and other browser-side settings
     try:
         webview.settings["ALLOW_DOWNLOADS"] = True        # the File page's Download buttons (quizzes, notes) save files
         webview.start(storage_path=str(storage), private_mode=False)
     finally:
+        holder["server"], server = None, holder["server"]
         stop_server(server)                          # closing the window stops the server it started
 
 

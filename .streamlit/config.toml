@@ -1,6 +1,7 @@
 [server]
 maxUploadSize = 102400  # MB (effectively no limit)
 runOnSave = true
+disconnectedSessionTTL = 86400   # a browser that lost its connection comes back to the same session for a day (default: 2 minutes)
 enableStaticServing = true   # serves static/ (rendered PDF pages for the scrolling reader)
 
 [client]
