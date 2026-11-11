@@ -24,6 +24,9 @@
   (it was only shown for upcoming exams).
 - **Equation sheets for past exams.** The Equation Sheets section of a course's Exams tab lists every exam, so a sheet can be built (or rebuilt) for a midterm that
   is over, not only for the exams still to come.
+- **Two ways to check a course quiz.** The Quiz tab has a Checking Mode choice. *Check After Finishing* works as before (nothing is marked until Finish And Score).
+  *Check After Each Answer* marks an answer as soon as it is pressed: the right option turns green, a wrong choice red, the explanation is shown, and the answer
+  cannot be changed. Check Notes and Hint are not available for an answered question in that mode. The score and the record of attempts are the same.
 
 ## 1.0.0 (2026-11-10)
 

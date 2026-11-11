@@ -90,6 +90,7 @@ The full history is in [CHANGELOG.md](CHANGELOG.md).
 - Press m to hide the menu bar (point at the left edge to show it); Settings has a switch and a key box for it. While the menu bar is shown, a letter opens a page (h Home, a Calendar, l Library, n Note Reader, c Courses, s Settings).
 - The Exams tab of a course shows the Preparation page for past exams too.
 - Equation sheets can be built for past exams too (every exam of the course is listed on the Exams tab).
+- Course quizzes: choose Check After Each Answer (marked and explained right away) or Check After Finishing (marked at the end).
 
 **1.0.0**
 - First release. Clean installs start empty; an installer that registers an uninstaller (keep or remove your files).

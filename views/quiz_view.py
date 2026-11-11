@@ -2,8 +2,10 @@
 
 A chapter's quiz joins two kinds of questions: conceptual checks written for each section of the HTML note
 (quizzes/<course>/<note>.json, see quizgen.py) and the note's own Self-check questions. Answers are given one per
-question and nothing is marked until the quiz is finished; then the score is shown, with the explanation for every
-question that was missed. Below 60% the quiz is failed.
+question. Two modes are offered when a quiz is started: "Check After Finishing" (nothing is marked until the quiz is finished;
+then the score is shown, with the explanation for every question that was missed) and "Check After Each Answer" (an answer is
+marked as soon as it is given, with its explanation, and then cannot be changed; Check Notes and Hint are off for it). Below 60%
+the quiz is failed.
 
 "Check Notes" opens the note at the question's section, and "Hint" gives a nudge (the question's own hint when it has one,
 and always one wrong option crossed out). Using either is recorded for the question and the attempt: an answer made with
@@ -25,6 +27,7 @@ from database import BASE_DIR, data_path
 from views import library_view
 
 PASS, STRONG = 60, 80          # percent: below PASS the quiz is failed
+MODE_END, MODE_EACH = "Check After Finishing", "Check After Each Answer"
 
 
 @st.cache_data(show_spinner=False, max_entries=64)
@@ -144,8 +147,10 @@ def understanding(course):
 def _start(run_key, chapter):
     order = list(range(len(chapter["questions"])))
     random.shuffle(order)
+    mode = st.session_state.get(run_key + "_mode") or MODE_END
+    st.session_state[run_key + "_modepref"] = mode                  # remembered for the next quiz (the radio is not drawn during a quiz)
     st.session_state[run_key] = {"book": chapter["book"]["id"], "order": order, "phase": "run", "res": {},
-                                 "stamp": random.randint(1, 10 ** 9)}
+                                 "stamp": random.randint(1, 10 ** 9), "mode": "each" if mode == MODE_EACH else "end"}
 
 
 def _leave(run_key):
@@ -157,7 +162,10 @@ def _entry(run_key, qi):
 
 
 def _pick(run_key, qi, oi):
-    _entry(run_key, qi)["chosen"] = oi                  # the last option pressed is the answer
+    e = _entry(run_key, qi)
+    if st.session_state[run_key].get("mode") == "each" and e["chosen"] is not None:
+        return                                          # marked at once, so the answer is final
+    e["chosen"] = oi                                    # otherwise the last option pressed is the answer
 
 
 def _use_notes(run_key, qi):
@@ -199,8 +207,12 @@ def render(course):
         _run(course, by_book[run["book"]], run, run_key)
         return
     stats = crud.quiz_stats(course["id"])
-    st.caption(f"Pick a chapter or lecture. Nothing is marked until you finish, and below {PASS}% the quiz is failed. "
-               f"Check Notes and Hint are allowed but recorded.")
+    pref = st.session_state.get(run_key + "_modepref") or MODE_END
+    st.radio("Checking Mode", [MODE_END, MODE_EACH], index=[MODE_END, MODE_EACH].index(pref), horizontal=True, key=run_key + "_mode",
+             help="check after finishing: nothing is marked until you finish. check after each answer: an answer is marked right away "
+                  "and cannot be changed; check notes and hint are not available")
+    st.caption(f"Pick a chapter or lecture. Below {PASS}% the quiz is failed. Check Notes and Hint are allowed (not in the mode that "
+               f"checks each answer) but recorded.")
     for c in chapters:
         s = stats.get(c["book"]["id"])
         name, meta, pill, go = st.columns([5, 2.6, 1.6, 1.3], vertical_alignment="center")
@@ -255,6 +267,7 @@ def _cards(chapter, run, run_key, cid):
     for pos, qi in enumerate(order, 1):
         q, res = qs[qi], res_all.get(qi) or {}
         prefix = f"qo_{cid}_{run['stamp']}_{qi}"
+        locked = run.get("mode") == "each" and q["kind"] == "mc" and res.get("chosen") is not None       # marked at once; final
         with st.container(border=True, key=f"qcard_{cid}_{run['stamp']}_{qi}"):
             st.markdown(f"**{pos}.** {q['q']}")
             if q.get("tag"):
@@ -262,11 +275,27 @@ def _cards(chapter, run, run_key, cid):
             if q["kind"] == "mc":
                 with st.container(horizontal=True, gap="medium", key=f"qopts_{cid}_{run['stamp']}_{qi}"):
                     for oi, text in enumerate(q["o"]):
-                        st.button(text, key=f"{prefix}_{oi}", on_click=_pick, args=(run_key, qi, oi))
-                if res.get("chosen") is not None:
+                        st.button(text, key=f"{prefix}_{oi}", on_click=_pick, args=(run_key, qi, oi), disabled=locked)
+                if locked:
+                    base = f".stApp .st-key-{prefix}_%d button[data-testid^='stBaseButton']"
+                    sel = base % q["a"]
+                    styles += (f"{sel}, {sel}:focus, {sel}:focus:not(:active), {sel}:disabled {{opacity: 1 !important; border: 2px solid #2e9e5b !important; background: rgba(46, 158, 91, 0.26) !important;}}"
+                               f"{sel} p::before {{content: '✓  '; font-weight: 700;}}")
+                    if res["chosen"] != q["a"]:
+                        sel = base % res["chosen"]
+                        styles += (f"{sel}, {sel}:focus, {sel}:focus:not(:active), {sel}:disabled {{opacity: 1 !important; border: 2px solid #d64545 !important; background: rgba(214, 69, 69, 0.26) !important;}}"
+                                   f"{sel} p::before {{content: '✗  '; font-weight: 700;}}")
+                elif res.get("chosen") is not None:
                     sel = f".stApp .st-key-{prefix}_{res['chosen']} button[data-testid^='stBaseButton']"
                     styles += (f"{sel}, {sel}:hover {{border: 2px solid var(--accent) !important; background: rgba(76, 141, 255, 0.24) !important;}}"
                                f"{sel} p::before {{content: '✓  '; font-weight: 700;}}")
+            if locked:
+                if res["chosen"] == q["a"]:
+                    st.markdown(":green[**Correct.**]")
+                else:
+                    st.markdown(":red[**Not correct.**] The answer is: " + q["o"][q["a"]])
+                if q.get("e"):
+                    st.info(q["e"])
             if q["kind"] == "mc" and res.get("hint"):
                 text, gone = _hint_for(q)
                 st.markdown(f":orange[**Hint used. This is recorded.**] {text}")
@@ -277,11 +306,11 @@ def _cards(chapter, run, run_key, cid):
                 st.markdown(":orange[**Notes used for this question. This is recorded.**]")
             with st.container(horizontal=True, gap="small", key=f"qhelp_{cid}_{run['stamp']}_{qi}"):
                 st.button("Show Notes" if res.get("notes") else "Check Notes", key=f"{prefix}_notes", type="tertiary",
-                          icon=":material/menu_book:", on_click=_use_notes, args=(run_key, qi),
+                          icon=":material/menu_book:", on_click=_use_notes, args=(run_key, qi), disabled=locked,
                           help="opens the note on the right. it is recorded that you used it")
                 if q["kind"] == "mc":
                     st.button("Hint", key=f"{prefix}_hint", type="tertiary", icon=":material/lightbulb:",
-                              on_click=_use_hint, args=(run_key, qi), disabled=bool(res.get("hint")),
+                              on_click=_use_hint, args=(run_key, qi), disabled=bool(res.get("hint")) or locked,
                               help="gives a hint and crosses out one wrong option. it is recorded that you used it")
     return styles
 
@@ -300,8 +329,13 @@ def _run(course, chapter, run, run_key):
     answered = sum(1 for qi in order if (res_all.get(qi) or {}).get("chosen") is not None)
     notes = sum(1 for qi in order if (res_all.get(qi) or {}).get("notes"))
     hints = sum(1 for qi in order if (res_all.get(qi) or {}).get("hint"))
-    st.caption(f"{answered} of {len(order)} answered · {notes} with notes · {hints} with hints (both recorded). Press an "
-               f"option to choose it; you can change it until you finish. Answers are marked at the end.")
+    if run.get("mode") == "each":
+        right = sum(1 for qi in order if _is_right(qs[qi], res_all.get(qi)))
+        st.caption(f"{answered} of {len(order)} answered · {right} right so far · {notes} with notes · {hints} with hints (both recorded). "
+                   f"Press an option to answer; it is marked at once and cannot be changed.")
+    else:
+        st.caption(f"{answered} of {len(order)} answered · {notes} with notes · {hints} with hints (both recorded). Press an "
+                   f"option to choose it; you can change it until you finish. Answers are marked at the end.")
     panel = run.get("panel")
     if panel is not None:                                # notes open: the questions on the left half, the note on the right
         left, right = st.columns(2, gap="medium")
