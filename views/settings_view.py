@@ -204,8 +204,8 @@ def _export_import_section():
     job = dataimport.JOB
     if job["result"]:
         r = job["result"]
-        st.success(f"Imported: {r['added']} files added, {r['replaced']} replaced, {r['same']} already the same. Close and reopen the app to use them."
-                   + (f" The replaced ones were kept in {r['backup']}." if r["backup"] else ""))
+        st.success(f"Imported: {r['added']} files added, {r['replaced']} existing files replaced, {r['same']} existing files written again with the same content. "
+                   "Close and reopen the app to use them." + (f" The files that were replaced were first copied to {r['backup']}." if r["backup"] else ""))
     if job["error"]:
         st.error(job["error"])
     info = None
@@ -221,22 +221,22 @@ def _export_import_section():
             st.rerun()
 
 
-@st.fragment(run_every=1.5)
+@st.fragment(run_every=1)
 def _import_progress():
     import dataimport
     job = dataimport.JOB
     if job["running"]:
-        st.progress(min(max(job["fraction"], 0.0), 1.0), text=job["message"][:90])
+        st.progress(min(max(job["fraction"], 0.0), 1.0), text=f"{int(job['fraction'] * 100)}%  {job['message'][:90]}")
     else:
         st.rerun()
 
 
-@st.fragment(run_every=1.5)
+@st.fragment(run_every=1)
 def _export_progress():
     import exportfiles
     job = exportfiles.JOB
     if job["running"]:
-        st.progress(min(max(job["fraction"], 0.0), 1.0), text=job["message"][:90])
+        st.progress(min(max(job["fraction"], 0.0), 1.0), text=f"{int(job['fraction'] * 100)}%  {job['message'][:90]}")
     else:
         st.rerun()
 

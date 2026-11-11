@@ -1,8 +1,9 @@
 """Settings > Backup > Import: bring the files of an export into this app's data folder.
 
 The zip is the one made by Settings > Backup > Export My Files: the user's files are under `payload/data/`.
-Nothing is deleted: a file that is not there yet is added; a file that is there with the same content is left alone; a file that is there
-and differs is first copied to <data folder>\\Backups\\Before Import <date time>\\ and then replaced. The database is replaced through sqlite's own
+Nothing is deleted. Every file of the zip is written: a file that is not there yet is added; a file that is there and differs is first copied to
+<data folder>\\Backups\\Before Import <date time>\\ and then replaced; a file that is there with the same content is written again (there is nothing to keep).
+The database is replaced through sqlite's own
 backup (so it also works while the app has it open), after the current one was copied to the same Backups folder. The zip itself is only read.
 Restart the app afterwards."""
 import os
@@ -18,7 +19,6 @@ from database import DATA_DIR
 
 PREFIX = "payload/data/"
 SKIP_TOP = {"webview", "Backups", "__pycache__"}
-CRC_LIMIT = 20 << 20                 # files up to this size are compared by content; bigger ones by size
 
 
 def _members(z):
@@ -57,13 +57,12 @@ def inspect(path):
 
 
 def _same(target, info):
+    """True when the file that is there has exactly the content of the zip's file (the size, then the CRC of every byte)."""
     try:
         if target.stat().st_size != info.file_size:
             return False
     except OSError:
         return False
-    if info.file_size > CRC_LIMIT:
-        return True
     crc = 0
     with open(target, "rb") as f:
         while True:
@@ -100,24 +99,24 @@ def import_zip(path, progress=None):
                     db_info = info
                     continue
                 progress(min(done / total, 0.97), f"Importing {rel}")
-                if target.exists() and _same(target, info):
-                    same += 1
-                else:
-                    if target.exists():
+                if target.exists():
+                    if _same(target, info):
+                        same += 1                                          # written again below; the old content is the same, so there is nothing to keep
+                    else:
                         keep = backup / rel
                         keep.parent.mkdir(parents=True, exist_ok=True)
                         shutil.copy2(target, keep)
                         replaced += 1
-                    else:
-                        added += 1
-                    target.parent.mkdir(parents=True, exist_ok=True)
-                    part = target.with_name(target.name + ".part")
-                    with z.open(info) as fi, open(part, "wb") as fo:
-                        shutil.copyfileobj(fi, fo, 1 << 20)
-                    if part.stat().st_size != info.file_size:
-                        part.unlink()
-                        raise RuntimeError(f"{rel} could not be copied completely (is the disk full?).")
-                    os.replace(part, target)
+                else:
+                    added += 1
+                target.parent.mkdir(parents=True, exist_ok=True)
+                part = target.with_name(target.name + ".part")           # written beside it, then moved over it: a file is never left half written
+                with z.open(info) as fi, open(part, "wb") as fo:
+                    shutil.copyfileobj(fi, fo, 1 << 20)
+                if part.stat().st_size != info.file_size:
+                    part.unlink()
+                    raise RuntimeError(f"{rel} could not be copied completely (is the disk full?).")
+                os.replace(part, target)
                 done += info.file_size
             if db_info is not None:
                 progress(0.98, "Importing the database")

@@ -67,8 +67,8 @@ Number (or "Midterm 1", "Final" in the title) pair it with the problem file and 
 
 ## Backup, export and release (the app does not build anything)
 - The app only manages the user's own files: Settings > Backup keeps the library backup (`libbackup.py`) and has Export My Files (`exportfiles.py`: one zip with
-  `payload/data/...`, the data folder without `webview` and `Backups`, the database as a consistent copy) and Import (`dataimport.py`: adds missing files, skips
-  identical ones, copies a differing file to `Backups\Before Import <time>` before replacing it, replaces the database through sqlite's backup after copying the
+  `payload/data/...`, the data folder without `webview` and `Backups`, the database as a consistent copy) and Import (`dataimport.py`: writes every file of the zip, so an
+  existing file is replaced; a differing one is first copied to `Backups\Before Import <time>`, an identical one (same CRC) is just written again, replaces the database through sqlite's backup after copying the
   current one there; nothing is deleted; restart afterwards). The app never builds an exe or packages the program.
 - The developer builds the release from VS Code: `python build_release.py` builds the app (`build_exe.py`), the installer (`build_installer.py`, from `installer.py`) and
   `dist/release/StudyAssistant-<version>-Windows-Installer.zip`: a CLEAN install (installer + `payload/program`, no personal files). It is uploaded as the asset of the
