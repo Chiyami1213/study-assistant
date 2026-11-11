@@ -31,6 +31,30 @@ from views import library_view
 PASS, STRONG = 60, 80          # percent: below PASS the quiz is failed
 MODE_END, MODE_EACH = "Check After Finishing", "Check After Each Answer"
 
+# The written questions put the right answer second most of the time, so the options are shuffled for every attempt. A question is left in
+# its order when an option points at the others ("All of the above", "Both A and B", "option C") or when its choices are a row of numbers;
+# an "It depends" style option stays last.
+_ANCHOR = re.compile(r"(all|none|both|neither).{0,25}(above|these|the others|of them)|[A-D]\s+(and|&|or)\s+[A-D]|"
+                     r"depends on|cannot be determined|not enough information|none of the", re.I)
+_LETTER_REF = re.compile(r"(option|choice|answer)\s+\(?[A-Da-d]\)?(?![a-z])", re.I)
+_NUMBER = re.compile(r"[\d.,\s\-−+]+")
+
+
+def shuffled(q, rng):
+    """The question with its options in a random order (the index of the right one follows); unchanged when shuffling would break it."""
+    o = q.get("o") or []
+    if q.get("kind") != "mc" or len(o) < 2 or q.get("a") is None or _LETTER_REF.search(q["q"] + " " + (q.get("e") or "")):
+        return q
+    pinned = [i for i, x in enumerate(o) if _ANCHOR.search(x)]
+    if pinned and pinned != list(range(len(o) - len(pinned), len(o))):
+        return q                                          # an option that refers to the others has to stay where it is
+    free = [i for i in range(len(o)) if i not in pinned]
+    if len(free) < 2 or all(_NUMBER.fullmatch(o[i].replace("$", "").strip()) for i in free):
+        return q
+    rng.shuffle(free)
+    order = free + pinned
+    return {**q, "o": [o[i] for i in order], "a": order.index(q["a"])}
+
 
 @st.cache_data(show_spinner=False, max_entries=64)
 def _questions(path, mtime):
@@ -95,7 +119,9 @@ def book_questions(book):
         course = crud.get_course(cid)
         for ch in course_chapters(course) if course else []:
             if ch["book"]["id"] == book["id"]:
-                return ch["questions"]
+                seed = st.session_state.setdefault("_quiz_seed", random.randint(1, 10 ** 9))      # the same order all session, another next time
+                rng = random.Random(seed * 1000003 + book["id"])
+                return [shuffled(q, rng) for q in ch["questions"]]
     return None
 
 
@@ -148,11 +174,13 @@ def understanding(course):
 # ---------- Quiz tab ----------
 def _start(run_key, chapter):
     order = list(range(len(chapter["questions"])))
+    rng = random.Random()
+    qs = [shuffled(q, rng) for q in chapter["questions"]]       # this attempt's options, in a new random order
     random.shuffle(order)
     mode = st.session_state.get(run_key + "_mode") or MODE_END
     st.session_state[run_key + "_modepref"] = mode                  # remembered for the next quiz (the radio is not drawn during a quiz)
     st.session_state[run_key] = {"book": chapter["book"]["id"], "order": order, "phase": "run", "res": {},
-                                 "stamp": random.randint(1, 10 ** 9), "mode": "each" if mode == MODE_EACH else "end"}
+                                 "stamp": random.randint(1, 10 ** 9), "qs": qs, "mode": "each" if mode == MODE_EACH else "end"}
 
 
 def _open_view(run_key, chapter):
@@ -266,7 +294,7 @@ def _is_right(q, res):
 
 
 def _finish(course, chapter, run):
-    qs = chapter["questions"]
+    qs = run.get("qs") or chapter["questions"]
     review = []
     for qi in run["order"]:
         res = run["res"].get(qi) or {}
@@ -295,7 +323,7 @@ def _note_panel(chapter, q, run_key, qi):
 
 def _cards(chapter, run, run_key, cid):
     """The question cards. Returns the CSS that shows each chosen option."""
-    qs, order, res_all, styles = chapter["questions"], run["order"], run["res"], ""
+    qs, order, res_all, styles = run.get("qs") or chapter["questions"], run["order"], run["res"], ""
     for pos, qi in enumerate(order, 1):
         q, res = qs[qi], res_all.get(qi) or {}
         prefix = f"qo_{cid}_{run['stamp']}_{qi}"
@@ -348,7 +376,7 @@ def _cards(chapter, run, run_key, cid):
 
 
 def _run(course, chapter, run, run_key):
-    qs, order, cid = chapter["questions"], run["order"], course["id"]
+    qs, order, cid = run.get("qs") or chapter["questions"], run["order"], course["id"]
     head, back = st.columns([6, 1.6], vertical_alignment="center")
     head.subheader(chapter["name"])
     back.button("Back To Quizzes" if run["phase"] in ("done", "view") else "Leave Quiz", key=f"quiz_back_{cid}", width="stretch",
