@@ -22,6 +22,8 @@
   **c** Courses, **s** Settings. The keys do not work while typing in a box, with Ctrl, Alt or Shift, or in drawing mode.
 - **Preparation link on past exams.** The Exams tab of a course now shows the Preparation page next to Solution, Reflection and Graded for exams that are over too
   (it was only shown for upcoming exams).
+- **Equation sheets for past exams.** The Equation Sheets section of a course's Exams tab lists every exam, so a sheet can be built (or rebuilt) for a midterm that
+  is over, not only for the exams still to come.
 
 ## 1.0.0 (2026-11-10)
 

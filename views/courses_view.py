@@ -680,7 +680,8 @@ def _build_sheet(course, event, key):
 
 
 def _equation_sheets(course, exams):
-    """One equation sheet per exam: pick the notes the exam covers; their formula sheets are put together on one printable page."""
+    """One equation sheet per exam (midterms and the final, upcoming or past): pick the notes the exam covers; their formula sheets are put
+    together on one printable page."""
     if not exams:
         return
     st.subheader("Equation Sheets")
@@ -740,7 +741,7 @@ def _exams(course):
         else:
             st.caption("None yet.")
     _practice_exams(course)
-    _equation_sheets(course, upcoming or exams)
+    _equation_sheets(course, exams)                    # every exam, past ones too (a sheet can be built or rebuilt for a midterm that is over)
 
 
 def _open_pdf_from_outline():
