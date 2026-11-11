@@ -2,7 +2,9 @@
 
 A chapter's quiz joins two kinds of questions: conceptual checks written for each section of the HTML note
 (quizzes/<course>/<note>.json, see quizgen.py) and the note's own Self-check questions. Answers are given one per
-question. Two modes are offered when a quiz is started: "Check After Finishing" (nothing is marked until the quiz is finished;
+question. A finished quiz can be opened again from the quiz list (View): every attempt keeps its questions, the answers given
+and the explanations. A retake adds a new attempt and keeps the earlier ones; the history is deleted only when the user asks
+(Clear Attempt History, after a confirmation). Two modes are offered when a quiz is started: "Check After Finishing" (nothing is marked until the quiz is finished;
 then the score is shown, with the explanation for every question that was missed) and "Check After Each Answer" (an answer is
 marked as soon as it is given, with its explanation, and then cannot be changed; Check Notes and Hint are off for it). Below 60%
 the quiz is failed.
@@ -153,6 +155,17 @@ def _start(run_key, chapter):
                                  "stamp": random.randint(1, 10 ** 9), "mode": "each" if mode == MODE_EACH else "end"}
 
 
+def _open_view(run_key, chapter):
+    st.session_state[run_key] = {"book": chapter["book"]["id"], "phase": "view", "order": []}
+
+
+def _clear_history(run_key, course_id, book_id=None):
+    crud.clear_quiz_attempts(course_id, book_id)
+    if book_id is not None:
+        st.session_state.pop(run_key, None)             # the view had nothing left to show
+    st.session_state["quiz_cleared"] = "Attempt history cleared." if book_id is None else "Attempt history of this quiz cleared."
+
+
 def _leave(run_key):
     st.session_state.pop(run_key, None)
 
@@ -207,6 +220,8 @@ def render(course):
         _run(course, by_book[run["book"]], run, run_key)
         return
     stats = crud.quiz_stats(course["id"])
+    if st.session_state.get("quiz_cleared"):
+        st.toast(st.session_state.pop("quiz_cleared"))
     pref = st.session_state.get(run_key + "_modepref") or MODE_END
     st.radio("Checking Mode", [MODE_END, MODE_EACH], index=[MODE_END, MODE_EACH].index(pref), horizontal=True, key=run_key + "_mode",
              help="check after finishing: nothing is marked until you finish. check after each answer: an answer is marked right away "
@@ -215,7 +230,7 @@ def render(course):
                f"checks each answer) but recorded.")
     for c in chapters:
         s = stats.get(c["book"]["id"])
-        name, meta, pill, go = st.columns([5, 2.6, 1.6, 1.3], vertical_alignment="center")
+        name, meta, pill, view, go = st.columns([4.4, 2.6, 1.6, 1.2, 1.3], vertical_alignment="center")
         name.markdown(f"**{c['name']}**  \n{len(c['questions'])} questions"
                       + (f" ({c['made']} section checks)" if c["made"] else ""))
         if s:
@@ -225,8 +240,23 @@ def render(course):
             pill.markdown(f'<span class="dl-pill {css}">{label}</span>', unsafe_allow_html=True)
         else:
             meta.caption("Not taken yet")
+        if s:
+            view.button("View", key=f"quiz_view_{course['id']}_{c['book']['id']}", width="stretch", icon=":material/visibility:",
+                        on_click=_open_view, args=(run_key, c), help="opens a finished attempt again: the questions, your answers and the explanations")
         go.button("Retake" if s else "Start", key=f"quiz_go_{course['id']}_{c['book']['id']}", type="primary" if not s else "secondary",
                   width="stretch", on_click=_start, args=(run_key, c))
+    if stats:
+        st.caption("Every finished quiz is kept: a retake adds an attempt and the earlier ones stay. View opens them again.")
+        _clear_box(run_key, course)
+
+
+def _clear_box(run_key, course, book_id=None):
+    """Clear Attempt History with a confirmation: the only way recorded attempts are ever deleted."""
+    what = "this quiz" if book_id is not None else "every quiz of this course"
+    with st.popover("Clear Attempt History", icon=":material/delete_sweep:"):
+        st.markdown(f"Delete all recorded attempts of {what}? The scores in Understanding go back to Not Taken. This cannot be undone.")
+        st.button("Yes, Clear Attempt History", key=f"quiz_clear_{course['id']}_{book_id}", type="primary",
+                  on_click=_clear_history, args=(run_key, course["id"], book_id))
 
 
 def _is_right(q, res):
@@ -240,8 +270,10 @@ def _finish(course, chapter, run):
     review = []
     for qi in run["order"]:
         res = run["res"].get(qi) or {}
-        review.append({"q": qi, "chosen": res.get("chosen"), "ok": _is_right(qs[qi], res), "notes": bool(res.get("notes")),
-                       "hint": bool(res.get("hint"))})
+        q = qs[qi]
+        review.append({"q": qi, "chosen": res.get("chosen"), "ok": _is_right(q, res), "notes": bool(res.get("notes")),
+                       "hint": bool(res.get("hint")),
+                       "snap": {"kind": q["kind"], "q": q["q"], "o": q["o"], "a": q["a"], "e": q.get("e") or "", "tag": q.get("tag")}})   # kept so the attempt can be viewed later
     correct = sum(r["ok"] for r in review)
     assisted = sum(r["ok"] and (r["notes"] or r["hint"]) for r in review)       # right, but with notes or a hint
     notes_used, hints_used = sum(r["notes"] for r in review), sum(r["hint"] for r in review)
@@ -319,10 +351,13 @@ def _run(course, chapter, run, run_key):
     qs, order, cid = chapter["questions"], run["order"], course["id"]
     head, back = st.columns([6, 1.6], vertical_alignment="center")
     head.subheader(chapter["name"])
-    back.button("Back To Quizzes" if run["phase"] == "done" else "Leave Quiz", key=f"quiz_back_{cid}", width="stretch",
+    back.button("Back To Quizzes" if run["phase"] in ("done", "view") else "Leave Quiz", key=f"quiz_back_{cid}", width="stretch",
                 on_click=_leave, args=(run_key,))
     if run["phase"] == "done":
         _done(chapter, run, run_key)
+        return
+    if run["phase"] == "view":
+        _view(course, chapter, run_key)
         return
 
     res_all = run["res"]
@@ -354,7 +389,7 @@ def _run(course, chapter, run, run_key):
 
 def _done(chapter, run, run_key):
     qs = chapter["questions"]
-    total, correct, assisted = len(run["order"]), run["correct"], run["assisted"]
+    total, correct, assisted = run.get("total") or len(run["order"]), run["correct"], run["assisted"]
     unaided = correct - assisted
     pct = _pct(unaided, total)
     label, css = _level(pct)
@@ -368,8 +403,12 @@ def _done(chapter, run, run_key):
     if pct < PASS:
         st.error(f"Failed: {pct}% is below {PASS}%. Review the explanations below, then retake.")
     st.button("Retake", key=f"quiz_again_{chapter['book']['id']}", on_click=_start, args=(run_key, chapter))
+    if not run["review"]:
+        st.caption("The answers of this attempt were not saved, so only the score can be shown.")
     for pos, r in enumerate(run["review"], 1):
-        q = qs[r["q"]]
+        q = r.get("snap") or (qs[r["q"]] if r["q"] < len(qs) else None)
+        if q is None:
+            continue
         with st.container(border=True):
             st.markdown(f"{'✅' if r['ok'] else '❌'} **{pos}.** {q['q']}" + ("  \n" + ("📖 :orange[notes used]  " if r["notes"] else "") + ("💡 :orange[hint used]" if r["hint"] else "")
                                                                   if r["notes"] or r["hint"] else ""))
@@ -377,5 +416,36 @@ def _done(chapter, run, run_key):
                 if not r["ok"]:
                     st.markdown("Your answer: " + (q["o"][r["chosen"]] if r["chosen"] is not None else "(none)"))
                 st.markdown("Answer: " + q["o"][q["a"]])
-            if not r["ok"] and q["e"]:                          # explanations are shown for what was missed
-                st.info(q["e"])
+            if q.get("e"):
+                if not r["ok"]:                                 # explanations are shown for what was missed ...
+                    st.info(q["e"])
+                else:                                           # ... and can be opened for what was right
+                    with st.expander("Explanation"):
+                        st.markdown(q["e"])
+
+
+def _view(course, chapter, run_key):
+    """A finished attempt opened again: the score and every question with the answer given and the explanation."""
+    from datetime import datetime, timezone
+    attempts = crud.quiz_attempts(course["id"], chapter["book"]["id"])
+    if not attempts:
+        st.caption("This quiz has no finished attempts yet.")
+        return
+
+    def label(a):
+        try:
+            when = datetime.fromisoformat(a["taken_at"]).replace(tzinfo=timezone.utc).astimezone().strftime("%b %d, %Y %I:%M %p")
+        except (TypeError, ValueError):
+            when = str(a["taken_at"])
+        return f"{when} · {a['correct']} / {a['total']}"
+
+    by_id = {a["id"]: a for a in attempts}
+    pick = st.selectbox("Attempt", list(by_id), format_func=lambda i: label(by_id[i]), key=f"quiz_viewpick_{course['id']}_{chapter['book']['id']}")
+    a = by_id[pick]
+    try:
+        review = json.loads(a["answers"]) if a["answers"] else []
+    except ValueError:
+        review = []
+    _clear_box(run_key, course, chapter["book"]["id"])
+    _done(chapter, {"correct": a["correct"], "assisted": a["assisted"], "notes_used": a["notes_used"], "hints_used": a["hints_used"],
+                    "review": review, "total": a["total"], "order": []}, run_key)

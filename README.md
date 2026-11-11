@@ -91,6 +91,7 @@ The full history is in [CHANGELOG.md](CHANGELOG.md).
 - The Exams tab of a course shows the Preparation page for past exams too.
 - Equation sheets can be built for past exams too (every exam of the course is listed on the Exams tab).
 - Course quizzes: choose Check After Each Answer (marked and explained right away) or Check After Finishing (marked at the end).
+- A finished quiz can be opened again with View (score, your answers, explanations); every attempt is kept until you choose Clear Attempt History.
 
 **1.0.0**
 - First release. Clean installs start empty; an installer that registers an uninstaller (keep or remove your files).

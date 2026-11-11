@@ -581,6 +581,19 @@ def add_quiz_attempt(course_id, book_id, correct, total, answers=None, assisted=
                  "VALUES (?,?,?,?,?,?,?,?)", (course_id, book_id, correct, total, answers, assisted, notes_used, hints_used))
 
 
+def quiz_attempts(course_id, book_id):
+    """The finished attempts of one quiz, newest first."""
+    return _all("SELECT * FROM quiz_attempts WHERE course_id=? AND book_id=? ORDER BY id DESC", (course_id, book_id))
+
+
+def clear_quiz_attempts(course_id, book_id=None):
+    """Delete the recorded attempts of a course's quizzes (of one quiz when book_id is given). Only done when the user asks."""
+    if book_id is None:
+        _exec("DELETE FROM quiz_attempts WHERE course_id=?", (course_id,))
+    else:
+        _exec("DELETE FROM quiz_attempts WHERE course_id=? AND book_id=?", (course_id, book_id))
+
+
 def quiz_stats(course_id):
     """{book id: {attempts, last_correct, last_total, last_assisted, last_notes, last_hints, best (best unaided percent),
     last_at}} for the quizzes taken in a course."""
