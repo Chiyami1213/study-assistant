@@ -93,6 +93,7 @@ The full history is in [CHANGELOG.md](CHANGELOG.md).
 - Course quizzes: choose Check After Each Answer (marked and explained right away) or Check After Finishing (marked at the end).
 - A finished quiz can be opened again with View (score, your answers, explanations); every attempt is kept until you choose Clear Attempt History.
 - Quiz options are shuffled for every attempt, so the right answer is no longer usually the second one.
+- A running quiz can be saved with Save For Later and resumed from the quiz list.
 
 **1.0.0**
 - First release. Clean installs start empty; an installer that registers an uninstaller (keep or remove your files).

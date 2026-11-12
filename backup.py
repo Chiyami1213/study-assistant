@@ -13,7 +13,7 @@ from database import DATA_DIR
 
 DATA = DATA_DIR
 ROOT = DATA_DIR / "Backups" / "Snapshots"
-FOLDERS = ("syllabus", "grading", "annotations", "equation_sheets", "outlines", "course_photos")     # small; covers and pdfs are not copied
+FOLDERS = ("syllabus", "grading", "annotations", "equation_sheets", "quiz_progress", "outlines", "course_photos")     # small; covers and pdfs are not copied
 KEEP = 20
 EVERY = 30 * 60
 

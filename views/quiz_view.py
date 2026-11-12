@@ -2,7 +2,8 @@
 
 A chapter's quiz joins two kinds of questions: conceptual checks written for each section of the HTML note
 (quizzes/<course>/<note>.json, see quizgen.py) and the note's own Self-check questions. Answers are given one per
-question. A finished quiz can be opened again from the quiz list (View): every attempt keeps its questions, the answers given
+question. Save For Later keeps a quiz that is not finished (the questions in their order, the answers so far, the notes and hints
+used) in quiz_progress/ of the data folder; the quiz list then offers Resume. A finished quiz can be opened again from the quiz list (View): every attempt keeps its questions, the answers given
 and the explanations. A retake adds a new attempt and keeps the earlier ones; the history is deleted only when the user asks
 (Clear Attempt History, after a confirmation). Two modes are offered when a quiz is started: "Check After Finishing" (nothing is marked until the quiz is finished;
 then the score is shown, with the explanation for every question that was missed) and "Check After Each Answer" (an answer is
@@ -15,6 +16,7 @@ them is documented as assisted and does not count towards the unaided score, whi
 import html
 import json
 import random
+from datetime import datetime
 
 import streamlit as st
 import streamlit.components.v1 as components
@@ -25,7 +27,7 @@ import macros
 import re
 import quizgen
 import quizzes
-from database import BASE_DIR, data_path
+from database import BASE_DIR, DATA_DIR, data_path
 from views import library_view
 
 PASS, STRONG = 60, 80          # percent: below PASS the quiz is failed
@@ -187,11 +189,67 @@ def _open_view(run_key, chapter):
     st.session_state[run_key] = {"book": chapter["book"]["id"], "phase": "view", "order": []}
 
 
+# ---------- Save for later: a quiz that is not finished is kept in the data folder and can be resumed ----------
+PROGRESS_DIR = DATA_DIR / "quiz_progress"
+
+
+def _progress_file(course_id, book_id):
+    return PROGRESS_DIR / f"{course_id}_{book_id}.json"
+
+
+def saved_progress(course_id, book_id):
+    """The saved, unfinished run of a quiz as a run dict, or None."""
+    try:
+        d = json.loads(_progress_file(course_id, book_id).read_text(encoding="utf-8"))
+        d["res"] = {int(k): v for k, v in d["res"].items()}
+        d["phase"] = "run"
+        assert d["order"] and d["qs"]
+        return d
+    except (OSError, ValueError, KeyError, AssertionError, TypeError):
+        return None
+
+
+def _save_progress(course_id, run):
+    PROGRESS_DIR.mkdir(parents=True, exist_ok=True)
+    keep = {k: run[k] for k in ("book", "order", "res", "stamp", "qs", "mode") if k in run}
+    keep["saved_at"] = datetime.now().isoformat(timespec="seconds")
+    f = _progress_file(course_id, run["book"])
+    tmp = f.with_name(f.name + ".part")
+    tmp.write_text(json.dumps(keep), encoding="utf-8")
+    tmp.replace(f)
+
+
+def _drop_progress(course_id, book_id):
+    try:
+        _progress_file(course_id, book_id).unlink()
+    except OSError:
+        pass
+
+
+def _save_for_later(run_key, course_id):
+    run = st.session_state.get(run_key)
+    if run and run.get("phase") == "run":
+        _save_progress(course_id, run)
+        st.session_state.pop(run_key, None)
+        st.session_state["quiz_notice"] = "Quiz saved. Resume it from the Quiz tab."
+
+
+def _resume(run_key, course_id, book_id):
+    run = saved_progress(course_id, book_id)
+    if run:
+        st.session_state[run_key] = run
+
+
+def _discard_saved(course_id, book_id):
+    _drop_progress(course_id, book_id)
+    st.session_state["quiz_notice"] = "Saved quiz discarded."
+
+
 def _clear_history(run_key, course_id, book_id=None):
     crud.clear_quiz_attempts(course_id, book_id)
     if book_id is not None:
         st.session_state.pop(run_key, None)             # the view had nothing left to show
-    st.session_state["quiz_cleared"] = "Attempt history cleared." if book_id is None else "Attempt history of this quiz cleared."
+    st.session_state["quiz_notice"] = "Attempt history cleared." if book_id is None else "Attempt history of this quiz cleared."
 
 
 def _leave(run_key):
@@ -248,8 +306,8 @@ def render(course):
         _run(course, by_book[run["book"]], run, run_key)
         return
     stats = crud.quiz_stats(course["id"])
-    if st.session_state.get("quiz_cleared"):
-        st.toast(st.session_state.pop("quiz_cleared"))
+    if st.session_state.get("quiz_notice"):
+        st.toast(st.session_state.pop("quiz_notice"))
     pref = st.session_state.get(run_key + "_modepref") or MODE_END
     st.radio("Checking Mode", [MODE_END, MODE_EACH], index=[MODE_END, MODE_EACH].index(pref), horizontal=True, key=run_key + "_mode",
              help="check after finishing: nothing is marked until you finish. check after each answer: an answer is marked right away "
@@ -271,8 +329,21 @@ def render(course):
         if s:
             view.button("View", key=f"quiz_view_{course['id']}_{c['book']['id']}", width="stretch", icon=":material/visibility:",
                         on_click=_open_view, args=(run_key, c), help="opens a finished attempt again: the questions, your answers and the explanations")
-        go.button("Retake" if s else "Start", key=f"quiz_go_{course['id']}_{c['book']['id']}", type="primary" if not s else "secondary",
+        saved = saved_progress(course["id"], c["book"]["id"])
+        go.button("Retake" if s else "Start", key=f"quiz_go_{course['id']}_{c['book']['id']}", type="primary" if not s and not saved else "secondary",
                   width="stretch", on_click=_start, args=(run_key, c))
+        if saved:
+            done_n = sum(1 for v in saved["res"].values() if v.get("chosen") is not None)
+            when = saved.get("saved_at", "")[:16].replace("T", " ")
+            with st.container(horizontal=True, vertical_alignment="center", gap="small", key=f"quiz_saved_{course['id']}_{c['book']['id']}"):
+                st.caption(f":material/bookmark: Saved quiz: {done_n} of {len(saved['order'])} answered"
+                           f" · {'checked after each answer' if saved.get('mode') == 'each' else 'checked after finishing'}"
+                           + (f" · saved {when}" if when else ""))
+                st.button("Resume", key=f"quiz_resume_{course['id']}_{c['book']['id']}", type="primary", icon=":material/play_arrow:",
+                          on_click=_resume, args=(run_key, course["id"], c["book"]["id"]))
+                st.button("Discard Saved Quiz", key=f"quiz_drop_{course['id']}_{c['book']['id']}", type="tertiary",
+                          on_click=_discard_saved, args=(course["id"], c["book"]["id"]),
+                          help="deletes the saved, unfinished quiz. finished attempts are not touched")
     if stats:
         st.caption("Every finished quiz is kept: a retake adds an attempt and the earlier ones stay. View opens them again.")
         _clear_box(run_key, course)
@@ -307,6 +378,9 @@ def _finish(course, chapter, run):
     notes_used, hints_used = sum(r["notes"] for r in review), sum(r["hint"] for r in review)
     crud.add_quiz_attempt(course["id"], chapter["book"]["id"], correct, len(review), json.dumps(review), assisted,
                           notes_used, hints_used)
+    saved = saved_progress(course["id"], chapter["book"]["id"])
+    if saved and saved.get("stamp") == run.get("stamp"):
+        _drop_progress(course["id"], chapter["book"]["id"])         # this quiz was resumed and is now finished
     run.update(phase="done", correct=correct, assisted=assisted, notes_used=notes_used, hints_used=hints_used, review=review)
 
 
@@ -377,8 +451,12 @@ def _cards(chapter, run, run_key, cid):
 
 def _run(course, chapter, run, run_key):
     qs, order, cid = run.get("qs") or chapter["questions"], run["order"], course["id"]
-    head, back = st.columns([6, 1.6], vertical_alignment="center")
+    head, save, back = st.columns([5, 1.8, 1.6], vertical_alignment="center")
     head.subheader(chapter["name"])
+    if run["phase"] == "run":
+        save.button("Save For Later", key=f"quiz_save_{cid}", width="stretch", icon=":material/bookmark_add:",
+                    on_click=_save_for_later, args=(run_key, cid),
+                    help="keeps this quiz as it is (the questions, your answers, the notes and hints used) so you can resume it later")
     back.button("Back To Quizzes" if run["phase"] in ("done", "view") else "Leave Quiz", key=f"quiz_back_{cid}", width="stretch",
                 on_click=_leave, args=(run_key,))
     if run["phase"] == "done":

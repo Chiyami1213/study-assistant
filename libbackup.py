@@ -17,7 +17,7 @@ import settings
 from database import BASE_DIR, DATA_DIR, PDF_DIR, data_path, stored_path
 
 DEFAULT_DIR = DATA_DIR / "Backups" / "Library"
-SMALL_FOLDERS = ("syllabus", "grading", "annotations", "equation_sheets", "outlines", "course_photos")
+SMALL_FOLDERS = ("syllabus", "grading", "annotations", "equation_sheets", "quiz_progress", "outlines", "course_photos")
 
 
 def backup_dir():
