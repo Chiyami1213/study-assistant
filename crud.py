@@ -154,6 +154,21 @@ def set_course_category(course_id, category):
     _exec("UPDATE courses SET category=? WHERE id=?", (category, course_id))
 
 
+_PART = re.compile(r"\s*\(([A-Za-z]{2,5}\s?\d{3,4})\)\s*$")
+
+
+def part_tag(title):
+    """A course that merges two (MA 266 and MA 303 as one Differential Equations) tags each file's title with its part: "HW 10 (MA 266)".
+    Returns "MA266" for that title, or None when the title has no tag."""
+    m = _PART.search(title or "")
+    return m.group(1).replace(" ", "").upper() if m else None
+
+
+def strip_part(title):
+    """The title without its part tag ("HW 10 (MA 266)" -> "HW 10"), so the numbers in the tag are never read as a homework number."""
+    return _PART.sub("", title or "")
+
+
 def update_course_fields(course_id, code, name, semester, school, category):
     _exec("UPDATE courses SET code=?, name=?, semester=?, school=?, category=? WHERE id=?",
           (code, name, semester or "", school or None, category, course_id))

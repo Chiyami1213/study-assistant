@@ -37,6 +37,9 @@
   notes and hints used, the checking mode) in the new `quiz_progress` folder of the data folder and returns to the quiz list, where the chapter shows Resume and Discard Saved
   Quiz. Resuming carries on exactly where you stopped (an exported zip and the backups carry the saved quizzes too). Finishing a resumed quiz removes its saved copy; Start and
   Retake never delete a saved quiz, and finished attempts are never touched.
+- **Courses that were merged keep their parts apart.** When two courses are merged into one (for example MA 266 and MA 303 as Differential Equations), each file and homework
+  title carries its part in brackets (`HW 10 (MA 266)`, `Exam 1 Graded (MA 303)`). The Homework and Exams tabs and the Library pair a problem file, its solution and its graded paper
+  by number *and* part, so the two HW 10 files are never mixed up, and the number inside the bracket is never read as a homework number.
 
 ## 1.0.0 (2026-11-10)
 

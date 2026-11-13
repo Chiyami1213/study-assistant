@@ -377,12 +377,12 @@ def _when(day, time):
 
 def _homework_book(course_id, hw_title, kind="Homework"):
     """The Library homework file whose number matches this homework ("HW 4" -> the file numbered 4), or None."""
-    num = re.search(r"\d+", hw_title or "")
+    num = re.search(r"\d+", crud.strip_part(hw_title))
     if not num:
         return None
     for b in crud.list_books():
-        if b["kind"] == kind and course_id in b["course_ids"]:
-            n = re.search(r"\d+", b.get("lecture") or b["title"])
+        if b["kind"] == kind and course_id in b["course_ids"] and crud.part_tag(b["title"]) == crud.part_tag(hw_title):      # the same part of a merged course
+            n = re.search(r"\d+", b.get("lecture") or crud.strip_part(b["title"]))
             if n and int(n.group()) == int(num.group()):
                 return b
     return None
@@ -392,10 +392,10 @@ def _exam_book(course_id, event_title, kind="Exam", word=None):
     """The Library exam file of this course for an event like "Midterm 2" or "Final Exam" (same kind of exam, same number);
     with `word`, only a file whose title contains it ("Reflection", "Statistics")."""
     def key(text):
-        t = (text or "").lower()
+        t = crud.strip_part(text).lower()
         kind = "midterm" if re.search(r"mid[\s_\-]*term", t) else "final" if "final" in t else "exam"
         n = re.search(r"\d+", t)
-        return kind, (n.group() if n else None)
+        return kind, (n.group() if n else None), crud.part_tag(text)
 
     want = key(event_title)
     for b in crud.list_books():

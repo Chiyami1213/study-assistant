@@ -444,11 +444,11 @@ def _open_file_at(book_id, page):
 
 def _pair_key(book):
     """What pairs a graded file, a solution, a helper ... with its problem file: the homework or exam number, or "final"."""
+    title, tag = crud.strip_part(book["title"]), crud.part_tag(book["title"])      # a part tag ("(MA 266)") keeps the parts of a merged course apart
     m = re.search(r"\d+", book.get("lecture") or "") or re.search(
-        r"(?:homework|hw|problem\s*set|assignment|mid[\s_\-]*term|exam|quiz|test)\s*#?\s*(\d+)", book["title"], re.I) or re.search(r"\d+", book["title"])
-    if m:
-        return m.group(m.lastindex or 0)
-    return "final" if "final" in book["title"].lower() else None
+        r"(?:homework|hw|problem\s*set|assignment|mid[\s_\-]*term|exam|quiz|test)\s*#?\s*(\d+)", title, re.I) or re.search(r"\d+", title)
+    key = m.group(m.lastindex or 0) if m else ("final" if "final" in title.lower() else None)
+    return f"{key}|{tag}" if key and tag else key
 
 
 def _sibling(book, kinds):
