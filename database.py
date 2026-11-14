@@ -309,6 +309,8 @@ def init_db() -> None:
             conn.execute("ALTER TABLE lab_notes ADD COLUMN course_id INTEGER")
         if "covers" not in [r["name"] for r in conn.execute("PRAGMA table_info(events)")]:
             conn.execute("ALTER TABLE events ADD COLUMN covers TEXT")
+        if "part" not in [r["name"] for r in conn.execute("PRAGMA table_info(course_outline)")]:
+            conn.execute("ALTER TABLE course_outline ADD COLUMN part TEXT NOT NULL DEFAULT ''")       # the part of a merged course ("MA266"); '' for a plain course
         if "orig_name" not in [r["name"] for r in conn.execute("PRAGMA table_info(books)")]:
             conn.execute("ALTER TABLE books ADD COLUMN orig_name TEXT")           # the file name the file had when it was added
         if "done" not in [r["name"] for r in conn.execute("PRAGMA table_info(events)")]:

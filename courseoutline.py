@@ -70,16 +70,16 @@ def _nums(book):
 
 
 # ---------------------------------------------------------------- the Library's lecture / chapter titles
-def course_files(course_id):
-    """The course's lecture and chapter files that have a lecture number, in lecture order: [(kind, book)]."""
-    rows = [b for b in crud.list_books() if course_id in b["course_ids"] and b["kind"] in FILE_KINDS and _nums(b)]
+def course_files(course_id, part=None):
+    """The course's lecture and chapter files that have a lecture number, in lecture order: [(kind, book)]. `part`: only one part of a merged course."""
+    rows = [b for b in crud.list_books() if course_id in b["course_ids"] and b["kind"] in FILE_KINDS and _nums(b) and crud.in_part(b["title"], part)]
     rows.sort(key=lambda b: (_nums(b), b["title"].lower()))
     return [(b["kind"], b) for b in rows]
 
 
-def from_titles(course_id):
+def from_titles(course_id, part=None):
     """Items from the lecture titles (marker "Lec 4-5"), or from the chapter notes ("Ch 3") when the lecture files only have generic names. [] if neither."""
-    files = course_files(course_id)
+    files = course_files(course_id, part)
     lectures = [b for k, b in files if k == "Lecture Notes"]
     chapters = [b for k, b in files if k == "Notes" and b["pdf_path"].lower().endswith((".html", ".htm"))]
     generic = sum(bool(GENERIC_TITLE.match(b["title"])) for b in lectures)
@@ -164,9 +164,9 @@ def _topics(path, mtime):
     return tuple(tuple(sorted(i.items())) for i in parse_topics(text))
 
 
-def from_syllabus(course_id):
+def from_syllabus(course_id, part=None):
     """Items from the topic list of the course syllabus, or of the Lec 0 slides ("Course Overview" / "Course Information"). [] if neither lists topics."""
-    books = [b for b in crud.list_books() if course_id in b["course_ids"] and b["pdf_path"].lower().endswith(".pdf")
+    books = [b for b in crud.list_books() if course_id in b["course_ids"] and b["pdf_path"].lower().endswith(".pdf") and crud.in_part(b["title"], part)
              and (b["kind"] == "Syllabus" or (b["kind"] == "Lecture Notes" and (b.get("lecture") or "").strip() == "0"))]
     books.sort(key=lambda b: b["kind"] != "Syllabus")                              # the syllabus first
     for b in books:
@@ -176,13 +176,13 @@ def from_syllabus(course_id):
         except Exception:
             continue
         if items:
-            return _link(items, course_id)
+            return _link(items, course_id, part)
     return []
 
 
-def _link(items, course_id):
+def _link(items, course_id, part=None):
     """Link every point whose title clearly names one lecture or chapter (shares most of its words, and no other file does as well) to that file."""
-    files = [b for _, b in course_files(course_id)]
+    files = [b for _, b in course_files(course_id, part)]
     for it in items:
         if it.get("book_id"):
             continue
@@ -195,12 +195,12 @@ def _link(items, course_id):
     return items
 
 
-def auto_items(course_id):
+def auto_items(course_id, part=None):
     """(items, source) for a course: the syllabus topics when it lists them, else the lecture / chapter titles; ([], None) when there is nothing to build from."""
-    items = from_syllabus(course_id)
+    items = from_syllabus(course_id, part)
     if items:
         return items, "syllabus"
-    items = from_titles(course_id)
+    items = from_titles(course_id, part)
     return (items, "titles") if items else ([], None)
 
 
@@ -209,35 +209,37 @@ def signature(items):
     return json.dumps([[i["level"], i["marker"], i["title"], i.get("book_id")] for i in items], sort_keys=True)
 
 
-def ensure(course_id):
+def ensure(course_id, part=None):
     """Build the outline of a course that has none, and refresh an automatic one when the Library's lectures changed. An outline the user
     made or edited (or one that existed before this was added) is never touched. Returns the state {source, sig}."""
-    state = settings.get_outline_state(course_id)
-    current = crud.list_outline(course_id)
+    state = settings.get_outline_state(course_id, part)
+    current = crud.list_outline(course_id, part)
     if state.get("source") == "manual":
         return state
     if current and not state:                                  # an outline from before: it is the user's
-        settings.set_outline_state(course_id, "manual", "")
+        settings.set_outline_state(course_id, "manual", "", part)
         return {"source": "manual", "sig": ""}
-    items, source = auto_items(course_id)
+    items, source = auto_items(course_id, part)
     if not items:
         return state
     sig = signature(items)
     if not current or state.get("sig") != sig:
-        save_previous(course_id)
-        crud.replace_outline(course_id, items)
-        settings.set_outline_state(course_id, source, sig)
+        save_previous(course_id, part)
+        crud.replace_outline(course_id, items, part)
+        settings.set_outline_state(course_id, source, sig, part)
         return {"source": source, "sig": sig}
     return state
 
 
-def save_previous(course_id):
+def save_previous(course_id, part=None):
     """Copy the outline as it is now to <data folder>\\outlines\\ before something replaces it."""
-    rows = crud.list_outline(course_id)
+    rows = crud.list_outline(course_id, part)
     if not rows:
         return None
     course = crud.get_course(course_id)
     name = re.sub(r"[^\w .-]", "", course.get("code") or course.get("name") or str(course_id)).strip() or str(course_id)
+    if part:
+        name += f" {part}"
     folder = database.DATA_DIR / "outlines"
     folder.mkdir(parents=True, exist_ok=True)
     from datetime import datetime
@@ -272,7 +274,7 @@ def _alpha(n, upper):
     return s if upper else s.lower()
 
 
-def from_text(text, previous=(), course_id=None):
+def from_text(text, previous=(), course_id=None, part=None):
     """Items from the text form. `previous` are the rows being edited (their Library links are kept for points that did not change)."""
     keep, known = {}, {r["title"].lower() for r in previous}
     for r in previous:
@@ -317,5 +319,5 @@ def from_text(text, previous=(), course_id=None):
         depth_prev = depth
     if course_id:                                                    # only the points typed new are linked by their title; the others keep what they had
         fresh = [i for i in items if i["title"].lower() not in known]
-        _link(fresh, course_id)
+        _link(fresh, course_id, part)
     return items

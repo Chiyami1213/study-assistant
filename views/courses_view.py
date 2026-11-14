@@ -316,7 +316,7 @@ def _resource_grid(books):
 
 def _resources(course):
     """Library files linked to this course (Course Notes, Notes, Textbooks), then its web links."""
-    files = [b for b in crud.list_books() if course["id"] in b["course_ids"]]
+    files = [b for b in crud.list_books() if course["id"] in b["course_ids"] and crud.in_part(b["title"], course.get("part"))]
     # Notes with a lecture number come first, in lecture order; then the rest by title.
     order = lambda b: ((0, crud._natural_key(b["lecture"])) if b.get("lecture") else (1, []),
                        crud._natural_key(b["title"]))
@@ -458,13 +458,13 @@ def _homework_status(h, today):
 
 
 def _homework_items(course):
-    return sorted(crud.list_homework(course["id"]),
+    return sorted((h for h in crud.list_homework(course["id"]) if crud.in_part(h["title"], course.get("part"))),
                   key=lambda h: (h["due_date"] or "9999-12-31", crud._natural_key(h["title"])))
 
 
 def _exam_items(course):
     return sorted((e for e in crud.list_events("2000-01-01", "2100-12-31")
-                   if e["course_id"] == course["id"] and re.search(r"midterm|final|exam", e["title"], re.I)),
+                   if e["course_id"] == course["id"] and re.search(r"midterm|final|exam", e["title"], re.I) and crud.in_part(e["title"], course.get("part"))),
                   key=lambda e: (e["date"], e.get("time") or ""))
 
 
@@ -511,10 +511,20 @@ def _weights(course, data):
                 unsafe_allow_html=True)
 
 
+def _syllabus_data(course):
+    """The syllabus data of the course, or of the chosen part of a merged course (none while all parts are shown: each part has its own grading)."""
+    if course.get("parts") and not course.get("part"):
+        return None
+    return syllabus.load(course["id"], course.get("part"))
+
+
 def _syllabus(course):
     """The syllabus file, what each part of the grade is worth, and the letter-grade scale (from the syllabus)."""
-    data = syllabus.load(course["id"])
+    data = _syllabus_data(course)
     st.subheader("Syllabus")
+    if course.get("parts") and not course.get("part"):
+        st.caption("This course has more than one syllabus. Choose a part above to see its syllabus and what each part of the grade is worth.")
+        return
     if not data:
         st.caption("No syllabus yet. Add the syllabus file to the Library as a Syllabus.")
         return
@@ -592,7 +602,7 @@ def _overview(course):
     st.subheader("Grades")
     homework, exams = _homework_items(course), _exam_items(course)
     hw_avg, ex_avg = _percent(homework), _percent(exams)
-    data = syllabus.load(course["id"])
+    data = _syllabus_data(course)
     left, right = st.columns([3, 2], gap="large")
     with right:
         if data:
@@ -659,7 +669,7 @@ def _homework(course):
 def _practice_exams(course):
     """Practice exams of the course in the Library, each with its solution next to it (the file opens, and Back returns to this tab)."""
     books = crud.list_books()
-    files = [b for b in books if b["kind"] == "Practice Exam" and course["id"] in b["course_ids"]]
+    files = [b for b in books if b["kind"] == "Practice Exam" and course["id"] in b["course_ids"] and crud.in_part(b["title"], course.get("part"))]
     if not files:
         return
     solutions = [b for b in books if b["kind"] == "Exam Solution" and course["id"] in b["course_ids"] and "practice" in b["title"].lower()]
@@ -685,7 +695,7 @@ def _equation_sheets(course, exams):
     if not exams:
         return
     st.subheader("Equation Sheets")
-    cands = eqsheet.candidates(course["id"])
+    cands = eqsheet.candidates(course["id"], course.get("part"))
     if not cands:
         st.caption("No notes with a formula sheet yet. A sheet is built from the Formula Sheet section of the course notes.")
         return
@@ -764,16 +774,16 @@ def _open_pdf_from_outline():
             st.rerun()
 
 
-def _auto_build(course_id):
+def _auto_build(course_id, part=None):
     """Build the outline from the syllabus topics, else the lecture titles; it then follows the Library again until it is edited."""
     import courseoutline
-    items, source = courseoutline.auto_items(course_id)
+    items, source = courseoutline.auto_items(course_id, part)
     if not items:
         st.toast("There is nothing to build from yet: add the lectures, or a syllabus with a topic list, to the Library.", icon=":material/info:")
         return
-    courseoutline.save_previous(course_id)
-    crud.replace_outline(course_id, items)
-    settings.set_outline_state(course_id, source, courseoutline.signature(items))
+    courseoutline.save_previous(course_id, part)
+    crud.replace_outline(course_id, items, part)
+    settings.set_outline_state(course_id, source, courseoutline.signature(items), part)
 
 
 def _fill_outline(key, items):
@@ -786,23 +796,23 @@ def _outline_dialog(course):
     """The outline as text: one point per line, two spaces of indent per level. Save keeps it as the user's own (it is no longer rebuilt)."""
     import courseoutline
     import settings
-    cid = course["id"]
-    key = f"outline_text_{cid}"
+    cid, part = course["id"], course.get("part")
+    key = f"outline_text_{cid}_{part}"
     st.caption("One point per line, indented two spaces for each level (topic, sub topic, point, detail). A line may start with its marker (I. A. 1. a. or Lec 3); "
                "markers left out are numbered for you. Put [9 Hours] or a web address at the end of a line. Points keep the file they open.")
     st.text_area("Outline", key=key, height=430, label_visibility="collapsed")
-    syllabus, titles = courseoutline.from_syllabus(cid), courseoutline.from_titles(cid)
+    syllabus, titles = courseoutline.from_syllabus(cid, part), courseoutline.from_titles(cid, part)
     a, b, c, d = st.columns(4)
     a.button("Use Syllabus Topics", key=f"outline_use_syl_{cid}", disabled=not syllabus, width="stretch", on_click=_fill_outline, args=(key, syllabus),
              help="fills the box with the topics listed in the syllabus or the lec 0 slides; nothing is saved until you press save")
     b.button("Use Lecture Titles", key=f"outline_use_titles_{cid}", disabled=not titles, width="stretch", on_click=_fill_outline, args=(key, titles),
              help="fills the box with the lecture or chapter titles in the library; nothing is saved until you press save")
     if c.button("Save", key=f"outline_save_{cid}", type="primary", width="stretch", help="keeps this outline; the one it replaces is copied to the outlines folder"):
-        rows = crud.list_outline(cid)
-        items = courseoutline.from_text(st.session_state[key], rows, cid)
-        courseoutline.save_previous(cid)
-        crud.replace_outline(cid, items)
-        settings.set_outline_state(cid, "manual")
+        rows = crud.list_outline(cid, part)
+        items = courseoutline.from_text(st.session_state[key], rows, cid, part)
+        courseoutline.save_previous(cid, part)
+        crud.replace_outline(cid, items, part)
+        settings.set_outline_state(cid, "manual", "", part)
         st.rerun()
     if d.button("Cancel", key=f"outline_cancel_{cid}", width="stretch"):
         st.rerun()
@@ -812,27 +822,28 @@ def _outline(course):
     """The course outline: main topics (I., II., ...), their sub topics (A., B., ...), and under each sub topic a
     folded list of its numbered points (1., 2., ...)."""
     import courseoutline
-    state = courseoutline.ensure(course["id"])               # builds it when there is none (syllabus topics, else lecture titles) and keeps an automatic one current
-    items = crud.list_outline(course["id"])
+    part = course.get("part")
+    state = courseoutline.ensure(course["id"], part)         # builds it when there is none (syllabus topics, else lecture titles) and keeps an automatic one current
+    items = crud.list_outline(course["id"], part)
     made = {"syllabus": "Built from the syllabus", "titles": "Built from the lecture and chapter titles"}.get(state.get("source"))
     note = (f"{made}. It follows your Library until you edit it." if made else "Edited by you." if items else
             "No outline yet: add lectures or a syllabus with a topic list to the Library, or build one with Edit Outline.")
     cap, auto, edit = st.columns([5, 1.7, 1.4], vertical_alignment="center")
     cap.caption(note)
-    built, source = courseoutline.auto_items(course["id"])
+    built, source = courseoutline.auto_items(course["id"], part)
     mine = bool(items) and state.get("source") in ("manual", None)
     if mine:                                                  # an outline of the user's own is only replaced after they confirm
         with auto.popover("Auto Build", icon=":material/auto_fix_high:", width="stretch", disabled=not built,
                           help="builds the outline again from the syllabus topics or the lecture titles"):
             st.caption("Replace your outline with one built from the " + ("syllabus topics" if source == "syllabus" else "lecture titles")
                        + "? Your current outline is copied to the outlines folder first.")
-            st.button("Replace and Build", key=f"outline_auto_yes_{course['id']}", type="primary", on_click=_auto_build, args=(course["id"],))
+            st.button("Replace and Build", key=f"outline_auto_yes_{course['id']}", type="primary", on_click=_auto_build, args=(course["id"], part))
     else:
         auto.button("Auto Build", icon=":material/auto_fix_high:", key=f"outline_auto_{course['id']}", width="stretch", disabled=not built,
-                    on_click=_auto_build, args=(course["id"],), help="builds the outline from the syllabus topics or, if it lists none, the lecture titles")
+                    on_click=_auto_build, args=(course["id"], part), help="builds the outline from the syllabus topics or, if it lists none, the lecture titles")
     if edit.button("Edit Outline", icon=":material/edit:", key=f"outline_edit_{course['id']}", width="stretch",
                    help="write your own outline, or start from the syllabus topics or the lecture titles"):
-        st.session_state[f"outline_text_{course['id']}"] = courseoutline.to_text(items)
+        st.session_state[f"outline_text_{course['id']}_{part}"] = courseoutline.to_text(items)
         _outline_dialog(course)
     if not items:
         return
@@ -882,9 +893,26 @@ def _outline(course):
     st.markdown(f'<div class="ol{" ol-wide" if wide else ""}">{rows}</div>', unsafe_allow_html=True)
 
 
+def _part_name(course, tag):
+    """"MA266" -> "MA 266" (the code as the titles of that part wrote it)."""
+    for b in crud.list_books():
+        if course["id"] in b["course_ids"]:
+            m = crud._PART.search(b["title"])
+            if m and crud.part_tag(b["title"]) == tag:
+                return m.group(1).upper()
+    return tag
+
+
 def _manage(course):
     """The course page below the banner: Overview (deadlines), Outline (blank for now) and Resources."""
     _open_pdf_from_outline()                     # the hidden box every file link of the course page (homework, exams, outline ...) writes into
+    parts = crud.course_parts(course["id"])
+    if parts:                                    # a merged course (MA 266 / 303, Calculus): one part at a time on every tab
+        names = {t: _part_name(course, t) for t in parts}
+        choice = st.segmented_control("Part of This Course", parts + ["ALL"], default=parts[0], key=f"course_part_{course['id']}",
+                                      format_func=lambda t: "All Parts" if t == "ALL" else names[t], selection_mode="single",
+                                      help="the course is made of several courses: choose which one the tabs below show")
+        course = {**course, "parts": parts, "part": choice if choice in parts else None}
     remembered = st.session_state.get("course_tab")          # (course id, tab) set when a PDF was opened from here
     start = remembered[1] if remembered and remembered[0] == course["id"] else None
     overview, homework, exams, outline, resources, quiz = st.tabs(

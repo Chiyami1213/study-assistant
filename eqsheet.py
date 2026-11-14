@@ -53,11 +53,11 @@ def sheet_of(text):
     return None
 
 
-def candidates(course_id):
+def candidates(course_id, part=None):
     """The course's html notes that have a formula sheet: [(book, sheet html)], in lecture order."""
     out = []
     for b in crud.list_books():
-        if course_id in b["course_ids"] and b["kind"] == "Notes" and b["pdf_path"].endswith(".html"):
+        if course_id in b["course_ids"] and b["kind"] == "Notes" and b["pdf_path"].endswith(".html") and crud.in_part(b["title"], part):
             try:
                 sheet = sheet_of(data_path(b["pdf_path"]).read_text(encoding="utf-8", errors="replace"))
             except OSError:

@@ -40,6 +40,10 @@
 - **Courses that were merged keep their parts apart.** When two courses are merged into one (for example MA 266 and MA 303 as Differential Equations), each file and homework
   title carries its part in brackets (`HW 10 (MA 266)`, `Exam 1 Graded (MA 303)`). The Homework and Exams tabs and the Library pair a problem file, its solution and its graded paper
   by number *and* part, so the two HW 10 files are never mixed up, and the number inside the bracket is never read as a homework number.
+- **A merged course shows one part at a time.** A course made of several courses (MA 266 / 303 Differential Equations, MA 161 / 162 / 261 Calculus) has a *Part of This Course* switch
+  above its tabs (each part, or All Parts). Overview (grades and the part's own syllabus and grade weights), Homework, Exams, Outline (each part has its own, built from its own
+  syllabus or lectures), Resources and Quiz all show only the chosen part; files without a part (the shared textbook) show in every part. The part's syllabus data is kept as
+  `syllabus\<course id>_<part>.json`, and outline rows have a part.
 
 ## 1.0.0 (2026-11-10)
 

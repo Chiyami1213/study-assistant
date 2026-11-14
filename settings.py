@@ -245,14 +245,14 @@ def set_semester(start, end, exam_end):
     _save(data)
 
 
-def get_outline_state(course_id):
+def get_outline_state(course_id, part=None):
     """How a course's outline was made: {source: "syllabus" | "titles" | "manual", sig: ...}; {} when it was never set."""
-    return _load().get("outlines", {}).get(str(course_id), {})
+    return _load().get("outlines", {}).get(f"{course_id}:{part}" if part else str(course_id), {})
 
 
-def set_outline_state(course_id, source, sig=""):
+def set_outline_state(course_id, source, sig="", part=None):
     data = _load()
-    data.setdefault("outlines", {})[str(course_id)] = {"source": source, "sig": sig}
+    data.setdefault("outlines", {})[f"{course_id}:{part}" if part else str(course_id)] = {"source": source, "sig": sig}
     _save(data)
 
 

@@ -92,6 +92,16 @@ Number (or "Midterm 1", "Final" in the title) pair it with the problem file and 
   ({source: syllabus | titles | manual}) is in `settings.json` (`outlines`). An outline with no state, or edited through Edit Outline, is "manual" and is never touched.
 - Anything that replaces an outline first copies it to `<data folder>/outlines/`. The editor is a text form (`to_text` / `from_text`).
 
+## Merged courses (parts)
+- Two or more courses can be merged into one (MA 266 / 303 Differential Equations, MA 161 / 162 / 261 Calculus). Every file, homework and exam title of a part ends with its
+  tag in brackets, `HW 10 (MA 266)`; the shared textbook is untagged and belongs to every part. `crud.part_tag` / `strip_part` / `in_part` / `course_parts` read the tags; the
+  number inside the tag must never be read as a homework or exam number (always `strip_part` first), and pairing a problem file with its solution or graded paper uses the
+  number AND the tag (`library_view._pair_key`, `courses_view._homework_book` / `_exam_book`).
+- A course with two or more parts gets the *Part of This Course* switch in `courses_view._manage`: `course["part"]` (None = all parts) and `course["parts"]` filter every tab.
+  Per-part data: `syllabus/<course id>_<TAG>.json` (`syllabus.load(id, part)`), `course_outline.part` and `settings` outline state `"<id>:<TAG>"`, quiz chapters, resources, homework, exams.
+- Merging is done with a script that first copies `study.db` (and the dropped courses' photos) to `Backups\Before Merge <time>`, tags the titles, moves every table row of the dropped
+  courses to the kept course and deletes the empty courses; test it on a scratch copy first.
+
 ## Conventions
 - Interface text uses APA title case; hover tooltips are all lower case.
 - Exams, homework and the course outlines live in the database (use the app or `crud.py`).

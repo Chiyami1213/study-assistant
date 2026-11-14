@@ -72,7 +72,7 @@ def _sections(path, mtime):
 def course_chapters(course):
     """[{book, name, questions, path}] for the course's HTML notes that have questions, in lecture order."""
     out = []
-    for b in sorted((b for b in crud.list_books() if course["id"] in b["course_ids"]
+    for b in sorted((b for b in crud.list_books() if course["id"] in b["course_ids"] and crud.in_part(b["title"], course.get("part"))
                      and b["kind"] in ("Notes", "Lecture Notes") and b["pdf_path"].lower().endswith((".html", ".htm"))),
                     key=library_view._course_order):
         path = data_path(b["pdf_path"])

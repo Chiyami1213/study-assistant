@@ -169,6 +169,20 @@ def strip_part(title):
     return _PART.sub("", title or "")
 
 
+def in_part(title, part):
+    """Does a title belong to the chosen part of a merged course? No part chosen: everything; an untagged title (the shared textbook) belongs to every part."""
+    return not part or part_tag(title) in (None, part)
+
+
+def course_parts(course_id):
+    """The parts of a merged course, as tags in order ("MA161", "MA162", "MA261"): the tags the titles of its files, homework and exams carry. [] for a plain course."""
+    titles = [b["title"] for b in list_books() if course_id in b["course_ids"]]
+    titles += [h["title"] for h in list_homework(course_id)]
+    titles += [e["title"] for e in list_events("2000-01-01", "2100-12-31") if e["course_id"] == course_id]
+    tags = {t for t in map(part_tag, titles) if t}
+    return sorted(tags, key=lambda t: (re.sub(r"\D", "", t), t)) if len(tags) > 1 else []
+
+
 def update_course_fields(course_id, code, name, semester, school, category):
     _exec("UPDATE courses SET code=?, name=?, semester=?, school=?, category=? WHERE id=?",
           (code, name, semester or "", school or None, category, course_id))
@@ -573,18 +587,18 @@ def delete_link(link_id):
 
 
 # ---------- Course outline ----------
-def list_outline(course_id):
-    return _all("SELECT * FROM course_outline WHERE course_id=? ORDER BY position", (course_id,))
+def list_outline(course_id, part=None):
+    return _all("SELECT * FROM course_outline WHERE course_id=? AND part=? ORDER BY position", (course_id, part or ""))
 
 
-def replace_outline(course_id, items):
-    """Replace a course's outline with items = [{level, marker, title, hours, url}] (in order)."""
+def replace_outline(course_id, items, part=None):
+    """Replace a course's outline (of one part of a merged course) with items = [{level, marker, title, hours, url}] (in order)."""
     with get_conn() as conn:
-        conn.execute("DELETE FROM course_outline WHERE course_id=?", (course_id,))
+        conn.execute("DELETE FROM course_outline WHERE course_id=? AND part=?", (course_id, part or ""))
         conn.executemany(
-            "INSERT INTO course_outline(course_id,position,level,marker,title,hours,url,book_id,page) "
-            "VALUES (?,?,?,?,?,?,?,?,?)",
-            [(course_id, i, it["level"], it["marker"], it["title"], it.get("hours") or None, it.get("url") or None,
+            "INSERT INTO course_outline(course_id,part,position,level,marker,title,hours,url,book_id,page) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?)",
+            [(course_id, part or "", i, it["level"], it["marker"], it["title"], it.get("hours") or None, it.get("url") or None,
               it.get("book_id") or None, it.get("page") or None)
              for i, it in enumerate(items)])
         conn.commit()

@@ -12,9 +12,10 @@ from database import DATA_DIR
 DIR = DATA_DIR / "syllabus"
 
 
-def load(course_id):
+def load(course_id, part=None):
+    """The syllabus data of a course; of one part of a merged course it is kept as <course id>_<part>.json."""
     try:
-        return json.loads((DIR / f"{course_id}.json").read_text(encoding="utf-8"))
+        return json.loads((DIR / (f"{course_id}_{part}.json" if part else f"{course_id}.json")).read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return None
 
