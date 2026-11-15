@@ -41,6 +41,11 @@
   inherits the **course's default estimate for its category** (else a built-in one: homework 2 h, exam 10 h, quiz 45 min, reading 1 h, project 10 h, other 1 h) unless an estimate is given;
   changing a default later does not change tasks that exist. The lists are plain functions: **to-do** (by due date), **overdue**, **start soon** (start date within three days, nothing logged yet),
   **no due date** and **completed**. `planner/tasks.py` is pure, `planner/task_store.py` keeps it in the new tables `tasks` and `task_defaults`; a deleted course leaves its tasks (without a course).
+- **Phase 4 of the study planner: the free-time engine and the cushion (logic; the screens come in phase 6).** `planner/freetime.py` (pure) computes the **free study time** of any date range: awake time minus
+  classes, activities, busy events and their travel time, breaks and sessions already planned, nothing before now, and no piece shorter than the minimum block. The **cushion** of a task is the free time left
+  before its deadline after the work that is due by then (earliest deadline first); a task with a start-ahead date cannot use the time before it, so the engine reports the tightest window, which is the exact slack.
+  A **negative cushion** means the schedule is impossible (red; under 2 hours is yellow, else green); a deadline that has passed counts as due now. It also gives the **cushion timeline** (the tightest
+  cushion of each deadline day) and `planner/service.py` reads it all from the saved setup. Checked against an independent earliest-deadline-first simulation on random cases (about 100) and by hand.
 
 ## 1.0.1 (2026-11-15)
 
