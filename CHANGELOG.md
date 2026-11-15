@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.0.1 (not released yet)
+## 1.0.1 (2026-11-15)
 
 - **Streamlit's own top-right icons are hidden.** The Deploy button, the three-dot menu and the "Running..." text no longer show in the app window or in a browser
   (`toolbarMode = "minimal"` and a style rule); the app has its own Settings page instead.

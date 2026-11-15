@@ -85,7 +85,7 @@ deleted: a file that is already there and differs is copied aside first.
 
 The full history is in [CHANGELOG.md](CHANGELOG.md).
 
-**1.0.1** (next release, not released yet)
+**1.0.1** (2026-11-15)
 - F2 saves a screenshot of the app window; F5 refreshes the page; F11 turns full screen on and off.
 - Press m to hide the menu bar (point at the left edge to show it); Settings has a switch and a key box for it. While the menu bar is shown, a letter opens a page (h Home, a Calendar, l Library, n Note Reader, c Courses, s Settings).
 - The Exams tab of a course shows the Preparation page for past exams too.
