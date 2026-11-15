@@ -28,6 +28,7 @@ class Item:
     level: str = ""           # the cushion level of a session's task
     changed: bool = False
     progress: float = 0.0     # how much of a session was used (0 to 1)
+    open_ref: str = ""        # "occ:course:12:2026-09-07": a click opens the occurrence (a class or an activity); it can not be dragged
 
 
 def fmt_minutes(minutes):
@@ -61,7 +62,7 @@ def _clip(day, start, end, tz):
     return minute(s), minute(e)
 
 
-def day_items(day, blocks, sessions, tasks, course_colors, levels, tz, progress=None):
+def day_items(day, blocks, sessions, tasks, course_colors, levels, tz, progress=None, task_colors=None, names=None):
     """The items of one local day. `tasks`: {task id: Task}; `course_colors`: {course id: color}; `levels`: {task id: cushion level}."""
     items = []
     exam_starts = {(b.owner_id, _clip(day, b.start, b.end, tz)[0]) for b in blocks
@@ -82,14 +83,16 @@ def day_items(day, blocks, sessions, tasks, course_colors, levels, tz, progress=
             color = course_colors.get(b.owner_id, EVENT_COLOR)
         else:
             color = course_colors.get(b.owner_id, EVENT_COLOR)
-        ref = f"event:{b.ref_id}" if b.kind == "event" and b.source != "legacy" else ""
-        items.append(Item(b.kind, b.label, span[0], span[1], color, b.location or "", ref, "", b.changed))
+        ref = f"event:{b.ref_id}" if b.kind == "event" else ""
+        open_ref = f"occ:{'course' if b.kind == 'class' else 'activity'}:{b.ref_id}:{day.isoformat()}" if b.kind in ("class", "activity") else ""
+        label = (names or {}).get(f"course:{b.owner_id}", b.label) if b.kind == "class" else b.label
+        items.append(Item(b.kind, label, span[0], span[1], color, b.location or "", ref, "", b.changed, 0.0, open_ref))
     for s in sessions:
         span = _clip(day, s.start, s.end, tz)
         if not span:
             continue
         task = tasks.get(s.task_id)
-        color = course_colors.get(task.course_id, NEUTRAL) if task else NEUTRAL
+        color = (task_colors or {}).get(s.task_id) or (course_colors.get(task.course_id, NEUTRAL) if task else NEUTRAL)
         items.append(Item("session", task.title if task else "Study", span[0], span[1], color, "Study", f"session:{s.id}", levels.get(s.task_id, ""), s.source == "manual", (progress or {}).get(s.id, 0.0)))
     items.sort(key=lambda i: (i.start, i.end, i.kind, i.title))
     return items
@@ -140,12 +143,12 @@ def hour_range(items_by_day):
     return lo, hi
 
 
-def block_html(it, lane, count, lo, darken):
-    top = (it.start - lo * 60) * HOUR_PX / 60
-    height = max((it.end - it.start) * HOUR_PX / 60 - 2, 18)
+def block_html(it, lane, count, lo, darken, hour_px=HOUR_PX):
+    top = (it.start - lo * 60) * hour_px / 60
+    height = max((it.end - it.start) * hour_px / 60 - 2, 18)
     width = f"left:calc({lane * 100 / count}% + 2px);width:calc({100 / count}% - 4px);"
-    edit = ' data-edit="1"' if it.ref else ""
-    attrs = f' data-ref="{html.escape(it.ref)}" data-start="{it.start}" data-end="{it.end}"{edit}' if it.ref else ""
+    edit = ' data-edit="1"' if it.ref else (f' data-open="{html.escape(it.open_ref)}"' if it.open_ref else "")
+    attrs = f' data-ref="{html.escape(it.ref)}" data-start="{it.start}" data-end="{it.end}"{edit}' if it.ref else edit
     time_text = f"{hhmm(it.start)} - {hhmm(it.end)}"
     sub = f'<div class="wk-loc">{html.escape(it.sub)}</div>' if it.sub and it.kind != "commute" else ""
     handle = '<div class="wk-resize" title="drag to change the length"></div>' if it.ref else ""
@@ -160,37 +163,39 @@ def block_html(it, lane, count, lo, darken):
         return f'<div class="wk-block wk-commute" style="{style}"><div class="wk-time">{html.escape(it.title)}</div></div>'
     color = it.color
     style = f"top:{top:.1f}px;height:{height:.1f}px;{width}background:linear-gradient(150deg,{color},{darken(color)})"
-    cls = {"activity": " wk-activity", "event": " wk-event"}.get(it.kind, "")
+    cls = {"activity": " wk-activity", "event": " wk-event"}.get(it.kind, "") + (" wk-openable" if it.open_ref else "")
     changed = '<span class="wk-moved" title="this occurrence was changed">moved</span>' if it.changed else ""
     return (f'<div class="wk-block{cls}" style="{style}"{attrs}><div class="wk-time">{time_text}</div>'
             f'<div class="wk-code">{html.escape(it.title)}</div>{sub}{changed}{handle}</div>')
 
 
-def free_html(it, lo):
-    top = (it.start - lo * 60) * HOUR_PX / 60
-    height = (it.end - it.start) * HOUR_PX / 60
+def free_html(it, lo, hour_px=HOUR_PX):
+    top = (it.start - lo * 60) * hour_px / 60
+    height = (it.end - it.start) * hour_px / 60
     return f'<div class="wk-free" style="top:{top:.1f}px;height:{height:.1f}px"><span>{html.escape(it.title)}</span></div>'
 
 
-def grid_html(days, today, items_by_day, allday_by_day, off_days, lo, hi, darken, now_minutes=None, free_by_day=None):
+def grid_html(days, today, items_by_day, allday_by_day, off_days, lo, hi, darken, now_minutes=None, free_by_day=None, hour_px=HOUR_PX):
     """The HTML of the grid for the given local days (7, 2 or 1 of them)."""
     n = len(days)
-    height = (hi - lo) * HOUR_PX
+    height = (hi - lo) * hour_px
     head = '<div class="wk-corner"></div>' + "".join(
         f'<div class="wk-head{" today" if d == today else ""}"><span>{WEEKDAYS[(d.weekday() + 1) % 7]}</span><b>{d.day:02d}</b></div>' for d in days)
     strip = '<div class="wk-allday-label">All Day</div>' + "".join(
         '<div class="wk-allday">' + "".join(
-            f'<div class="wk-pill" style="background:{color}" title="{html.escape(label)}">{html.escape(label)}</div>' for label, color in allday_by_day.get(d, [])) + "</div>"
+            f'<div class="wk-pill" style="background:{row[1]}" title="{html.escape(row[0])}"' + (f' data-open="{html.escape(row[2])}"' if len(row) > 2 and row[2] else "")
+            + f'>{html.escape(row[0])}</div>' for row in allday_by_day.get(d, [])) + "</div>"
         for d in days)
-    gutter = "".join(f'<div class="wk-hour" style="top:{(h - lo) * HOUR_PX}px">{h:02d}:00</div>' for h in range(lo, hi))
+    gutter = "".join(f'<div class="wk-hour" style="top:{(h - lo) * hour_px}px">{h:02d}:00</div>' for h in range(lo, hi))
+    gutter += '<div class="wk-zoom" title="drag to resize, double-click to reset"><i></i></div>'
     columns = ""
     for d in days:
-        free = "".join(free_html(it, lo) for it in (free_by_day or {}).get(d, []))
-        blocks = free + "".join(block_html(it, lane, count, lo, darken) for it, lane, count in lanes(items_by_day.get(d, [])))
+        free = "".join(free_html(it, lo, hour_px) for it in (free_by_day or {}).get(d, []))
+        blocks = free + "".join(block_html(it, lane, count, lo, darken, hour_px) for it, lane, count in lanes(items_by_day.get(d, [])))
         now_line = ""
         if d == today and now_minutes is not None and lo * 60 <= now_minutes <= hi * 60:
-            now_line = f'<div class="wk-now" style="top:{(now_minutes - lo * 60) * HOUR_PX / 60:.1f}px"></div>'
+            now_line = f'<div class="wk-now" style="top:{(now_minutes - lo * 60) * hour_px / 60:.1f}px"></div>'
         columns += (f'<div class="wk-col{" today" if d == today else ""}{" holiday" if d in off_days else ""}" data-day="{d.isoformat()}" data-lo="{lo}" '
                     f'style="height:{height}px">{blocks}{now_line}</div>')
-    return (f'<div class="wk" data-hour-px="{HOUR_PX}" data-snap="{SNAP_MINUTES}" style="--n:{n}"><div class="wk-row wk-top">{head}</div><div class="wk-row wk-strip">{strip}</div>'
+    return (f'<div class="wk" data-hour-px="{hour_px}" data-render-px="{hour_px}" data-snap="{SNAP_MINUTES}" style="--n:{n}"><div class="wk-row wk-top">{head}</div><div class="wk-row wk-strip">{strip}</div>'
             f'<div class="wk-row wk-body"><div class="wk-gutter" style="height:{height}px">{gutter}</div>{columns}</div></div>')

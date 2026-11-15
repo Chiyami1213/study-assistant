@@ -51,13 +51,13 @@ def test_no_timer_bar_without_a_running_timer(seeded):
 def test_the_play_button_starts_the_timer_and_shows_the_bar(seeded):
     a = ts.add_task("A", seeded, "Homework", due=due(3), estimate=60)
     b = ts.add_task("B", seeded, "Homework", due=due(4), estimate=60)
-    at = run()
-    assert not at.button(key=f"tk_start_{a}").disabled
-    at.button(key=f"tk_start_{a}").click(); at.run()
+    at = run(cal_page="Task List")
+    assert not at.button(key=f"tl_start_{a}").disabled
+    at.button(key=f"tl_start_{a}").click(); at.run()
     assert tr.running_timer().task_id == a and not at.exception
     assert at.button(key="timer_stop") is not None and at.button(key="timer_cancel") is not None
     assert "Studying A" in html_of(at) or any("Studying A" in m.value for m in at.markdown)
-    assert at.button(key=f"tk_start_{b}").disabled                                          # one timer at a time
+    assert at.button(key=f"tl_start_{b}").disabled                                          # one timer at a time
 
 
 def test_stop_and_log_adds_the_time_and_raises_the_cushion(seeded):
@@ -100,7 +100,7 @@ def test_a_session_shows_how_much_of_it_was_used(seeded):
 def test_the_task_row_shows_time_used(seeded):
     tid = ts.add_task("HW", seeded, "Homework", due=due(4), estimate=120)
     tr.log_time(tid, 45)
-    at = run()
+    at = run(cal_page="Task List")
     assert any("45 min used" in m.value for m in at.markdown)
 
 
@@ -109,7 +109,7 @@ def test_the_add_task_form_suggests_an_estimate_from_finished_tasks(seeded):
         tid = ts.add_task(f"Old {minutes}", seeded, "Homework", estimate=200)
         tr.log_time(tid, minutes)
         ts.set_done(tid)
-    at = run()
+    at = run(cal_page="Task List")
     at.button(key="tk_add_open").click(); at.run()
     assert any("Suggestion" in c.value and "80 minutes" in c.value for c in at.caption) and not at.exception
     ts.add_task("Quiz one", seeded, "Quiz", estimate=45)                                                           # nothing finished in other categories: no suggestion there

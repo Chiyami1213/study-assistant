@@ -9,14 +9,15 @@ import streamlit as st
 import crud
 import settings
 from planner import commit_store, service, session_store, store as planner_store, task_store, timeutil, track_store
-from views import plan_grid, planner_ui
+from views import plan_grid, planner_ui, tasklist_view
 
 MONTH_NAMES = list(calendar.month_name)
 WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
 MAX_CHIPS = 3
 HOUR_PX = 56            # height of one hour in the week grid
 DAY_START_HOUR, DAY_END_HOUR = 6, 24     # the week grid always shows at least this part of the day
-VIEWS = ["Week", "2 Days", "Day", "Month"]
+VIEWS = ["Day", "Week", "Month"]
+PAGES = ["Calendar", "Task List"]
 
 
 def _week_start(day):
@@ -100,8 +101,8 @@ def _day_items(first, last, skip_timed_exams=False, skip_timed=False):
     for ev in crud.list_events(first.isoformat(), last.isoformat()):
         if skip_timed_exams and _is_timed_exam(ev):
             continue                     # shown as a block on the time grid instead
-        if skip_timed and (ev.get("time") or ev.get("start_utc")):
-            continue                     # the planner draws timed events as blocks, and all-day planner events itself
+        if skip_timed:
+            continue                     # the planner draws every event itself: timed ones as blocks, all-day ones in the all-day row
         add(ev["date"], ev["title"], ev["course_id"], ev.get("time"))
     return {d: [(label, color) for _, label, color in sorted(items)] for d, items in rows.items()}
 
@@ -119,12 +120,12 @@ def _notices(first, last):
     return out
 
 
-# ------------------------------------------------------------------ the planner grid (Week, 2 Days, Day)
+# ------------------------------------------------------------------ the planner grid (Day, Week)
 def _grid_days(view, anchor):
     if view == "Week":
         first = _week_start(anchor)
         return [first + timedelta(days=i) for i in range(7)]
-    return [anchor + timedelta(days=i) for i in range(2 if view == "2 Days" else 1)]
+    return [anchor]
 
 
 def _planner_grid(days, today, report, show_free=True):
@@ -134,30 +135,36 @@ def _planner_grid(days, today, report, show_free=True):
     sessions = session_store.list_sessions(days[0], days[-1])
     tasks = {x.id: x for x in task_store.list_tasks()}
     courses = _course_map()
-    colors = {cid: crud.course_color(c) for cid, c in courses.items()}
+    prefs = settings.get_block_colors()
+    colors = {cid: prefs.get(f"course:{cid}") or crud.course_color(c) for cid, c in courses.items()}
+    task_colors = {int(k.split(":")[1]): v for k, v in prefs.items() if k.startswith("task:")}
+    names = settings.get_block_names()
     levels = {c.task_id: c.level for c in report.items}
     used = {}
     for log in track_store.list_logs():
         if log.session_id is not None:
             used[log.session_id] = used.get(log.session_id, 0) + log.minutes
     progress = {s.id: min(1.0, used.get(s.id, 0) / s.minutes) for s in sessions if s.minutes and used.get(s.id)}
-    items = {d: plan_grid.day_items(d, blocks, sessions, tasks, colors, levels, tz, progress) for d in days}
+    items = {d: plan_grid.day_items(d, blocks, sessions, tasks, colors, levels, tz, progress, task_colors, names) for d in days}
     allday = _day_items(days[0], days[-1], skip_timed_exams=True, skip_timed=True)
     for b in blocks:
         if b.all_day:
             first_day = timeutil.local_day(b.start, tz)
             for d in days:
                 if first_day <= d <= timeutil.local_day(b.end - timedelta(seconds=1), tz):
-                    allday.setdefault(d, []).append((b.label, colors.get(b.owner_id, "#6b7280")))
+                    allday.setdefault(d, []).append((b.label, colors.get(b.owner_id, "#6b7280"), f"event:{b.ref_id}" if b.kind == "event" else ""))
     for d, rows in _notices(days[0], days[-1]).items():
         allday[d] = rows + allday.get(d, [])
     lo, hi = plan_grid.hour_range(items)
     local_now = timeutil.to_local(datetime.now(timeutil.UTC), tz)
     free = {}
     if show_free:
-        pieces = service.free_time(days[0], days[-1], datetime.now(timeutil.UTC))
-        free = {d: plan_grid.free_items(d, pieces, tz) for d in days}
-    return plan_grid.grid_html(days, today, items, allday, set(crud.holiday_days(days[0], days[-1])), lo, hi, crud.darken, local_now.hour * 60 + local_now.minute, free)
+        now_utc = datetime.now(timeutil.UTC)
+        pieces = service.free_time(days[0], days[-1], now_utc)
+        personal_pieces = service.free_time(days[0], days[-1], now_utc, personal=True)                   # in a break or outside the term only personal work can be planned
+        term = planner_store.get_term()
+        free = {d: plan_grid.free_items(d, pieces if term.is_planning_day(d) else personal_pieces, tz) for d in days}
+    return plan_grid.grid_html(days, today, items, allday, set(crud.holiday_days(days[0], days[-1])), lo, hi, crud.darken, local_now.hour * 60 + local_now.minute, free, settings.get_calendar_hour_px())
 
 
 def _panel(report, courses):
@@ -172,7 +179,9 @@ def _panel(report, courses):
         planner_ui.add_task_dialog()
     if b.button("+ Activity", key="pl_add_activity", width="stretch"):
         planner_ui.activity_dialog()
-    st.markdown(planner_ui.panel_html(ordered, courses, commit_store.list_activities(), report, left), unsafe_allow_html=True)
+    term = settings.get_active_term()
+    st.markdown(planner_ui.panel_html(ordered, courses, commit_store.list_activities(), report, left, term["name"] if term else None, settings.get_hidden_blocks(),
+                                      settings.get_block_names(), settings.get_block_colors(), settings.get_block_order()), unsafe_allow_html=True)
 
 
 def _span_title(view, days):
@@ -183,7 +192,7 @@ def _span_title(view, days):
 
 
 def _step(view):
-    return {"Week": 7, "2 Days": 2, "Day": 1}[view]
+    return {"Week": 7, "Day": 1}[view]
 
 
 def _auto_plan():
@@ -246,18 +255,12 @@ def _month_view(today):
                 col.markdown(_cell_html(day, items.get(day.isoformat(), []), day == today), unsafe_allow_html=True)
 
 
+# ------------------------------------------------------------------ terms
 # ------------------------------------------------------------------ schedule editor
 @st.dialog("Edit Schedule", width="large")
 def _schedule_dialog():
-    sem = settings.get_semester()
-    st.subheader("Term Dates")
-    a, b, c = st.columns(3)
-    start = a.date_input("Classes Start", value=date.fromisoformat(sem["start"]), key="sem_start")
-    end = b.date_input("Classes End", value=date.fromisoformat(sem["end"]), key="sem_end")
-    exam_end = c.date_input("End of Exam Period", value=date.fromisoformat(sem["exam_end"]), key="sem_exam")
-    if st.button("Save Term Dates", key="sem_save", disabled=not (start <= end <= exam_end)):
-        settings.set_semester(start.isoformat(), end.isoformat(), exam_end.isoformat())
-        st.rerun()
+    start = date.fromisoformat(settings.get_semester()["start"])
+    st.caption("The terms (semesters) are managed from the term list above the calendar: choose Manage Terms.")
 
     st.subheader("Holidays")
     holidays = crud.list_holidays()
@@ -312,9 +315,11 @@ def render():
     st.session_state.setdefault("cal_anchor", today)
     st.session_state.setdefault("cal_view", "Week")
 
-    head, btn = st.columns([6, 1.6], vertical_alignment="center")
-    head.title("Calendar")
-    if btn.button("Edit Schedule", key="edit_schedule_open"):
+    st.session_state.setdefault("cal_page", "Calendar")
+    head, tog, btn = st.columns([2.2, 2.6, 1.6], vertical_alignment="center")
+    page = tog.segmented_control("Page", PAGES, key="cal_page", label_visibility="collapsed") or "Calendar"
+    head.title(page)
+    if page == "Calendar" and btn.button("Edit Schedule", key="edit_schedule_open"):
         _schedule_dialog()
 
     sink = st.text_input("Calendar Actions", key="cal_sink", label_visibility="collapsed")          # a drag or click in the grid writes here (see app.py)
@@ -322,7 +327,19 @@ def render():
         st.session_state["_cal_sink_done"] = sink
         planner_ui.handle_action(sink)
 
-    c0, c1, c2, c3, c4, c5 = st.columns([2.6, 0.9, 0.9, 0.9, 3.4, 1.4], vertical_alignment="center")
+    if page == "Task List":
+        planner_ui.show_pending()
+        planner_ui.timer_bar()
+        tasklist_view.render(service.cushion_report(), _course_map(), planner_store.get_term().zone)
+        return
+
+    cf, c0, c1, c2, c3, c4, ct, c5 = st.columns([0.45, 2.6, 0.9, 0.9, 0.9, 2.3, 1.5, 1.4], vertical_alignment="center")
+    planner_ui.term_select(ct)
+    panel_open = settings.get_calendar_panel_open()
+    if cf.button("", key="cal_fold", icon=":material/left_panel_close:" if panel_open else ":material/left_panel_open:",
+                 help="fold the left panel" if panel_open else "show the left panel"):
+        settings.set_calendar_panel_open(not panel_open)
+        st.rerun()
     view = c0.segmented_control("View", VIEWS, key="cal_view", label_visibility="collapsed") or "Week"
     anchor = st.session_state["cal_anchor"]
     if c1.button("‹ Prev", key="cal_prev"):
@@ -358,65 +375,10 @@ def render():
         days = _grid_days(view, anchor)
         c4.subheader(_span_title(view, days))
         planner_ui.banner(report, courses, tz)
-        side, main = st.columns([1.15, 4.2], gap="medium")
+        side, main = st.columns([1.15, 4.2], gap="medium")                     # the panel stays in the page when folded: its column glides shut (CSS) and open again
         with side:
             _panel(report, courses)
         with main:
             show_free = st.toggle("Show Free Time", True, key="cal_free", help="shades the time that is free for study and writes how long each stretch is")
             st.markdown(_planner_grid(days, today, report, show_free), unsafe_allow_html=True)
             st.caption("Drag a block from the left into the schedule, drag a session or an event to move it, drag its bottom edge to change its length, or drag over empty time to add one. Click one to open it.")
-
-    st.divider()
-    planner_ui.task_panel(report, courses, tz)
-    st.divider()
-    left, right = st.columns([2, 3])
-    with left:
-        st.subheader("Add Event")
-        course_choices = {0: "None"} | {c["id"]: crud.label(c) for c in crud.list_courses(section=None)}
-        with st.form("add_event", clear_on_submit=True):
-            title = st.text_input("Title", placeholder="Midterm Exam")
-            when = st.date_input("Date", value=today)
-            t1, t2 = st.columns(2)
-            at = t1.time_input("Start Time (Optional)", value=None, step=300)
-            until = t2.time_input("End Time (Optional)", value=None, step=300)
-            course_id = st.selectbox("Course (Optional)", list(course_choices), format_func=course_choices.get)
-            where = st.text_input("Location (Optional)")
-            b1, b2, b3 = st.columns(3)
-            busy = b1.toggle("Blocks Study Time", True)
-            before = b2.number_input("Travel Before (Minutes)", 0, 240, 0, 5)
-            after = b3.number_input("Travel After (Minutes)", 0, 240, 0, 5)
-            if st.form_submit_button("Add") and title.strip():
-                try:
-                    if at:
-                        s_utc = timeutil.to_utc(when, at, tz)
-                        e_utc = timeutil.to_utc(when, until, tz) if until and until > at else s_utc + timedelta(hours=1)
-                        commit_store.add_event(title.strip(), s_utc, e_utc, False, where.strip(), int(before), int(after), busy, course_id or None)
-                    else:
-                        start_utc, _ = timeutil.day_bounds_utc(when, tz)
-                        _, end_utc = timeutil.day_bounds_utc(when, tz)
-                        commit_store.add_event(title.strip(), start_utc, end_utc, True, where.strip(), 0, 0, False, course_id or None)
-                except Exception as e:                        # a PlannerError says what is wrong; show it instead of a crash
-                    st.session_state["cal_toast"] = str(e)
-                else:
-                    st.session_state["cal_month"] = (when.year, when.month)
-                    st.session_state["cal_anchor"] = when
-                st.rerun()
-    with right:
-        year, month = st.session_state["cal_month"]
-        st.subheader("This Month")
-        first = date(year, month, 1).isoformat()
-        last = date(year, month, calendar.monthrange(year, month)[1]).isoformat()
-        homework = crud.homework_due_between(first, last)
-        events = crud.list_events(first, last)
-        if not homework and not events:
-            st.caption("Nothing scheduled this month.")
-        courses_by_id = _course_map()
-        code = lambda cid: ((courses_by_id[cid]["code"] or courses_by_id[cid]["name"]) + " ") if cid in courses_by_id else ""
-        for hw in homework:
-            st.markdown(f"**{hw['due_date']}**{' ' + hw['due_time'] if hw.get('due_time') else ''} · "
-                        f"Homework Due: {code(hw['course_id'])}{hw['title']}")
-        for ev in events:
-            a, b = st.columns([6, 1], vertical_alignment="center")
-            a.markdown(f"**{ev['date']}**{' ' + ev['time'] if ev.get('time') else ''} · {code(ev['course_id'])}{ev['title']}")
-            if b.button("Remove", key=f"rm_event_{ev['id']}"):
-                crud.delete_event(ev["id"]); st.rerun()

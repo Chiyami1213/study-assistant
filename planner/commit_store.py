@@ -104,6 +104,16 @@ def delete_meeting(owner, meeting_id):
         conn.commit()
 
 
+def get_meeting(owner, meeting_id):
+    """One weekly meeting as a dict (days, start_time, end_time, location, end_date ...), or a PlannerError."""
+    return dict(_meeting_row(owner, meeting_id))
+
+
+def exception_on(owner, meeting_id, day):
+    """The exception of one occurrence (a MeetingException), or None."""
+    return next((e for e in list_exceptions(owner) if e.meeting_id == meeting_id and e.day == day), None)
+
+
 def _meeting_row(owner, meeting_id):
     with _conn() as conn:
         row = conn.execute(f"SELECT * FROM {_owner_table(owner)} WHERE id=?", (meeting_id,)).fetchone()

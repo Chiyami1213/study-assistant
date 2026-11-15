@@ -43,7 +43,7 @@ def run(**state):
 
 
 # ---------- free time in the grid ----------
-def test_free_items_are_clipped_to_the_day_and_labelled_with_their_length():
+def test_free_items_are_clipped_to_the_day_and_labeled_with_their_length():
     tz = timeutil.zone(NY)
     day = date(2026, 9, 7)
     pieces = [(timeutil.to_utc(day, time(9), NY), timeutil.to_utc(day, time(10, 30), NY)),
@@ -71,7 +71,7 @@ def test_panel_lists_dragable_blocks_for_tasks_courses_activities_and_an_event()
     task = T.Task(5, "HW <6>", 1, "Homework", datetime(2026, 9, 10, tzinfo=timezone.utc), 120)
     report = F.CushionReport((F.Cushion(5, task.due, -30, 0, 30, task.due, F.RED),), (), True)
     html = planner_ui.panel_html([task], courses, [{"id": 9, "name": "Gym", "color": "#0f766e"}], report, {5: 90})
-    for part in ('data-drag="event:0"', 'data-drag="task:5"', 'data-drag="course:1"', 'data-drag="activity:9"', "1 h 30 min to plan", "Drag a custom event", "AE 6765", "Gym"):
+    for part in ('data-drag="event:0"', 'data-drag="task:5"', 'data-drag="course:1"', 'data-drag="activity:9"', "1 h 30 min to plan", "Custom Event", "AE 6765", "Gym"):
         assert part in html
     assert "HW &lt;6&gt;" in html and "<6>" not in html                       # escaped
     assert 'data-drag="course:2"' not in html                                  # a finished course is not offered

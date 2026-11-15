@@ -90,8 +90,11 @@ class FreeTime:
 
 
 # ---------------------------------------------------------------- free time
-def awake_intervals(config, first, last):
-    """The awake time of the local days first..last (inclusive) as UTC intervals: none on a day outside the term or in a break."""
+def awake_intervals(config, first, last, personal=False):
+    """The awake time of the local days first..last (inclusive) as UTC intervals: none on a day outside the term or in a break. With personal=True every day has
+    its awake time: personal (not school) work may be planned in a break and outside the term."""
+    if personal:
+        return [config.awake_window(d) for d in timeutil.daterange(first, last)]
     out = []
     for day in config.term.planning_days(first, last):
         interval = config.awake_interval(day)
@@ -100,15 +103,30 @@ def awake_intervals(config, first, last):
     return out
 
 
+def intersect(a, b):
+    """The time that is in both lists of intervals."""
+    a, b = merge(a), merge(b)
+    out, i, j = [], 0, 0
+    while i < len(a) and j < len(b):
+        s, e = max(a[i][0], b[j][0]), min(a[i][1], b[j][1])
+        if e > s:
+            out.append((s, e))
+        if a[i][1] < b[j][1]:
+            i += 1
+        else:
+            j += 1
+    return out
+
+
 def busy_intervals(blocks):
     """Merged intervals of the busy blocks (classes, activities, busy events and their commute)."""
     return merge((b.start, b.end) for b in blocks if b.busy)
 
 
-def free_intervals(config, blocks, planned, first, last, now=None):
+def free_intervals(config, blocks, planned, first, last, now=None, personal=False):
     """The free study time of the local days first..last: awake time minus busy blocks minus planned sessions, nothing before `now` (when given), and no piece shorter
     than the minimum study block. `planned`: anything with start and end (or (start, end) pairs)."""
-    free = subtract(awake_intervals(config, first, last), list(busy_intervals(blocks)) + merge(planned))
+    free = subtract(awake_intervals(config, first, last, personal), list(busy_intervals(blocks)) + merge(planned))
     if now is not None:
         free = [(max(s, now), e) for s, e in free if e > now]
     minimum = timedelta(minutes=config.min_block_minutes)
@@ -234,14 +252,24 @@ def timeline(items, tz):
 
 
 def report(config, tasks, blocks, planned, now):
-    """The whole picture for a clock `now` (UTC): free time from today to the last deadline (inside the term), the cushion of each task and the timeline.
+    """The whole picture for a clock `now` (UTC): free time from today to the last deadline (school work: inside the term, not in a break; personal work: any day),
+    the cushion of each task and the timeline. School tasks and personal tasks are counted separately (a personal task has no course and may be done in a break).
     `blocks`: the commitments (classes, activities, events) that cover that range; `planned`: study sessions already placed."""
     tz = config.term.zone
-    dated = [t for t in tasks if not t.is_done and t.due is not None]
-    if not dated:
-        return CushionReport((), (), False)
     first = timeutil.local_day(now, tz)
-    last = min(max(timeutil.local_day(t.due, tz) for t in dated), config.term.exams_end)
-    free = FreeTime(free_intervals(config, blocks, planned, first, max(first, last), now))
-    items = tuple(cushions(tasks, free, now, tz, planned))
+    items = []
+    for personal in (False, True):
+        group = [t for t in tasks if t.personal == personal]
+        dated = [t for t in group if not t.is_done and t.due is not None]
+        if not dated:
+            continue
+        last = max(timeutil.local_day(t.due, tz) for t in dated)
+        if not personal:
+            last = min(last, config.term.exams_end)
+        free = FreeTime(free_intervals(config, blocks, planned, first, max(first, last), now, personal))
+        items.extend(cushions(group, free, now, tz, planned))
+    if not items:
+        return CushionReport((), (), False)
+    items.sort(key=lambda c: (c.due, c.task_id))
+    items = tuple(items)
     return CushionReport(items, timeline(items, tz), any(c.negative for c in items))

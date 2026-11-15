@@ -242,7 +242,7 @@ section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-h
     pointer-events: none;}}
 
 /* Course outline: hidden box that carries a clicked point to the app */
-.st-key-outline_sink, .st-key-lib_sink, .st-key-lib_link_sink, .st-key-cal_sink {{position: absolute !important; width: 1px; height: 1px; overflow: hidden; opacity: 0; pointer-events: none;}}
+.st-key-outline_sink, .st-key-lib_sink, .st-key-lib_link_sink, .st-key-cal_sink, .st-key-tree_sink {{position: absolute !important; width: 1px; height: 1px; overflow: hidden; opacity: 0; pointer-events: none;}}
 
 /* Home: term stats */
 .home-stats {{display: flex; gap: 12px; margin: 2px 0 18px;}}
@@ -370,12 +370,18 @@ section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-h
 
 
 /* Settings: the bar that jumps to a section */
-.st-key-settings_nav {{padding: 6px 0 8px; border-bottom: 1px solid var(--border);}}
+.st-key-settings_nav {{padding: 0; border-bottom: 1px solid var(--border);}}
+.st-key-settings_nav, .st-key-settings_nav * {{min-height: 0;}}
+.st-key-settings_nav [data-testid="stElementContainer"], .st-key-settings_nav [data-testid="stMarkdown"], .st-key-settings_nav [data-testid="stMarkdown"] > div {{height: auto !important; overflow: visible;}}
+.st-key-settings_nav [data-testid="stMarkdownContainer"] {{margin-bottom: 0 !important;}}   /* Streamlit pulls a markdown block up by a line: the bar's box was a line too short and its bottom line crossed the pills */
+.st-key-settings_nav nav {{margin-bottom: 0;}}
 div:has(> .st-key-settings_nav) {{position: sticky; top: 2.75rem; z-index: 60; background: var(--bg);}}   /* the wrapper sticks: a sticky box stays inside its parent, so the parent must be the whole page */
-.set-nav {{display: flex; flex-wrap: wrap; gap: 6px;}}
-.set-nav a {{color: var(--text); text-decoration: none; font-size: 0.85rem; padding: 3px 12px; border: 1px solid var(--border); border-radius: 999px; white-space: nowrap;}}
-.set-nav a:hover {{border-color: var(--accent); color: var(--accent);}}
-.set-nav a.on {{background: var(--accent); border-color: var(--accent); color: #fff;}}
+/* the bar looks like the tabs of a course page: plain text, a red line under the one you are at, a thin line under the row */
+.set-nav {{display: flex; flex-wrap: wrap; gap: 6px 26px;}}
+.set-nav a {{color: var(--text); text-decoration: none; font-size: 1rem; padding: 10px 2px 9px; border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; opacity: 0.85;
+  transition: border-color .15s, opacity .15s;}}
+.set-nav a:hover {{opacity: 1; border-bottom-color: #ffffff40;}}
+.set-nav a.on {{opacity: 1; border-bottom-color: #ff4b4b; font-weight: 600;}}
 h2[id], h3[id] {{scroll-margin-top: 7rem;}}
 
 
@@ -387,16 +393,90 @@ h2[id], h3[id] {{scroll-margin-top: 7rem;}}
 .pl-item b {{display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}}
 .pl-item span {{display: block; font-size: 0.72rem; opacity: 0.75;}}
 .pl-item .wk-dot {{margin-top: 4px;}}
-.pl-item.pl-event {{background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 600; text-align: center;}}
+.pl-item.pl-event {{background: transparent; color: var(--text); border: 1px dashed var(--accent); border-left: 1px dashed var(--accent); font-weight: 600;}}
+.pl-grip {{display: inline-block !important; margin-right: 8px; opacity: 0.7; font-size: 1rem !important;}}
 .pl-item:hover {{filter: brightness(1.12);}}
 .pl-empty {{font-size: 0.8rem; opacity: 0.6;}}
-.pl-ghost {{position: fixed; z-index: 99999; pointer-events: none; opacity: 0.92; box-shadow: 0 8px 20px #0008; max-width: 220px;}}
-.wk-col.drop-hover {{outline: 2px solid var(--accent); outline-offset: -2px;}}
+body.pl-dragging, body.pl-dragging * {{cursor: grabbing !important; user-select: none !important;}}
+.wk-preview {{position: absolute; left: 2px; right: 2px; z-index: 6; pointer-events: none; border: 2px dashed var(--c, var(--accent)); border-radius: 6px; padding: 3px 6px;
+  background: color-mix(in srgb, var(--c, var(--accent)) 35%, transparent); color: #fff; font-size: 0.74rem; line-height: 1.25; overflow: hidden; box-shadow: 0 4px 12px #0005;}}
+.wk-col.drop-hover {{outline: 2px solid var(--accent); outline-offset: -2px; transition: outline-color .1s;}}
 .wk-used {{position: absolute; left: 0; bottom: 0; height: 4px; background: #2f9e5f; border-radius: 0 2px 2px 0; opacity: 0.9;}}
 .st-key-timer_bar {{border-color: var(--accent) !important;}}
 .wk-free {{position: absolute; left: 0; right: 0; background: rgba(124, 106, 255, 0.12); display: flex; align-items: center; justify-content: center; pointer-events: none; z-index: 0;}}
 .wk-free span {{color: #8f86ff; font-size: 0.8rem; font-weight: 600;}}
 .wk-block {{z-index: 1;}}
+
+
+/* Calendar: the two buttons at the right edge line up; the Task List header row */
+.st-key-cal_autoplan, .st-key-edit_schedule_open {{display: flex; justify-content: flex-end; width: 100% !important;}}
+.tl-head {{font-size: 0.78rem; font-weight: 700; opacity: 0.65; text-transform: none;}}
+/* Task List: the course boxes on the left look like the blocks of the Calendar panel */
+.st-key-tl_side button {{justify-content: flex-start; text-align: left; border: 0; border-left: 4px solid #6b7280; border-radius: 8px; padding: 10px 12px; font-weight: 700; color: var(--text);
+  transition: filter .12s, box-shadow .12s;}}
+.st-key-tl_side button:hover {{filter: brightness(1.25);}}
+.st-key-tl_side button[data-testid="stBaseButton-primary"] {{box-shadow: inset 0 0 0 2px var(--accent); filter: brightness(1.15);}}
+.st-key-tl_side button p {{text-align: left; width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;}}
+body.nav-switching [data-stale="true"] {{display: none !important;}}
+/* Import From Syllabus: the line under a course's tick box sits close to it */
+.stElementContainer[class*="st-key-si_pick_"] + .stElementContainer {{margin-top: -0.85rem; margin-bottom: 0.2rem;}}
+/* Calendar: the width of the left panel, its splitter, the zoom bar of the time scale */
+div[data-testid="stColumn"]:has(.pl-wrap) {{flex: 0 0 var(--pl-w, 260px) !important; width: var(--pl-w, 260px) !important; min-width: 0 !important; overflow: visible;
+  transition: flex-basis .3s cubic-bezier(.4, 0, .2, 1), width .3s cubic-bezier(.4, 0, .2, 1), margin .3s cubic-bezier(.4, 0, .2, 1), opacity .22s ease;}}
+div[data-testid="stColumn"]:has(.pl-wrap[data-open="0"]) {{flex-basis: 0 !important; width: 0 !important; margin-right: -1rem; opacity: 0; overflow: hidden; pointer-events: none;}}
+html.pl-resizing div[data-testid="stColumn"]:has(.pl-wrap) {{transition: none !important;}}
+div[data-testid="stColumn"]:has(.pl-wrap) + div[data-testid="stColumn"] {{flex: 1 1 0 !important; width: auto !important; min-width: 0 !important;}}
+.pl-wrap {{position: relative;}}
+.pl-split {{position: absolute; top: 0; bottom: 0; right: -14px; width: 12px; cursor: col-resize; z-index: 6; touch-action: none;}}
+.pl-split::after {{content: ""; position: absolute; left: 5px; top: 8px; bottom: 8px; width: 2px; border-radius: 2px; background: var(--border); transition: background .12s, width .12s, left .12s;}}
+.pl-split:hover::after, .pl-split.on::after {{background: var(--accent); width: 4px; left: 4px;}}
+.pl-item[data-pick] {{cursor: pointer;}}
+.pl-pick {{display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 8px; background: #ffffff14; border: 1px solid var(--border); cursor: pointer;
+  transition: filter .12s, box-shadow .12s;}}
+.pl-pick b {{flex: 1; font-size: 0.92rem;}}
+.pl-pick:hover {{filter: brightness(1.25);}}
+.pl-pick.pl-selected {{box-shadow: inset 0 0 0 2px var(--accent);}}
+.pl-rule {{height: 1px; background: var(--border); margin: 8px -4px;}}
+.pl-item.pl-selected {{color: #0b1220;}}
+.pl-item.pl-selected .pl-name, .pl-item.pl-selected .pl-count, .pl-item.pl-selected .pl-more {{color: #0b1220; opacity: 1;}}
+.tl-title {{margin: 0; padding: 0; font-size: 1.9rem;}}
+[class*="st-key-tl_h_"] button {{padding-left: 0; font-weight: 700; opacity: 0.8;}}
+[class*="st-key-tl_h_"] button:hover {{opacity: 1;}}
+.pl-main:has(.pl-count) {{display: flex; justify-content: space-between; align-items: center; gap: 8px;}}
+.pl-count {{opacity: 0.7; font-size: 0.8rem; font-weight: 600;}}
+.pl-main > span {{opacity: 0.7; font-size: 0.8rem;}}
+.wk-zoom {{position: absolute; right: -1px; top: 0; bottom: 0; width: 10px; cursor: ns-resize; z-index: 4; touch-action: none;}}
+.wk-zoom i {{position: absolute; right: 3px; top: 0; bottom: 0; width: 2px; border-radius: 2px; background: var(--border); transition: background .12s, width .12s;}}
+.wk-zoom:hover i, .wk-zoom.on i {{background: var(--accent); width: 4px; right: 2px;}}
+/* The compact dialogs of a tile on the schedule: a title bar in the color of the course, the date and times in one row, a footer */
+.dlg-banner {{border-left: 4px solid var(--c); background: color-mix(in srgb, var(--c) 22%, transparent); color: var(--c); font-weight: 700; font-size: 1.05rem; border-radius: 8px;
+  padding: 14px 16px; margin-bottom: 6px;}}
+/* Calendar panel: blocks with a menu */
+.pl-item {{display: flex; align-items: center; gap: 6px;}}
+.pl-main {{flex: 1; min-width: 0;}}
+.pl-panel {{padding-left: 26px;}}
+.pl-item {{position: relative;}}
+.pl-handle {{position: absolute; left: -26px; top: 0; bottom: 0; width: 26px; display: flex; align-items: center; justify-content: center; cursor: grab; color: var(--text);
+  opacity: 0; touch-action: none; user-select: none; transition: opacity .12s;}}
+.pl-item:hover .pl-handle, .pl-item.pl-moving .pl-handle {{opacity: 0.85;}}
+.pl-handle:hover {{opacity: 1 !important;}}
+.pl-handle:active {{cursor: grabbing;}}
+.pl-handle svg {{position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); display: block;}}
+.pl-item.pl-moving {{opacity: 0.6; outline: 2px dashed var(--accent); box-shadow: 0 6px 16px #0007; z-index: 5;}}
+.pl-item {{will-change: transform;}}
+.pl-more, .pl-show {{border: 0; background: transparent; color: var(--text); cursor: pointer; border-radius: 6px; padding: 0 7px; font-size: 1.2rem; line-height: 1.3; opacity: 0.6;}}
+.pl-show {{font-size: 0.75rem; border: 1px solid var(--border); opacity: 0.85;}}
+.pl-more:hover, .pl-show:hover {{opacity: 1; background: #ffffff1c;}}
+.pl-name[contenteditable="true"] {{outline: 2px solid var(--accent); border-radius: 4px; background: #00000040; padding: 0 4px; cursor: text; text-overflow: clip;}}
+.pl-menu {{position: fixed; z-index: 99999; min-width: 190px; background: var(--card); color: var(--text); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 10px 28px #0009; padding: 4px;}}
+.pl-menu button {{display: block; width: 100%; text-align: left; background: transparent; border: 0; color: inherit; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 0.9rem;}}
+.pl-menu button {{display: flex; align-items: center; gap: 12px;}}
+.pl-menu button svg {{flex: none; opacity: 0.8;}}
+.pl-menu button.danger {{color: #f87171;}}
+.pl-menu button:hover {{background: #ffffff1c;}}
+.pl-fold {{margin-top: 10px; border-top: 1px solid var(--border); padding-top: 6px;}}
+.pl-fold summary {{cursor: pointer; font-size: 0.82rem; font-weight: 700; opacity: 0.85; padding: 2px 0;}}
+.pl-fold .pl-item {{margin-top: 6px;}}
 
 /* Calendar: week view */
 .st-key-edit_schedule_open {{width: 100% !important;}}
@@ -445,6 +525,7 @@ h2[id], h3[id] {{scroll-margin-top: 7rem;}}
     background: repeating-linear-gradient(45deg, color-mix(in srgb, var(--c) 30%, transparent) 0, color-mix(in srgb, var(--c) 30%, transparent) 6px, transparent 6px, transparent 12px);}}
 .wk-commute .wk-time {{font-size: 0.68rem; opacity: 0.85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}}
 .wk-block.wk-activity {{border-left: 4px solid #ffffff99;}}
+.wk-block.wk-openable {{cursor: pointer;}}
 .wk-moved {{position: absolute; right: 4px; top: 3px; font-size: 0.62rem; background: #0007; border-radius: 3px; padding: 0 4px;}}
 .wk-block[data-edit] {{cursor: grab; user-select: none; touch-action: none;}}
 .wk-block.dragging {{opacity: 0.85; z-index: 6; box-shadow: 0 8px 18px #0007; cursor: grabbing;}}
@@ -610,6 +691,94 @@ h2[id], h3[id] {{scroll-margin-top: 7rem;}}
 
 /* Library */
 /* Library grid: one HTML block, cards are clickable through data-lib-act */
+.st-key-lib_inner_box {{width: 150px; max-width: 100%; margin-left: auto;}}
+/* Courses > All > Tree: the tree of knowledge. A branch folds by animating its height from its content to nothing (grid rows 1fr -> 0fr). */
+.tk-tree {{margin: 0.4rem 0 1.5rem;}}
+.tk-top {{display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px;}}
+.tk-root {{display: inline-flex; align-items: center; gap: 10px; font-weight: 800; font-size: 1.15rem; padding: 10px 20px; border-radius: 999px; color: #fff;
+  background: linear-gradient(135deg, #5b6cff, #8a5cf6 55%, #e04f9a); box-shadow: 0 6px 18px #0006;}}
+.tk-root i, .tk-n {{font-style: normal; font-size: 0.78rem; font-weight: 700; background: #00000040; border-radius: 999px; padding: 0 9px; line-height: 1.5;}}
+.tk-actions button {{background: transparent; border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 4px 12px; margin-left: 8px; cursor: pointer; font-size: 0.82rem;}}
+.tk-actions button:hover {{border-color: var(--accent); color: var(--accent);}}
+.tk-trunk {{margin-left: 22px; padding-left: 18px; border-left: 8px solid #7c6cf0; border-radius: 0 0 0 10px;}}
+.tk-branch {{position: relative; margin: 10px 0;}}
+.tk-branch::before {{content: ""; position: absolute; left: -18px; top: 19px; width: 18px; height: 5px; background: var(--bc); border-radius: 3px;}}
+.tk-branch[data-level="1"]::before {{height: 7px; top: 18px; left: -20px; width: 20px;}}
+.tk-branch[data-level="3"]::before {{height: 3px; top: 20px;}}
+.tk-head {{display: inline-flex; align-items: center; gap: 10px; cursor: pointer; border: 0; color: #fff; font-weight: 700; font-size: 1rem; padding: 8px 16px; border-radius: 12px;
+  background: color-mix(in srgb, var(--bc) 70%, #0b1220); box-shadow: 0 3px 10px #0005; transition: filter .15s, transform .15s;}}
+.tk-head:hover {{filter: brightness(1.18); transform: translateX(2px);}}
+.tk-branch[data-level="2"] > .tk-head {{font-size: 0.95rem; padding: 6px 14px;}}
+.tk-branch[data-level="3"] > .tk-head {{font-size: 0.88rem; font-weight: 600; padding: 5px 12px; background: color-mix(in srgb, var(--bc) 45%, #0b1220);}}
+.tk-chev {{display: inline-block; transition: transform .3s cubic-bezier(.4, 0, .2, 1); font-size: 0.85rem;}}
+.tk-branch.open > .tk-head .tk-chev {{transform: rotate(90deg);}}
+.tk-body {{display: grid; grid-template-rows: 0fr; opacity: 0; transition: grid-template-rows .38s cubic-bezier(.4, 0, .2, 1), opacity .3s ease;}}
+.tk-branch.open > .tk-body {{grid-template-rows: 1fr; opacity: 1;}}
+.tk-inner {{overflow: hidden; min-height: 0; margin-left: 24px; padding-left: 16px; border-left: 5px solid var(--bc); border-radius: 0 0 0 8px;}}
+.tk-branch[data-level="2"] > .tk-body > .tk-inner {{border-left-width: 4px;}}
+.tk-branch[data-level="3"] > .tk-body > .tk-inner {{border-left-width: 3px;}}
+.tk-leaves {{display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 8px; padding: 8px 0 6px;}}
+.tk-leaf {{cursor: pointer; position: relative; display: flex; flex-direction: column; gap: 1px; padding: 8px 12px 8px 14px; border-radius: 10px; border: 1px solid var(--border); background: var(--card);
+  border-left: 5px solid var(--c); transition: transform .15s ease, box-shadow .15s ease, filter .15s;}}
+.tk-leaf:hover {{transform: translateY(-2px) scale(1.02); box-shadow: 0 8px 18px #0007; filter: brightness(1.12);}}
+.tk-leaf b {{font-size: 0.95rem;}}
+.tk-leaf span {{font-size: 0.82rem; opacity: 0.85; line-height: 1.25;}}
+.tk-leaf i {{font-style: normal; font-size: 0.74rem; opacity: 0.6; margin-top: 2px;}}
+.tk-leaf.sel {{box-shadow: inset 0 0 0 2px var(--accent); background: color-mix(in srgb, var(--c) 22%, var(--card));}}
+/* Library, by course: the tiles of the Courses page */
+.lib-ctiles {{display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 1rem; margin: 0.5rem 0 1.2rem;}}
+.lib-ctile {{position: relative; cursor: pointer; transition: transform .12s ease, filter .12s;}}
+.lib-ctile:hover {{transform: translateY(-2px); filter: brightness(1.1);}}
+.lib-ctcount {{position: absolute; right: 14px; bottom: 14px; font-size: 0.8rem; font-weight: 700; color: #fff; text-shadow: 0 1px 3px #0009; background: #00000040; border-radius: 999px; padding: 1px 10px;}}
+@media (max-width: 1100px) {{.lib-ctiles {{grid-template-columns: repeat(3, minmax(0, 1fr));}}}}
+/* Library views: Tiles (a small cover with the details beside it) and Details (a table) */
+.lib-tilegrid {{display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.8rem; margin-bottom: 1rem;}}
+.lib-tilecard {{display: flex; gap: 12px; align-items: flex-start; border: 1px solid var(--border); border-radius: 10px; padding: 10px; background: var(--card); cursor: pointer; min-width: 0;
+  transition: filter .12s, transform .12s;}}
+.lib-tilecard:hover {{filter: brightness(1.12);}}
+.lib-thumb {{flex: none; width: 64px;}}
+.lib-thumb .book-cover {{width: 100%;}}
+.lib-tilemeta {{flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; font-size: 0.82rem;}}
+.lib-tilemeta strong {{font-size: 0.95rem; line-height: 1.25;}}
+.lib-dim {{opacity: 0.6;}}
+.lib-chips {{display: flex; flex-wrap: wrap; gap: 4px;}}
+.lib-chip {{border: 1px solid; border-radius: 999px; padding: 0 8px; font-size: 0.75rem; white-space: nowrap;}}
+.lib-tileadd {{align-items: stretch; justify-content: center; min-height: 100px;}}
+.lib-tileadd .lib-add {{aspect-ratio: auto; width: 100%; min-height: 80px;}}
+.lib-table {{display: flex; flex-direction: column; margin-bottom: 1rem; border: 1px solid var(--border); border-radius: 10px; overflow: hidden;}}
+.lib-row {{display: grid; grid-template-columns: 3.4fr 1.3fr 1.7fr 0.8fr 1fr 1.1fr 1.4fr 40px; gap: 10px; align-items: center; padding: 7px 12px; border-top: 1px solid var(--border); cursor: pointer;
+  font-size: 0.85rem;}}
+.lib-row:first-child {{border-top: 0;}}
+.lib-row:hover {{background: #ffffff10;}}
+.lib-head {{cursor: default; font-weight: 700; opacity: 0.75; background: #ffffff08;}}
+.lib-head:hover {{background: #ffffff08;}}
+.lib-cell {{overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;}}
+.lib-cell.lib-chips {{overflow: hidden; flex-wrap: nowrap;}}
+.lib-name {{font-weight: 600;}}
+.lib-row .lib-menu {{white-space: nowrap; letter-spacing: 0; padding: 0; text-align: center; justify-self: end; font-size: 1.3rem; line-height: 1;}}
+.lib-row-add {{display: block; cursor: default;}}
+.lib-row-add .lib-add {{display: inline-block; aspect-ratio: auto; border: 0; padding: 2px 4px; font-size: 0.9rem; cursor: pointer; opacity: 0.8;}}
+@media (max-width: 1100px) {{.lib-tilegrid {{grid-template-columns: repeat(2, minmax(0, 1fr));}}}}
+/* Library, Date Added: a chain of bullets on a vertical line */
+.tl-group {{position: relative; padding-left: 34px; margin-bottom: -1rem; padding-bottom: 1.4rem;}}
+.tl-group::before {{content: ""; position: absolute; left: 8px; top: 14px; bottom: -1rem; width: 2px; background: var(--border);}}
+.tl-group.tl-last::before {{bottom: 1.4rem;}}
+summary.tl-head {{display: flex; align-items: center; gap: 10px; margin-bottom: 0.9rem; font-size: 1.05rem; cursor: pointer; list-style: none; user-select: none;}}
+summary.tl-head::-webkit-details-marker {{display: none;}}
+.tl-chev {{margin-left: 4px; opacity: 0.6; transition: transform .15s;}}
+details[open] > summary .tl-chev {{transform: rotate(90deg);}}
+details.tl-group:not([open]) {{padding-bottom: 0.4rem;}}
+details.tl-group:not([open]) > summary {{margin-bottom: 0;}}
+summary.tl-head:hover b {{color: var(--accent);}}
+.tl-dot {{position: absolute; left: 0; top: 4px; width: 18px; height: 18px; border-radius: 50%; background: var(--bg, #0e1117); border: 3px solid var(--accent); box-sizing: border-box;}}
+.tl-count {{opacity: 0.6; font-size: 0.8rem; border: 1px solid var(--border); border-radius: 999px; padding: 0 8px;}}
+.lib-tiles {{display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1rem; margin: 0.5rem 0 1.2rem;}}
+.lib-tile {{cursor: pointer; border: 1px solid var(--border); border-left: 5px solid var(--accent); border-radius: 12px; padding: 22px 20px; background: var(--card);
+  display: flex; flex-direction: column; gap: 6px; transition: transform .12s ease, box-shadow .12s ease, filter .12s;}}
+.lib-tile:hover {{transform: translateY(-2px); box-shadow: 0 8px 20px #0006; filter: brightness(1.12);}}
+.lib-tile b {{font-size: 1.15rem;}}
+.lib-tile span {{opacity: 0.7; font-size: 0.85rem;}}
+@media (max-width: 1100px) {{.lib-tiles {{grid-template-columns: repeat(2, minmax(0, 1fr));}}}}
 .lib-grid {{display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 1.2rem 1rem; align-items: start; margin-bottom: 1rem;}}
 .lib-cover {{cursor: pointer;}}
 .lib-cover:hover .book-cover {{filter: brightness(1.08);}}
@@ -803,6 +972,8 @@ if (!win.__calDragV1) {
     if (block && block.dataset.edit) {
       drag = {mode: e.target.closest('.wk-resize') ? 'resize' : 'move', block, grid, col, startX: e.clientX, startY: e.clientY, moved: false,
               start: +block.dataset.start, end: +block.dataset.end, day: col.dataset.day, dMin: 0};
+    } else if (block && block.dataset.open) {
+      drag = {mode: 'open', block, grid, col, startX: e.clientX, startY: e.clientY, moved: false};
     } else if (!block && e.target === col) {
       const lo = +col.dataset.lo;
       drag = {mode: 'create', grid, col, startY: e.clientY, lo, anchor: snapMin(grid, e.clientY - col.getBoundingClientRect().top) + lo * 60, day: col.dataset.day, moved: false, ghost: null, range: null};
@@ -814,6 +985,7 @@ if (!win.__calDragV1) {
     const dy = e.clientY - drag.startY, dx = e.clientX - (drag.startX || 0);
     if (!drag.moved && Math.abs(dy) < 4 && Math.abs(dx) < 4) return;
     drag.moved = true;
+    if (drag.mode === 'open') return;                       // a class or an activity is opened by a click, not moved by a drag
     const per = +drag.grid.dataset.hourPx / 60;
     if (drag.mode === 'move') {
       drag.dMin = snapMin(drag.grid, dy);
@@ -838,6 +1010,7 @@ if (!win.__calDragV1) {
       if (d.moved && d.range && d.range[1] - d.range[0] >= 15) sendCal('create|' + d.day + '|' + d.range[0] + '|' + d.range[1]);
       return;
     }
+    if (d.mode === 'open') { if (!d.moved) sendCal('click|' + d.block.dataset.open); return; }
     if (!d.moved) { sendCal('click|' + d.block.dataset.ref); return; }
     if (d.mode === 'move') sendCal('move|' + d.block.dataset.ref + '|' + (d.target || d.col).dataset.day + '|' + (d.start + d.dMin));
     else sendCal('resize|' + d.block.dataset.ref + '|' + d.day + '|' + (d.newEnd || d.end));
@@ -864,6 +1037,21 @@ if (!win.__setNavV1) {
     doc.querySelectorAll('.set-nav a').forEach(x => x.classList.toggle('on', x === a));
   }, true);
 }
+// Switching pages: Streamlit keeps the old page's elements (faded) above the new ones until the new page is drawn, so the new page started low and jumped up when the old
+// elements went. While a page is being switched the old elements are hidden, so the new page is built from the top and nothing jumps.
+if (!win.__navSwitchV1) {
+  win.__navSwitchV1 = true;
+  doc.addEventListener('click', e => {
+    const b = e.target.closest && e.target.closest('[class*="st-key-nav_"] button'); if (!b) return;
+    const body = doc.body; body.classList.add('nav-switching');
+    let quiet = 0, tries = 0;
+    const timer = win.setInterval(() => {
+      tries += 1;
+      quiet = doc.querySelector('[data-stale="true"]') ? 0 : quiet + 1;
+      if (quiet >= 3 || tries > 60) { win.clearInterval(timer); body.classList.remove('nav-switching'); }
+    }, 100);
+  }, true);
+}
 // Planner calendar: drag a block from the left panel onto the grid. The block follows the pointer; where it is let go the day and the time (to 15 minutes) go to the hidden box.
 if (!win.__calPanelV1) {
   win.__calPanelV1 = true;
@@ -878,31 +1066,223 @@ if (!win.__calPanelV1) {
   };
   const colAt = (x, y) => { for (const el of doc.elementsFromPoint(x, y)) { const c = el.closest && el.closest('.wk-col'); if (c) return c; } return null; };
   doc.addEventListener('pointerdown', e => {
-    const item = e.target.closest && e.target.closest('.pl-item[data-drag]'); if (!item || e.button !== 0) return;
+    const item = e.target.closest && e.target.closest('.pl-item[data-drag]'); if (!item || e.button !== 0 || item.closest('.pl-nodrop')) return;
+    if (e.target.closest('.pl-more, .pl-show, .pl-handle') || (e.target.closest('.pl-name') || {}).isContentEditable) return;
     pd = {item, what: item.dataset.drag, x: e.clientX, y: e.clientY, ghost: null, col: null};
     e.preventDefault();
   }, true);
   doc.addEventListener('pointermove', e => {
     if (!pd) return;
-    if (!pd.ghost) {
+    if (!pd.started) {
       if (Math.abs(e.clientX - pd.x) < 5 && Math.abs(e.clientY - pd.y) < 5) return;
-      pd.ghost = pd.item.cloneNode(true); pd.ghost.classList.add('pl-ghost'); pd.ghost.removeAttribute('data-drag'); doc.body.appendChild(pd.ghost);
+      pd.started = true; doc.body.classList.add('pl-dragging');                  // no copy of the block follows the pointer: only the preview on the schedule shows
     }
-    pd.ghost.style.left = (e.clientX + 12) + 'px'; pd.ghost.style.top = (e.clientY + 8) + 'px';
     const c = colAt(e.clientX, e.clientY);
     if (pd.col && pd.col !== c) pd.col.classList.remove('drop-hover');
     if (c) c.classList.add('drop-hover');
     pd.col = c;
+    // the block as it will be placed: one hour tall (a study session: its own length), snapped to the grid, in the color of the dragged block
+    if (!c) { if (pd.prev) pd.prev.style.display = 'none'; return; }
+    const grid = c.closest('.wk'), per = +grid.dataset.hourPx / 60, snap = +grid.dataset.snap, len = +(pd.item.dataset.minutes || 60);
+    const start = Math.max(0, Math.min(1440 - len, Math.round((e.clientY - c.getBoundingClientRect().top) / per / snap) * snap + (+c.dataset.lo) * 60));
+    if (!pd.prev) { pd.prev = doc.createElement('div'); pd.prev.className = 'wk-preview'; pd.prev.style.setProperty('--c', getComputedStyle(pd.item).borderLeftColor); pd.prevText = doc.createElement('div'); pd.prev.appendChild(pd.prevText); }
+    if (pd.prev.parentElement !== c) c.appendChild(pd.prev);
+    const hm = m => String(Math.floor(m / 60) % 24).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
+    pd.prev.style.display = ''; pd.prev.style.top = ((start - (+c.dataset.lo) * 60) * per) + 'px'; pd.prev.style.height = (len * per - 2) + 'px';
+    pd.prevText.innerHTML = '<b>' + hm(start) + ' - ' + hm(start + len) + '</b><br>' + ((pd.item.querySelector('.pl-name') || pd.item).textContent || '').trim();
   }, true);
   doc.addEventListener('pointerup', e => {
     const d = pd; pd = null; if (!d) return;
-    if (d.ghost) d.ghost.remove();
+    doc.body.classList.remove('pl-dragging');
+    if (d.prev) d.prev.remove();
     doc.querySelectorAll('.wk-col.drop-hover').forEach(c => c.classList.remove('drop-hover'));
-    if (!d.ghost) return;
+    if (!d.started) return;
     const c = colAt(e.clientX, e.clientY); if (!c) return;
     const grid = c.closest('.wk'), per = +grid.dataset.hourPx / 60, snap = +grid.dataset.snap;
     const minutes = Math.max(0, Math.min(1425, Math.round((e.clientY - c.getBoundingClientRect().top) / per / snap) * snap + (+c.dataset.lo) * 60));
     sendDrop('drop|' + d.what + '|' + c.dataset.day + '|' + minutes);
+  }, true);
+}
+// Calendar panel: drag a block by its grip to change the order of its group (tasks, courses, activities); the new order goes to the hidden box.
+if (!win.__calOrderV1) {
+  win.__calOrderV1 = true;
+  let od = null;
+  const sendOrder = text => {
+    const inp = doc.querySelector('.st-key-cal_sink input'); if (!inp) return;
+    const set = Object.getOwnPropertyDescriptor(win.HTMLInputElement.prototype, 'value').set;
+    inp.focus(); set.call(inp, text + '|' + Date.now());
+    inp.dispatchEvent(new win.Event('input', {bubbles: true}));
+    inp.dispatchEvent(new win.KeyboardEvent('keydown', {key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true}));
+    inp.blur();
+  };
+  const kindOf = el => (el.dataset.drag || '').split(':')[0];
+  doc.addEventListener('pointerdown', e => {
+    const h = e.target.closest && e.target.closest('.pl-handle'); if (!h || e.button !== 0) return;
+    const item = h.closest('.pl-item[data-drag]'); if (!item) return;
+    od = {item, kind: kindOf(item), moved: false}; item.classList.add('pl-moving'); e.preventDefault(); e.stopPropagation();
+  }, true);
+  doc.addEventListener('pointermove', e => {
+    if (!od) return;
+    const sibs = [...od.item.parentElement.children].filter(x => x.matches('.pl-item[data-drag]') && kindOf(x) === od.kind && x !== od.item);
+    for (const s of sibs) {
+      const r = s.getBoundingClientRect();
+      if (e.clientY >= r.top && e.clientY <= r.bottom) {
+        const after = e.clientY > r.top + r.height / 2;
+        if ((after && s.nextElementSibling !== od.item) || (!after && s.previousElementSibling !== od.item)) {
+          const all = [...od.item.parentElement.children].filter(x => x.matches('.pl-item[data-drag]') && x !== od.item);
+          const first = new Map(all.map(x => [x, x.getBoundingClientRect().top]));
+          if (after) s.after(od.item); else s.before(od.item);
+          od.moved = true;
+          all.forEach(x => {
+            const dy = first.get(x) - x.getBoundingClientRect().top; if (!dy) return;
+            x.style.transition = 'none'; x.style.transform = 'translateY(' + dy + 'px)';
+            win.requestAnimationFrame(() => { x.style.transition = 'transform .16s ease'; x.style.transform = ''; });
+          });
+        }
+        break;
+      }
+    }
+  }, true);
+  doc.addEventListener('pointerup', () => {
+    const d = od; od = null; if (!d) return;
+    d.item.classList.remove('pl-moving');
+    if (!d.moved) return;
+    const refs = [...d.item.parentElement.children].filter(x => x.matches('.pl-item[data-drag]') && kindOf(x) === d.kind).map(x => x.dataset.drag);
+    sendOrder('panel|order|' + d.item.dataset.drag + '|' + refs.join(','));
+  }, true);
+}
+// Courses > All > Tree: a click on a branch folds or unfolds it (CSS animates it), Expand All and Collapse All do it for every branch, and a click on a course sends its id to the hidden box.
+if (!win.__treeV1) {
+  win.__treeV1 = true;
+  doc.addEventListener('click', e => {
+    const t = e.target.closest && e.target.closest('[data-tree-toggle], [data-tree-all], [data-tree-course]'); if (!t) return;
+    if (t.dataset.treeCourse) {
+      const inp = doc.querySelector('.st-key-tree_sink input'); if (!inp) return;
+      const set = Object.getOwnPropertyDescriptor(win.HTMLInputElement.prototype, 'value').set;
+      inp.focus(); set.call(inp, t.dataset.treeCourse + '|' + Date.now());
+      inp.dispatchEvent(new win.Event('input', {bubbles: true}));
+      inp.dispatchEvent(new win.KeyboardEvent('keydown', {key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true}));
+      inp.blur(); return;
+    }
+    if (t.dataset.treeAll) { doc.querySelectorAll('.tk-branch').forEach(b => b.classList.toggle('open', t.dataset.treeAll === 'open')); return; }
+    const branch = t.closest('.tk-branch'); if (branch) branch.classList.toggle('open');
+  }, true);
+}
+// Calendar: drag the splitter at the right edge of the left panel to change its width (double-click: back to the usual width), drag the line next to the hours to
+// zoom the time scale (double-click: back to the usual height), and a click on a block of the Task List bar picks that course.
+if (!win.__calSizeV1) {
+  win.__calSizeV1 = true;
+  const sendSize = text => {
+    const inp = doc.querySelector('.st-key-cal_sink input'); if (!inp) return;
+    const set = Object.getOwnPropertyDescriptor(win.HTMLInputElement.prototype, 'value').set;
+    inp.focus(); set.call(inp, text + '|' + Date.now());
+    inp.dispatchEvent(new win.Event('input', {bubbles: true}));
+    inp.dispatchEvent(new win.KeyboardEvent('keydown', {key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true}));
+    inp.blur();
+  };
+  const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+  const zoomTo = (grid, px) => {
+    const f = px / +grid.dataset.renderPx;
+    grid.dataset.hourPx = px;
+    grid.querySelectorAll('.wk-col, .wk-gutter, .wk-col > .wk-block, .wk-col > .wk-free, .wk-col > .wk-now, .wk-hour').forEach(el => {
+      if (el.dataset.t0 === undefined) { el.dataset.t0 = parseFloat(el.style.top) || 0; el.dataset.h0 = parseFloat(el.style.height) || 0; }
+      if (el.style.top) el.style.top = (el.dataset.t0 * f) + 'px';
+      if (el.style.height) el.style.height = (el.dataset.h0 * f) + 'px';
+    });
+  };
+  let sd = null;
+  doc.addEventListener('pointerdown', e => {
+    if (e.button !== 0 || !e.target.closest) return;
+    const split = e.target.closest('.pl-split');
+    if (split) {
+      const col = split.closest('[data-testid="stColumn"]');
+      sd = {kind: 'w', el: split, x: e.clientX, w: col.getBoundingClientRect().width, value: null}; split.classList.add('on'); doc.documentElement.classList.add('pl-resizing'); e.preventDefault(); e.stopPropagation(); return;
+    }
+    const zoom = e.target.closest('.wk-zoom');
+    if (zoom) {
+      const grid = zoom.closest('.wk');
+      sd = {kind: 'z', el: zoom, grid, y: e.clientY, px: +grid.dataset.hourPx, value: null}; zoom.classList.add('on'); e.preventDefault(); e.stopPropagation();
+    }
+  }, true);
+  doc.addEventListener('pointermove', e => {
+    if (!sd) return;
+    if (sd.kind === 'w') {
+      sd.value = Math.round(clamp(sd.w + e.clientX - sd.x, 180, 520));
+      doc.documentElement.style.setProperty('--pl-w', sd.value + 'px');
+    } else {
+      sd.value = Math.round(clamp(sd.px + (e.clientY - sd.y) * 0.4, 32, 140));
+      if (!sd.raf) sd.raf = win.requestAnimationFrame(() => { sd.raf = 0; zoomTo(sd.grid, sd.value); });
+    }
+  }, true);
+  doc.addEventListener('pointerup', () => {
+    const d = sd; sd = null; if (!d) return;
+    d.el.classList.remove('on'); doc.documentElement.classList.remove('pl-resizing');
+    if (d.value === null) return;
+    sendSize((d.kind === 'w' ? 'panelw|' : 'zoom|') + d.value);
+  }, true);
+  doc.addEventListener('dblclick', e => {
+    if (!e.target.closest) return;
+    if (e.target.closest('.pl-split')) { doc.documentElement.style.removeProperty('--pl-w'); sendSize('panelw|0'); e.preventDefault(); }
+    else if (e.target.closest('.wk-zoom')) { sendSize('zoom|0'); e.preventDefault(); }
+  }, true);
+  doc.addEventListener('click', e => {
+    const item = e.target.closest && e.target.closest('[data-pick]'); if (!item) return;
+    if (e.target.closest('.pl-handle, .pl-more, .pl-show, .pl-menu') || (e.target.closest('.pl-name') || {}).isContentEditable) return;
+    sendSize('tl|pick|' + item.dataset.pick);
+  }, true);
+}
+// Calendar panel: the menu of a block (details, rename, change color, hide), a rename by double-clicking its name, and Show in the hidden list.
+if (!win.__calMenuV1) {
+  win.__calMenuV1 = true;
+  const sendMenu = text => {
+    const inp = doc.querySelector('.st-key-cal_sink input'); if (!inp) return;
+    const set = Object.getOwnPropertyDescriptor(win.HTMLInputElement.prototype, 'value').set;
+    inp.focus(); set.call(inp, text + '|' + Date.now());
+    inp.dispatchEvent(new win.Event('input', {bubbles: true}));
+    inp.dispatchEvent(new win.KeyboardEvent('keydown', {key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true}));
+    inp.blur();
+  };
+  const closeMenu = () => { const m = doc.querySelector('.pl-menu'); if (m) m.remove(); };
+  doc.addEventListener('click', e => {
+    const more = e.target.closest && e.target.closest('.pl-more');
+    if (more) {
+      e.preventDefault(); e.stopPropagation(); closeMenu();
+      const ref = more.dataset.menu, r = more.getBoundingClientRect(), m = doc.createElement('div'); m.className = 'pl-menu';
+      const icons = {
+        details: 'M11 7h2v2h-2zm0 4h2v6h-2zm1-9C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z',
+        rename: 'M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a.996.996 0 0 0 0-1.41l-2.34-2.34a.996.996 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z',
+        color: 'M12 3a9 9 0 0 0 0 18c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.01-.23-.26-.38-.61-.38-.99 0-.83.67-1.5 1.5-1.5H16c2.76 0 5-2.24 5-5 0-4.42-4.03-8-9-8zm-5.5 9c-.83 0-1.5-.67-1.5-1.5S5.67 9 6.5 9 8 9.67 8 10.5 7.33 12 6.5 12zm3-4C8.67 8 8 7.33 8 6.5S8.67 5 9.5 5s1.5.67 1.5 1.5S10.33 8 9.5 8zm5 0c-.83 0-1.5-.67-1.5-1.5S13.67 5 14.5 5s1.5.67 1.5 1.5S15.33 8 14.5 8zm3 4c-.83 0-1.5-.67-1.5-1.5S16.67 9 17.5 9s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z',
+        hide: 'M12 7c2.76 0 5 2.24 5 5 0 .65-.13 1.26-.36 1.83l2.92 2.92c1.51-1.26 2.7-2.89 3.43-4.75-1.73-4.39-6-7.5-11-7.5-1.4 0-2.74.25-3.98.7l2.16 2.16C10.74 7.13 11.35 7 12 7zM2 4.27l2.28 2.28.46.46A11.804 11.804 0 0 0 1 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l.42.42L19.73 22 21 20.73 3.27 3 2 4.27zM7.53 9.8l1.55 1.55c-.05.21-.08.43-.08.65 0 1.66 1.34 3 3 3 .22 0 .44-.03.65-.08l1.55 1.55c-.67.33-1.41.53-2.2.53-2.76 0-5-2.24-5-5 0-.79.2-1.53.53-2.2zm4.31-.78 3.15 3.15.02-.16c0-1.66-1.34-3-3-3l-.17.01z',
+        delete: 'M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z'};
+      [['details', 'Details'], ['rename', 'Rename'], ['color', 'Change Color'], ['hide', 'Hide'], ['delete', 'Delete']].forEach(([act, label]) => {
+        const b = doc.createElement('button'); b.type = 'button';
+        b.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="' + icons[act] + '"/></svg><span>' + label + '</span>';
+        if (act === 'delete') b.classList.add('danger');
+        b.addEventListener('click', ev => { ev.stopPropagation(); closeMenu(); sendMenu('panel|' + act + '|' + ref + '|'); });
+        m.appendChild(b);
+      });
+      doc.body.appendChild(m);
+      m.style.left = Math.min(r.right - 4, win.innerWidth - 210) + 'px'; m.style.top = Math.min(r.bottom + 2, win.innerHeight - 240) + 'px';
+      return;
+    }
+    const show = e.target.closest && e.target.closest('.pl-show');
+    if (show) { e.preventDefault(); sendMenu('panel|show|' + show.dataset.show + '|'); return; }
+    if (!(e.target.closest && e.target.closest('.pl-menu'))) closeMenu();
+  }, true);
+  doc.addEventListener('dblclick', e => {
+    const name = e.target.closest && e.target.closest('.pl-name'); if (!name) return;
+    e.preventDefault(); closeMenu();
+    const old = name.textContent; name.contentEditable = 'true'; name.focus();
+    const range = doc.createRange(); range.selectNodeContents(name); const sel = win.getSelection(); sel.removeAllRanges(); sel.addRange(range);
+    let done = false;
+    const finish = save => {
+      if (done) return; done = true; name.contentEditable = 'false';
+      const now = name.textContent.trim();
+      if (!save) { name.textContent = old; return; }
+      if (now !== old) sendMenu('panel|name|' + name.dataset.ref + '|' + encodeURIComponent(now));
+    };
+    name.addEventListener('keydown', ev => { if (ev.key === 'Enter') { ev.preventDefault(); finish(true); } else if (ev.key === 'Escape') { ev.preventDefault(); finish(false); } });
+    name.addEventListener('blur', () => finish(true));
   }, true);
 }
 // 20-20-20 rule: after every 20 minutes of using the app, ask for a 20-second look at something 20 feet away.
@@ -1531,7 +1911,7 @@ if (!win.__annotV1) {
       pen.classList.toggle('act', S.tool === 'pen'); hl.classList.toggle('act', S.tool === 'hl'); er.classList.toggle('act', S.tool === 'er');
       sw.innerHTML = ''; sw.style.display = S.tool === 'er' ? 'none' : 'contents';
       (S.tool === 'hl' ? HL : PEN).forEach(col => {
-        const s = mk('button', 'sw' + (S.col[S.tool] === col ? ' act' : '')); s.type = 'button'; s.style.background = col; s.title = 'colour';
+        const s = mk('button', 'sw' + (S.col[S.tool] === col ? ' act' : '')); s.type = 'button'; s.style.background = col; s.title = 'color';
         s.onclick = ev => { ev.stopPropagation(); S.col[S.tool] = col; sync(); }; sw.appendChild(s);
       });
     }
@@ -1713,12 +2093,6 @@ if not crud.get_course(st.session_state.get("course_id")):
 # Record where we are (skipped right after a Back, which already restored the stored view).
 if st.session_state["page"] not in PAGES:           # a page that no longer exists (an open window on the removed File page)
     st.session_state["page"] = "Home"
-_view = (st.session_state["page"], st.session_state.get("open_course"), st.session_state.get("open_book"))
-if not st.session_state.pop("_going_back", False):
-    _hist = st.session_state["nav_history"]
-    if not _hist or _hist[-1] != _view:
-        _hist.append(_view)
-        del _hist[:-50]
-        st.session_state["nav_forward"] = []          # going somewhere new clears what "forward" would have reached
+navigation.record_view()
 
 PAGES[st.session_state["page"]][1]()

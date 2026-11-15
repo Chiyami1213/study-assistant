@@ -228,20 +228,254 @@ def set_eye_rest(**values):
 DEFAULT_SEMESTER = {"start": "2026-08-24", "end": "2026-12-08", "exam_end": "2026-12-18"}
 
 
+# ---------- Terms: each has a name ("Fall 2026") and its dates; one of them is the active (current) term ----------
+def guess_term_name(start):
+    """A name for a term from its first day: August to December is Fall, January to May Spring, June and July Summer ("Fall 2026")."""
+    from datetime import date as _date
+    d = start if isinstance(start, _date) else _date.fromisoformat(start)
+    season = "Fall" if d.month >= 8 else "Spring" if d.month <= 5 else "Summer"
+    return f"{season} {d.year}"
+
+
+def _terms_of(data):
+    """(terms, active id) of a settings dict. An older settings file has one set of term dates (the key "semester"): that becomes the first term."""
+    if isinstance(data.get("terms"), list):
+        terms = [dict(t) for t in data["terms"]]
+        active = data.get("active_term")
+        return terms, (active if any(t["id"] == active for t in terms) else (terms[0]["id"] if terms else None))
+    sem = data.get("semester")
+    if sem:
+        full = {**DEFAULT_SEMESTER, **sem}
+        return [{"id": 1, "name": guess_term_name(full["start"]), "start": full["start"], "end": full["end"], "exam_end": full["exam_end"]}], 1
+    return [], None
+
+
+def _check_term(name, start, end, exam_end, terms, ignore_id=None):
+    from datetime import date as _date
+    if not (name or "").strip():
+        raise ValueError("A term needs a name, such as Fall 2026.")
+    try:
+        s, e, x = _date.fromisoformat(start), _date.fromisoformat(end), _date.fromisoformat(exam_end)
+    except (TypeError, ValueError):
+        raise ValueError("The term dates are not valid dates.")
+    if e < s:
+        raise ValueError(f"The last day of classes ({end}) is before the first day ({start}).")
+    if x < e:
+        raise ValueError(f"The last day of exams ({exam_end}) is before the last day of classes ({end}).")
+    if any(t["name"].strip().lower() == name.strip().lower() and t["id"] != ignore_id for t in terms):
+        raise ValueError(f"There is already a term called {name.strip()}.")
+
+
+def _save_terms(data, terms, active):
+    data["terms"], data["active_term"] = terms, active
+    current = next((t for t in terms if t["id"] == active), None)
+    if current:
+        data["semester"] = {"start": current["start"], "end": current["end"], "exam_end": current["exam_end"]}     # what older code reads
+    _save(data)
+
+
+def list_terms():
+    """All terms, by start date: [{id, name, start, end, exam_end}] (ISO dates)."""
+    return sorted(_terms_of(_load())[0], key=lambda t: (t["start"], t["id"]))
+
+
+def get_active_term():
+    """The active term as a dict, or None before any term was saved."""
+    terms, active = _terms_of(_load())
+    return next((t for t in terms if t["id"] == active), None)
+
+
+def add_term(name, start, end, exam_end, make_active=False, awake=None):
+    """Add a term (dates as ISO text; `awake`: {"wake": "07:00", "bed": "23:00"} to use while it is the active term). Returns its id. The first term is active."""
+    data = _load()
+    terms, active = _terms_of(data)
+    _check_term(name, start, end, exam_end, terms)
+    new_id = max([t["id"] for t in terms] + [0]) + 1
+    entry = {"id": new_id, "name": name.strip(), "start": start, "end": end, "exam_end": exam_end}
+    if awake and awake.get("wake") and awake.get("bed"):
+        entry["awake"] = {"wake": awake["wake"], "bed": awake["bed"]}
+    terms.append(entry)
+    _save_terms(data, terms, new_id if make_active or active is None else active)
+    return new_id
+
+
+def update_term(term_id, name, start, end, exam_end):
+    data = _load()
+    terms, active = _terms_of(data)
+    term = next((t for t in terms if t["id"] == term_id), None)
+    if term is None:
+        raise ValueError("That term does not exist.")
+    _check_term(name, start, end, exam_end, terms, ignore_id=term_id)
+    term.update(name=name.strip(), start=start, end=end, exam_end=exam_end)
+    _save_terms(data, terms, active)
+
+
+def set_active_term(term_id):
+    data = _load()
+    terms, _ = _terms_of(data)
+    if not any(t["id"] == term_id for t in terms):
+        raise ValueError("That term does not exist.")
+    _save_terms(data, terms, term_id)
+
+
+def delete_term(term_id):
+    """Remove a term. The active term can not be removed: make another one active first."""
+    data = _load()
+    terms, active = _terms_of(data)
+    if term_id == active:
+        raise ValueError("The active term can not be deleted. Make another term active first.")
+    if not any(t["id"] == term_id for t in terms):
+        raise ValueError("That term does not exist.")
+    _save_terms(data, [t for t in terms if t["id"] != term_id], active)
+
+
 def semester_set():
-    """True once the term dates were saved (Calendar > Edit Schedule). A clean install has none, so Home shows no term countdown."""
-    return bool(_load().get("semester"))
+    """True once a term was saved (Calendar > Manage Terms or Edit Schedule). A clean install has none, so Home shows no term countdown."""
+    return bool(_terms_of(_load())[0])
 
 
 def get_semester():
-    """Term dates (ISO): classes start, classes end, end of the exam period (the calendar uses these defaults until they are saved)."""
-    sem = _load().get("semester", {})
-    return {k: sem.get(k, v) for k, v in DEFAULT_SEMESTER.items()}
+    """The active term's dates (ISO): classes start, classes end, end of the exam period (the calendar uses these defaults until a term is saved)."""
+    term = get_active_term()
+    return {k: (term or DEFAULT_SEMESTER)[k] for k in DEFAULT_SEMESTER}
 
 
 def set_semester(start, end, exam_end):
+    """Change the dates of the active term (the first term is made, named from its first day, when there is none)."""
+    term = get_active_term()
+    if term is None:
+        add_term(guess_term_name(start), start, end, exam_end, make_active=True)
+    else:
+        update_term(term["id"], term["name"], start, end, exam_end)
+
+
+# ---------- Blocks of the Calendar panel: which ones are hidden, and the names and colors given to them (a block is "course:7", "task:12" or "activity:3") ----------
+def _block_prefs(data):
+    prefs = data.get("calendar_blocks")
+    return prefs if isinstance(prefs, dict) else {}
+
+
+def get_hidden_blocks():
+    return set(_block_prefs(_load()).get("hidden", []))
+
+
+def set_block_hidden(ref, hidden=True):
     data = _load()
-    data["semester"] = {"start": start, "end": end, "exam_end": exam_end}
+    prefs = _block_prefs(data)
+    hidden_set = set(prefs.get("hidden", []))
+    (hidden_set.add if hidden else hidden_set.discard)(ref)
+    data["calendar_blocks"] = {**prefs, "hidden": sorted(hidden_set)}
+    _save(data)
+
+
+def get_block_names():
+    """{ref: name} the Calendar shows instead of the real name (a course renamed only on the Calendar)."""
+    return dict(_block_prefs(_load()).get("names", {}))
+
+
+def set_block_name(ref, name):
+    """Give a block another name on the Calendar; an empty name goes back to the real one."""
+    data = _load()
+    prefs = _block_prefs(data)
+    names = dict(prefs.get("names", {}))
+    if (name or "").strip():
+        names[ref] = name.strip()
+    else:
+        names.pop(ref, None)
+    data["calendar_blocks"] = {**prefs, "names": names}
+    _save(data)
+
+
+def forget_block(ref):
+    """Drop everything saved for a block that was deleted (hidden, name, color, order)."""
+    data = _load()
+    prefs = _block_prefs(data)
+    data["calendar_blocks"] = {"hidden": [r for r in prefs.get("hidden", []) if r != ref], "order": [r for r in prefs.get("order", []) if r != ref],
+                               "names": {k: v for k, v in prefs.get("names", {}).items() if k != ref}, "colors": {k: v for k, v in prefs.get("colors", {}).items() if k != ref}}
+    _save(data)
+
+
+def get_block_order():
+    """The refs of the Calendar panel's blocks in the order the user dragged them."""
+    return list(_block_prefs(_load()).get("order", []))
+
+
+def set_block_order(refs):
+    """Save the order of one group of blocks (the refs in their new order). The other groups keep theirs: only the relative order inside a group matters."""
+    data = _load()
+    prefs = _block_prefs(data)
+    refs = [r for r in dict.fromkeys(refs) if isinstance(r, str) and r]
+    keep = [r for r in prefs.get("order", []) if r not in set(refs)]
+    data["calendar_blocks"] = {**prefs, "order": keep + refs}
+    _save(data)
+
+
+def get_block_colors():
+    return dict(_block_prefs(_load()).get("colors", {}))
+
+
+def set_block_color(ref, color):
+    data = _load()
+    prefs = _block_prefs(data)
+    colors = dict(prefs.get("colors", {}))
+    if color:
+        colors[ref] = color
+    else:
+        colors.pop(ref, None)
+    data["calendar_blocks"] = {**prefs, "colors": colors}
+    _save(data)
+
+
+HOUR_PX_DEFAULT, HOUR_PX_RANGE = 56, (32, 140)
+PANEL_WIDTH_DEFAULT, PANEL_WIDTH_RANGE = 260, (180, 520)
+
+
+def get_calendar_hour_px():
+    """How tall one hour is in the calendar grid (pixels); 0 or nothing saved = the usual height."""
+    try:
+        px = int(_load().get("calendar_hour_px") or HOUR_PX_DEFAULT)
+    except (TypeError, ValueError):
+        px = HOUR_PX_DEFAULT
+    return max(HOUR_PX_RANGE[0], min(HOUR_PX_RANGE[1], px))
+
+
+def set_calendar_hour_px(px):
+    data = _load()
+    px = int(px or 0)
+    if px <= 0:
+        data.pop("calendar_hour_px", None)
+    else:
+        data["calendar_hour_px"] = max(HOUR_PX_RANGE[0], min(HOUR_PX_RANGE[1], px))
+    _save(data)
+
+
+def get_calendar_panel_width():
+    try:
+        px = int(_load().get("calendar_panel_width") or PANEL_WIDTH_DEFAULT)
+    except (TypeError, ValueError):
+        px = PANEL_WIDTH_DEFAULT
+    return max(PANEL_WIDTH_RANGE[0], min(PANEL_WIDTH_RANGE[1], px))
+
+
+def set_calendar_panel_width(px):
+    """The width of the left panel (pixels); 0 goes back to the usual width."""
+    data = _load()
+    px = int(px or 0)
+    if px <= 0:
+        data.pop("calendar_panel_width", None)
+    else:
+        data["calendar_panel_width"] = max(PANEL_WIDTH_RANGE[0], min(PANEL_WIDTH_RANGE[1], px))
+    _save(data)
+
+
+def get_calendar_panel_open():
+    """Is the panel of blocks on the left of the Calendar shown (True) or folded away (False)?"""
+    return bool(_load().get("calendar_panel_open", True))
+
+
+def set_calendar_panel_open(is_open):
+    data = _load()
+    data["calendar_panel_open"] = bool(is_open)
     _save(data)
 
 

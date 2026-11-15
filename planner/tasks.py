@@ -58,6 +58,7 @@ class Task:
     logged_minutes: int = 0
     source: str = None                      # where it came from (None = typed in); ready for imports
     completed: datetime = None              # UTC moment it was marked done
+    personal: bool = False                  # not for school: it may be planned in a break and outside the term, and has no course
 
     def __post_init__(self):
         if not self.title.strip():
@@ -72,6 +73,8 @@ class Task:
         for moment in (self.due, self.completed):
             if moment is not None and moment.tzinfo is None:
                 raise PlannerError("A task's times have to be UTC moments.")
+        if self.personal and self.course_id is not None:
+            raise PlannerError("A personal task is not for a course.")
         if self.start_ahead_days is not None and self.due is None:
             raise PlannerError("A task without a due date has nothing to start ahead of.")
 

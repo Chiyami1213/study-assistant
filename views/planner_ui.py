@@ -1,13 +1,15 @@
 """The planner on the Calendar page: the cushion banner, the task list with cushion badges, the dialogs (new task, new session or event by dragging, details) and the
 handler of what a drag or a click in the grid reports. The scheduling logic is in the planner package; this only shows it and calls it."""
 import html
+import urllib.parse
 from datetime import date, datetime, time, timedelta, timezone
 
 import streamlit as st
 
 import crud
+import settings
 from planner import commit_store, service, session_store, store, task_store, tasks as T, timeutil, track_store, tracking
-from planner.models import PlannerError
+from planner.models import AwakeTimes, PlannerError
 from views import plan_grid
 
 LEVEL_LABEL = {"green": "Comfortable", "yellow": "Tight", "red": "Does Not Fit"}
@@ -38,47 +40,538 @@ def _cushion_text(minutes):
 
 
 # ---------------------------------------------------------------- the left panel: blocks to drag into the schedule
-def panel_html(tasks, courses, activities, report, usage_left):
+def term_courses(courses, term_name):
+    """The courses of the active term: active courses whose semester is the term's name. When none matches (the names differ), every active course."""
+    active = {cid: c for cid, c in courses.items() if crud.course_status(c) == "Active"}
+    named = {cid: c for cid, c in active.items() if term_name and (c.get("semester") or "").strip().lower() == term_name.strip().lower()}
+    return named or active
+
+
+def in_saved_order(items, ref_of, order):
+    """The items sorted by the order the user dragged them into; those never dragged keep their own order, after the dragged ones."""
+    rank = {r: i for i, r in enumerate(order)}
+    return sorted(items, key=lambda x: rank.get(ref_of(x), len(rank)))
+
+
+def _block(kind, ident, label, sub, color, dot="", hidden=False, selected=None, count=None, minutes=None):
+    """One block of the panel: draggable, with the ⋯ button for its menu and a name that can be renamed by double-clicking it."""
+    ref = f"{kind}:{ident}"
+    more = (f'<button class="pl-show" data-show="{ref}" title="show it in the panel again">Show</button>' if hidden else
+            f'<button class="pl-more" data-menu="{ref}" title="more" aria-label="more">&#8943;</button>')
+    drag = "" if hidden else f' data-drag="{ref}"' + (f' data-minutes="{minutes}"' if minutes else "")
+    handle = "" if hidden else '<span class="pl-handle" title="drag to change the order"><svg viewBox="0 0 12 16" width="12" height="16" fill="currentColor"><circle cx="3.5" cy="3" r="1.7"/><circle cx="3.5" cy="8" r="1.7"/><circle cx="3.5" cy="13" r="1.7"/><circle cx="8.5" cy="3" r="1.7"/><circle cx="8.5" cy="8" r="1.7"/><circle cx="8.5" cy="13" r="1.7"/></svg></span>'
+    pick = f' data-pick="{ref}"' if selected is not None else ""
+    tally = f'<span class="pl-count">{count}</span>' if count is not None else ""
+    fill = f"background:{color}" if selected else f"background:{color}2b"                   # the block that is picked is filled with its color
+    return (f'<div class="pl-item pl-{"task" if kind == "task" else "course"}{" pl-selected" if selected else ""}"{drag}{pick} style="border-left-color:{color};{fill}">'
+            f'{handle}<div class="pl-main">{dot}<b class="pl-name" data-ref="{ref}" title="double-click to rename">{html.escape(label)}</b>{f"<span>{sub}</span>" if sub else ""}{tally}</div>{more}</div>')
+
+
+def panel_html(tasks, courses, activities, report, usage_left, term_name=None, hidden=frozenset(), names=None, colors=None, order=()):
     """The blocks on the left of the Calendar. Dragging one onto the grid adds it there: a task becomes a study session, a course or an activity a weekly time,
-    and the custom event block opens the new-event form. `usage_left`: {task id: minutes not yet in a session}."""
+    and the Custom Event block opens the new-event form. Each block has a ⋯ menu (details, rename, change color, hide). The active term's courses and the tasks
+    that go with them are on top; the other courses and tasks are in a section that is folded until it is opened. `usage_left`: {task id: minutes not yet in a session}."""
+    names, colors = names or {}, colors or {}
     levels = {c.task_id: c.level for c in report.items}
-    out = ['<div class="pl-title">Drag a block into the schedule</div>', '<div class="pl-item pl-event" data-drag="event:0" title="drag it onto the calendar to add an event">Drag a custom event</div>']
-    out.append('<div class="pl-head">Tasks</div>')
-    shown = 0
-    for t in tasks:
-        color = crud.course_color(courses[t.course_id]) if t.course_id in courses else "#6b7280"
+    in_term = dict(in_saved_order(list(term_courses(courses, term_name).items()), lambda kv: f"course:{kv[0]}", order))
+    tasks = in_saved_order(tasks, lambda t: f"task:{t.id}", order)
+    activities = in_saved_order(activities, lambda a: f"activity:{a['id']}", order)
+    out = ['<div class="pl-title">Drag a block into the schedule. Drag the Custom Event block to add an event of your own.</div>',
+           '<div class="pl-item pl-event" data-drag="event:0" title="drag it onto the calendar to add an event of your own"><span class="pl-grip">&#10303;</span>Custom Event</div>']
+
+    def course_color(c):
+        return colors.get(f"course:{c['id']}") or crud.course_color(c)
+
+    def task_block(t, hide_flag=False):
+        ref = f"task:{t.id}"
+        color = colors.get(ref) or (course_color(courses[t.course_id]) if t.course_id in courses else "#6b7280")
         dot = f'<span class="wk-dot" style="background:{plan_grid.LEVEL_COLORS[levels[t.id]]}" title="cushion: {levels[t.id]}"></span>' if t.id in levels else ""
+        who = "Personal" if t.personal else _course_name(courses, t.course_id)
         left = usage_left.get(t.id, t.remaining_minutes)
-        out.append(f'<div class="pl-item pl-task" data-drag="task:{t.id}" style="border-left-color:{color};background:{color}2b" '
-                   f'title="drag it onto the calendar to add a study session">{dot}<b>{html.escape(t.title)}</b>'
-                   f'<span>{html.escape(_course_name(courses, t.course_id))}{" · " if t.course_id in courses else ""}{plan_grid.fmt_minutes(left)} to plan</span></div>')
-        shown += 1
-    if not shown:
-        out.append('<div class="pl-empty">No tasks to plan.</div>')
-    out.append('<div class="pl-head">Courses</div>')
-    for cid, c in courses.items():
-        if crud.course_status(c) == "Completed":
-            continue
-        color = crud.course_color(c)
-        out.append(f'<div class="pl-item pl-course" data-drag="course:{cid}" style="border-left-color:{color};background:{color}2b" '
-                   f'title="drag it onto the calendar to add a weekly class time"><b>{html.escape(c["code"] or c["name"])}</b></div>')
-    if activities:
+        try:
+            length = _drop_duration(t.id)                                  # the length of the session a drop makes: the preview on the grid is as long
+        except PlannerError:
+            length = 60
+        return _block("task", t.id, names.get(ref, t.title), f'{html.escape(who)}{" · " if who else ""}{plan_grid.fmt_minutes(left)} to plan', color, dot, hide_flag, minutes=length)
+
+    def course_block(c, hide_flag=False):
+        ref = f"course:{c['id']}"
+        return _block("course", c["id"], names.get(ref) or c["code"] or c["name"], "", course_color(c), "", hide_flag)
+
+    shown_tasks = [t for t in tasks if f"task:{t.id}" not in hidden and (t.personal or t.course_id in in_term or t.course_id is None)]
+    other_tasks = [t for t in tasks if f"task:{t.id}" not in hidden and not (t.personal or t.course_id in in_term or t.course_id is None)]
+    out.append(f'<div class="pl-head">Tasks</div>')
+    out += [task_block(t) for t in shown_tasks] or ['<div class="pl-empty">No tasks to plan.</div>']
+    out.append(f'<div class="pl-head">Courses{" · " + html.escape(term_name) if term_name else ""}</div>')
+    out += [course_block(c) for cid, c in in_term.items() if f"course:{cid}" not in hidden] or ['<div class="pl-empty">No active courses.</div>']
+    shown_acts = [a for a in activities if f"activity:{a['id']}" not in hidden]
+    if shown_acts:
         out.append('<div class="pl-head">Activities</div>')
-        for a in activities:
-            color = a["color"] or plan_grid.ACTIVITY_COLOR
-            out.append(f'<div class="pl-item pl-course" data-drag="activity:{a["id"]}" style="border-left-color:{color};background:{color}2b" '
-                       f'title="drag it onto the calendar to add a weekly time"><b>{html.escape(a["name"])}</b></div>')
-    return '<div class="pl-panel">' + "".join(out) + "</div>"
+        for a in shown_acts:
+            ref = f"activity:{a['id']}"
+            out.append(_block("activity", a["id"], names.get(ref) or a["name"], "", colors.get(ref) or a["color"] or plan_grid.ACTIVITY_COLOR))
+    other_courses = in_saved_order([c for cid, c in courses.items() if cid not in in_term and crud.course_status(c) == "Active" and f"course:{cid}" not in hidden],
+                                   lambda c: f"course:{c['id']}", order)
+    if other_courses or other_tasks:
+        inner = ""
+        if other_courses:
+            inner += '<div class="pl-head">Other Courses</div>' + "".join(course_block(c) for c in other_courses)
+        if other_tasks:
+            inner += '<div class="pl-head">Other Tasks</div>' + "".join(task_block(t) for t in other_tasks)
+        out.append(f'<details class="pl-fold"><summary>Other Courses and Tasks ({len(other_courses) + len(other_tasks)})</summary>{inner}</details>')
+    hidden_blocks = []
+    for ref in sorted(hidden):
+        kind, _, raw = ref.partition(":")
+        if kind == "course" and raw.isdigit() and int(raw) in courses:
+            hidden_blocks.append(course_block(courses[int(raw)], True))
+        elif kind == "task":
+            t = next((x for x in tasks if f"task:{x.id}" == ref), None)
+            if t:
+                hidden_blocks.append(task_block(t, True))
+        elif kind == "activity":
+            a = next((x for x in activities if f"activity:{x['id']}" == ref), None)
+            if a:
+                hidden_blocks.append(_block("activity", a["id"], a["name"], "", a["color"] or plan_grid.ACTIVITY_COLOR, "", True))
+    if hidden_blocks:
+        out.append(f'<details class="pl-fold"><summary>Hidden ({len(hidden_blocks)})</summary>{"".join(hidden_blocks)}</details>')
+    return wrap_panel("".join(out), nodrop=False, is_open=settings.get_calendar_panel_open())
+
+
+def wrap_panel(inner, nodrop, is_open=True):
+    """The panel with its splitter (drag it to change the width, double-click to go back to the usual width). When it is folded the column glides shut (see the CSS)."""
+    width = settings.get_calendar_panel_width()
+    usual = "" if width == settings.PANEL_WIDTH_DEFAULT else f"<style>:root {{--pl-w: {width}px;}}</style>"
+    return (f'{usual}<div class="pl-wrap" data-open="{1 if is_open else 0}"><div class="pl-panel{" pl-nodrop" if nodrop else ""}">{inner}</div>'
+            f'<div class="pl-split" title="drag to resize, double-click to reset"></div></div>')
+
+
+def filter_panel_html(courses, term_name, counts, selected, hidden=frozenset(), names=None, colors=None, order=()):
+    """The left bar of the Task List: the same blocks as the Calendar panel (grip, menu, color), and a click picks the course whose tasks are listed.
+    `counts`: {"all": n, "personal": n, <course id>: n} of open tasks."""
+    names, colors = names or {}, colors or {}
+    in_term = dict(in_saved_order(list(term_courses(courses, term_name).items()), lambda kv: f"course:{kv[0]}", order))
+
+    ICONS = {"all": "M3 5h18v2H3zm0 6h18v2H3zm0 6h12v2H3z", "personal": "M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"}
+
+    def plain(ref, label, color):
+        icon = f'<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="{ICONS[ref]}"/></svg>'
+        return (f'<div class="pl-pick{" pl-selected" if selected == ref else ""}" data-pick="{ref}">{icon}<b>{html.escape(label)}</b><span class="pl-count">{counts.get(ref, 0)}</span></div>')
+
+    def course(cid, c, hide_flag=False):
+        ref = f"course:{cid}"
+        color = colors.get(ref) or crud.course_color(c)
+        return _block("course", cid, names.get(ref) or c["code"] or c["name"], "", color, "", hide_flag, selected == ref, counts.get(cid, 0))
+
+    out = [plain("all", "All Tasks", "#8b95a7"), '<div class="pl-rule"></div>', f'<div class="pl-head">Courses{" · " + html.escape(term_name) if term_name else ""}</div>']
+    out += [course(cid, c) for cid, c in in_term.items() if f"course:{cid}" not in hidden] or ['<div class="pl-empty">No active courses.</div>']
+    others = in_saved_order([c for cid, c in courses.items() if cid not in in_term and f"course:{cid}" not in hidden and (crud.course_status(c) == "Active" or counts.get(cid))],
+                            lambda c: f"course:{c['id']}", order)
+    if others:
+        out.append(f'<details class="pl-fold"{" open" if any(selected == f"course:{c[chr(105)+chr(100)]}" for c in others) else ""}><summary>Other Courses ({len(others)})</summary>'
+                   + "".join(course(c["id"], c) for c in others) + "</details>")
+    out.append('<div class="pl-rule"></div>')
+    out.append(plain("personal", "Personal / No Course", "#6b7280"))
+    gone = [course(int(r.split(":")[1]), courses[int(r.split(":")[1])], True) for r in sorted(hidden) if r.startswith("course:") and r.split(":")[1].isdigit() and int(r.split(":")[1]) in courses]
+    if gone:
+        out.append(f'<details class="pl-fold"><summary>Hidden ({len(gone)})</summary>{"".join(gone)}</details>')
+    return wrap_panel("".join(out), nodrop=True)
+
+
+# ---------------------------------------------------------------- the menu of a block: details, rename, change color, hide
+def _ref(ref):
+    kind, _, raw = ref.partition(":")
+    if kind not in ("course", "task", "activity") or not raw.isdigit():
+        raise ValueError(ref)
+    return kind, int(raw)
+
+
+def block_name(ref):
+    """(the real name, the name shown) of a block."""
+    kind, ident = _ref(ref)
+    if kind == "course":
+        c = _courses().get(ident)
+        real = (c["code"] or c["name"]) if c else "Course"
+    elif kind == "task":
+        real = task_store.get_task(ident).title
+    else:
+        real = next((a["name"] for a in commit_store.list_activities() if a["id"] == ident), "Activity")
+    return real, settings.get_block_names().get(ref) or real
+
+
+def rename_block(ref, name):
+    """Rename a block. A task or an activity is renamed for real; a course only on the Calendar (an empty name gives it back its own). Returns None or the reason."""
+    kind, ident = _ref(ref)
+    name = " ".join((name or "").replace("|", " ").split())
+    try:
+        if kind == "course":
+            settings.set_block_name(ref, name)
+        elif not name:
+            return "A name can not be empty."
+        elif kind == "task":
+            task_store.update_task(ident, title=name)
+        else:
+            a = next(x for x in commit_store.list_activities() if x["id"] == ident)
+            commit_store.update_activity(ident, name, a["color"], a["location"] or "", bool(a["busy"]), bool(a["in_breaks"]))
+    except (PlannerError, StopIteration) as e:
+        return str(e) if isinstance(e, PlannerError) else "That activity no longer exists."
+    return None
+
+
+def recolor_block(ref, color):
+    """Change the color of a block (None goes back to the usual one). A course keeps it everywhere in the app, an activity too; a task only on the Calendar."""
+    kind, ident = _ref(ref)
+    if kind == "course":
+        crud.set_course_color(ident, color)
+    elif kind == "task":
+        settings.set_block_color(ref, color)
+    else:
+        a = next((x for x in commit_store.list_activities() if x["id"] == ident), None)
+        if a:
+            commit_store.update_activity(ident, a["name"], color, a["location"] or "", bool(a["busy"]), bool(a["in_breaks"]))
+
+
+def switch_term(term_id):
+    """Make a term the active one (the Calendar, the planner and the left bars follow it) and show today, or the first day of the term when today is outside it."""
+    settings.set_active_term(term_id)
+    term = settings.get_active_term()
+    if term.get("awake"):                                                      # the wake-up and bedtime chosen for this term
+        try:
+            store.set_awake(AwakeTimes.uniform(timeutil.parse_hhmm(term["awake"]["wake"]), timeutil.parse_hhmm(term["awake"]["bed"])))
+        except (PlannerError, ValueError):
+            pass
+    today = date.today()
+    first, last = date.fromisoformat(term["start"]), date.fromisoformat(term["exam_end"])
+    anchor = today if first <= today <= last else first
+    st.session_state["cal_anchor"] = anchor
+    st.session_state["cal_month"] = (anchor.year, anchor.month)
+
+
+def _term_changed():
+    """The last entry of the list opens the term manager: the list goes back to the active term."""
+    if st.session_state.get("cal_term") == 0:
+        active = settings.get_active_term()
+        st.session_state["cal_term"] = active["id"] if active else None
+        st.session_state["_open_terms"] = True
+
+
+def term_select(box):
+    """The drop-down of the terms; choosing one makes it the active term, and the last entry, Manage Terms, opens the term manager (add, change, delete)."""
+    terms = settings.list_terms()
+    if not terms:
+        if box.button("Add a Term", key="cal_term_add", icon=":material/add:", help="the Calendar follows the dates of the term"):
+            new_term_dialog()
+        return
+    active = settings.get_active_term()
+    ids = [x["id"] for x in terms] + [0]
+    names = {x["id"]: x["name"] for x in terms} | {0: "Manage Terms…"}
+    picked = box.selectbox("Term", ids, index=ids.index(active["id"]) if active else 0, format_func=names.get, key="cal_term", label_visibility="collapsed",
+                           on_change=_term_changed, help="the term the Calendar and the lists show")
+    if st.session_state.pop("_open_new_term", False):
+        new_term_dialog()
+    elif st.session_state.pop("_open_terms", False):
+        terms_dialog()
+    elif picked and active and picked != active["id"]:
+        switch_term(picked)
+        st.rerun()
+
+
+@st.dialog("Manage Terms", width="large")
+def terms_dialog():
+    """Choose, change, add and delete the terms (the active one decides the dates and which courses the left panel shows)."""
+    terms = settings.list_terms()
+    active = settings.get_active_term()
+    if terms:
+        labels = {x["id"]: x["name"] + (" (Active)" if active and x["id"] == active["id"] else "") for x in terms}
+        ids = list(labels)
+        tid = st.selectbox("Term", ids, index=ids.index(active["id"]) if active else 0, format_func=labels.get, key="term_pick")
+        term = next(x for x in terms if x["id"] == tid)
+        name = st.text_input("Name", term["name"], key=f"term_name_{tid}")
+        a, b, c = st.columns(3)
+        start = a.date_input("Classes Start", date.fromisoformat(term["start"]), key=f"term_start_{tid}")
+        end = b.date_input("Classes End", date.fromisoformat(term["end"]), key=f"term_end_{tid}")
+        exam_end = c.date_input("End of Exam Period", date.fromisoformat(term["exam_end"]), key=f"term_exam_{tid}")
+        s1, s2, s3 = st.columns(3)
+        if s1.button("Save Term", key=f"term_save_{tid}", type="primary", disabled=not (start <= end <= exam_end and name.strip())):
+            try:
+                settings.update_term(tid, name.strip(), start.isoformat(), end.isoformat(), exam_end.isoformat())
+            except ValueError as e:
+                st.error(str(e))
+            else:
+                st.rerun()
+        if s2.button("Make Active", key=f"term_active_{tid}", disabled=bool(active and active["id"] == tid), help="the Calendar and its left panel show this term"):
+            switch_term(tid)
+            st.rerun()
+        if s3.button("Delete Term", key=f"term_delete_{tid}", disabled=bool(active and active["id"] == tid), help="the active term can not be deleted; no course or task is removed"):
+            settings.delete_term(tid)
+            st.rerun()
+    else:
+        st.caption("No term yet. Add one, and the Calendar follows its dates.")
+    st.divider()
+    if st.button("Add New Term", key="term_new_open", icon=":material/add:", type="primary" if not terms else "secondary", help="a new term with its dates, wake-up and bedtime and holidays"):
+        st.session_state["_open_new_term"] = True                              # a dialog can not open another: this one closes and the new-term form opens
+        st.rerun()
+
+
+@st.dialog("Add New Term", width="large")
+def new_term_dialog():
+    """A new term with everything that goes with it: the dates, the wake-up and bedtime to plan with, and the holidays."""
+    import pandas as pd
+    today = date.today()
+    st.markdown("**Dates**")
+    n1, n2, n3 = st.columns(3)
+    nstart = n1.date_input("Classes Start", today, key="nt2_start")
+    nend = n2.date_input("Classes End", today + timedelta(days=105), key="nt2_end")
+    nexam = n3.date_input("End of Exam Period", today + timedelta(days=115), key="nt2_exam")
+    nname = st.text_input("Name", key="nt2_name", placeholder=settings.guess_term_name(nstart))
+    st.markdown("**Wake-Up and Bedtime**")
+    awake = store.get_awake().for_weekday(0)
+    w1, w2 = st.columns(2)
+    wake = w1.time_input("Wake-Up Time", awake.wake, step=900, key="nt2_wake", help="study is planned between these two times, on every day of this term")
+    bed = w2.time_input("Bedtime", awake.bed, step=900, key="nt2_bed")
+    st.markdown("**Holidays and Breaks**")
+    st.caption("Add a row for each break (Fall Break, Thanksgiving). Nothing is planned on those days, except personal tasks.")
+    frame = pd.DataFrame({"Name": pd.Series([], dtype="string"), "Starts": pd.Series([], dtype="object"), "Ends": pd.Series([], dtype="object")})
+    rows = st.data_editor(frame, key="nt2_holidays", num_rows="dynamic", hide_index=True, width="stretch",
+                          column_config={"Name": st.column_config.TextColumn("Name", required=True), "Starts": st.column_config.DateColumn("Starts", format="YYYY-MM-DD", required=True),
+                                         "Ends": st.column_config.DateColumn("Ends", format="YYYY-MM-DD", required=True)}).to_dict("records")
+    make_active = st.checkbox("Make It the Active Term", True, key="nt2_active", help="the Calendar, the planner and the lists follow it, with this wake-up time and bedtime")
+    holidays = [r for r in rows if (r.get("Name") or "").strip() and r.get("Starts") and r.get("Ends")]
+    problems = []
+    if not (nstart <= nend <= nexam):
+        problems.append("The dates have to run from the first day of classes to the last day of classes to the end of exams.")
+    if not bed > wake:
+        problems.append("Bedtime has to be after the wake-up time.")
+    for r in holidays:
+        if r["Ends"] < r["Starts"]:
+            problems.append(f"{r['Name']}: it ends before it starts.")
+    for text in problems:
+        st.warning(text, icon=":material/warning:")
+    if st.button("Add Term", key="nt2_add", type="primary", disabled=bool(problems)):
+        try:
+            new_id = settings.add_term((nname or settings.guess_term_name(nstart)).strip(), nstart.isoformat(), nend.isoformat(), nexam.isoformat(),
+                                       awake={"wake": timeutil.fmt_hhmm(wake), "bed": timeutil.fmt_hhmm(bed)})
+        except ValueError as e:
+            st.error(str(e))
+            return
+        for r in holidays:
+            crud.add_holiday(r["Name"].strip(), r["Starts"].isoformat() if hasattr(r["Starts"], "isoformat") else str(r["Starts"]),
+                             r["Ends"].isoformat() if hasattr(r["Ends"], "isoformat") else str(r["Ends"]))
+        if make_active:
+            switch_term(new_id)
+        st.rerun()
+
+
+def delete_counts(ref):
+    """What deleting a block takes with it, as short phrases for the confirmation."""
+    kind, ident = _ref(ref)
+    if kind == "task":
+        t = task_store.get_task(ident)
+        n = len(session_store.list_sessions(task_id=ident))
+        return [f"the task and its {n} planned study session{'s' if n != 1 else ''}", f"the {plan_grid.fmt_minutes(t.logged_minutes)} logged on it"] if t.logged_minutes else \
+               [f"the task and its {n} planned study session{'s' if n != 1 else ''}"]
+    if kind == "activity":
+        return ["the activity with all its weekly times"]
+    n_tasks = len(task_store.list_tasks(course_id=ident))
+    with commit_store._conn() as conn:
+        meetings = conn.execute("SELECT COUNT(*) n FROM class_meetings WHERE course_id=?", (ident,)).fetchone()["n"]
+    return [f"the course with its {meetings} weekly time{'s' if meetings != 1 else ''}", "its syllabus, notes, homework, exams, quizzes and study log (the files you imported stay in the Library data folder)",
+            f"{n_tasks} task{'s' if n_tasks != 1 else ''} stay, but are no longer linked to a course"]
+
+
+def delete_block(ref):
+    """Delete a task, an activity or a course. A course is deleted only after the database is copied to Backups\\Before Delete <time>. Returns None or the reason it failed."""
+    kind, ident = _ref(ref)
+    try:
+        if kind == "task":
+            task_store.delete_task(ident)
+        elif kind == "activity":
+            commit_store.delete_activity(ident)
+        else:
+            import sqlite3
+            from datetime import datetime as _dt
+            import database
+            target = database.DATA_DIR / "Backups" / f"Before Delete {_dt.now():%Y-%m-%d %H-%M-%S}"
+            target.mkdir(parents=True, exist_ok=True)
+            src = sqlite3.connect(database.DB_PATH)
+            dst = sqlite3.connect(target / "study.db")
+            with dst:
+                src.backup(dst)
+            src.close()
+            dst.close()
+            crud.delete_course(ident)
+    except Exception as e:                                             # say what went wrong instead of a crash
+        return str(e)
+    settings.forget_block(ref)
+    return None
+
+
+def hide_block(ref, hidden=True):
+    _ref(ref)
+    settings.set_block_hidden(ref, hidden)
+
+
+def handle_panel(action, ref, value=""):
+    """A choice from a block's menu, a double-click rename, or Show in the hidden list: 'details', 'rename', 'color', 'hide', 'show', 'name' (the new name is in `value`)."""
+    try:
+        _ref(ref)
+    except ValueError:
+        st.session_state["cal_toast"] = "That block could not be found."
+        return
+    if action == "hide":
+        hide_block(ref, True)
+        st.session_state["cal_toast"] = "Hidden. It is in the Hidden section at the bottom of the panel."
+    elif action == "show":
+        hide_block(ref, False)
+    elif action == "order":
+        refs = [r for r in value.split(",") if r.partition(":")[0] in ("course", "task", "activity") and r.partition(":")[2].isdigit()]
+        if refs:
+            settings.set_block_order(refs)
+    elif action == "name":
+        problem = rename_block(ref, value)
+        if problem:
+            st.session_state["cal_toast"] = problem
+    elif action in ("details", "rename", "color", "delete"):
+        st.session_state["cal_item"] = (action, ref)
+
+
+@st.dialog("Details", width="large")
+def details_dialog(ref):
+    try:
+        kind, ident = _ref(ref)
+    except ValueError:
+        return
+    tz = store.get_term().zone
+    if kind == "course":
+        c = _courses().get(ident)
+        if not c:
+            st.caption("This course no longer exists.")
+            return
+        st.markdown(f"### {html.escape(crud.label(c))}")
+        rows = [("Semester", c.get("semester") or "(none)"), ("Status", crud.course_status(c)), ("School", c.get("school") or "(none)")]
+        for k, v in rows:
+            st.markdown(f"**{k}:** {html.escape(str(v))}")
+        meetings = crud.list_meetings(ident)
+        st.markdown("**Weekly times:** " + (" · ".join(f"{crud.meeting_days_label(m)} {m['start_time']}-{m['end_time']}" + (f" ({m['location']})" if m["location"] else "") for m in meetings) or "none yet"))
+        open_tasks = [t for t in task_store.list_tasks(course_id=ident, include_done=False)]
+        st.markdown(f"**Open tasks:** {len(open_tasks)}")
+        if st.button("Open Course Page", key=f"dt_open_{ident}", icon=":material/open_in_new:"):
+            st.session_state["page"] = "Courses"
+            st.session_state["open_course"] = ident
+            st.rerun()
+    elif kind == "task":
+        try:
+            t = task_store.get_task(ident)
+        except PlannerError:
+            st.caption("This task no longer exists.")
+            return
+        use = track_store.usage(ident)
+        cushion = service.cushion_report().of(ident)
+        courses = _courses()
+        st.markdown(f"### {html.escape(t.title)}")
+        st.markdown(f"**For:** {'Personal (not school)' if t.personal else (_course_name(courses, t.course_id) or 'No course')} · **Category:** {t.category}")
+        st.markdown(f"**Due:** {_fmt_due(t.due, tz)}")
+        st.markdown(f"**Estimate:** {plan_grid.fmt_minutes(t.estimate_minutes)} · **Used:** {plan_grid.fmt_minutes(use.used_minutes)} · **Planned:** {plan_grid.fmt_minutes(use.planned_minutes)} · "
+                    f"**Left to plan:** {plan_grid.fmt_minutes(use.unplanned_minutes)}")
+        if cushion:
+            st.markdown(f"**Cushion:** {_cushion_text(cushion.cushion_minutes)} ({LEVEL_LABEL[cushion.level].lower()})")
+    else:
+        a = next((x for x in commit_store.list_activities() if x["id"] == ident), None)
+        if not a:
+            st.caption("This activity no longer exists.")
+            return
+        st.markdown(f"### {html.escape(a['name'])}")
+        st.markdown(f"**Location:** {html.escape(a['location'] or '(none)')} · **Blocks study time:** {'yes' if a['busy'] else 'no'} · **Also in breaks:** {'yes' if a['in_breaks'] else 'no'}")
+        with commit_store._conn() as conn:
+            ms = conn.execute("SELECT * FROM activity_meetings WHERE activity_id=? ORDER BY id", (ident,)).fetchall()
+        st.markdown("**Weekly times:** " + (" · ".join(f"{crud.meeting_days_label(dict(m))} {m['start_time']}-{m['end_time']}" for m in ms) or "none yet"))
+        st.caption("Click an activity on the calendar to change its weekly times.")
+
+
+@st.dialog("Delete")
+def delete_dialog(ref):
+    try:
+        kind, _ = _ref(ref)
+        real, shown = block_name(ref)
+        parts = delete_counts(ref)
+    except (ValueError, PlannerError):
+        st.caption("That block no longer exists.")
+        return
+    st.markdown(f"**Delete {html.escape(shown)}?**")
+    st.markdown("This removes:\n" + "\n".join(f"- {p}" for p in parts))
+    if kind == "course":
+        st.warning("A course can not be brought back. A copy of the database is saved first in Backups, under Before Delete.", icon=":material/warning:")
+        st.caption("To only take it off the Calendar panel, use Hide instead.")
+    else:
+        st.caption("This can not be undone. To only take it off the panel, use Hide instead.")
+    a, b = st.columns(2)
+    if a.button("Delete", key=f"dl_yes_{ref}", type="primary"):
+        problem = delete_block(ref)
+        if problem:
+            st.error(problem)
+            return
+        st.rerun()
+    if b.button("Cancel", key=f"dl_no_{ref}"):
+        st.rerun()
+
+
+@st.dialog("Rename")
+def rename_dialog(ref):
+    try:
+        real, shown = block_name(ref)
+    except (ValueError, PlannerError):
+        st.caption("That block no longer exists.")
+        return
+    kind, _ = _ref(ref)
+    name = st.text_input("Name", shown, key=f"rn_{ref}")
+    st.caption({"course": "A course is renamed only on the Calendar; its real name does not change. Clear the box to go back to it.",
+                "task": "The task's title changes everywhere.", "activity": "The activity's name changes everywhere."}[kind])
+    if st.button("Rename", key=f"rn_save_{ref}", type="primary", disabled=(kind != "course" and not name.strip())):
+        problem = rename_block(ref, name)
+        if problem:
+            st.error(problem)
+            return
+        st.rerun()
+
+
+@st.dialog("Change Color")
+def color_dialog(ref):
+    try:
+        kind, ident = _ref(ref)
+        real, shown = block_name(ref)
+    except (ValueError, PlannerError):
+        st.caption("That block no longer exists.")
+        return
+    colors = settings.get_block_colors()
+    if kind == "course":
+        c = _courses().get(ident)
+        current = colors.get(ref) or (crud.course_color(c) if c else "#6b7280")
+    elif kind == "task":
+        t = task_store.get_task(ident)
+        c = _courses().get(t.course_id)
+        current = colors.get(ref) or (crud.course_color(c) if c else "#6b7280")
+    else:
+        a = next((x for x in commit_store.list_activities() if x["id"] == ident), None)
+        current = (a["color"] if a else None) or plan_grid.ACTIVITY_COLOR
+    st.markdown(f"**{html.escape(shown)}**")
+    color = st.color_picker("Color", current, key=f"cl_{ref}")
+    st.caption({"course": "The course keeps this color everywhere in the app.", "task": "The task has this color on the Calendar; without one it takes its course's color.",
+                "activity": "The activity keeps this color everywhere."}[kind])
+    a, b = st.columns(2)
+    if a.button("Save Color", key=f"cl_save_{ref}", type="primary"):
+        recolor_block(ref, color)
+        st.rerun()
+    if b.button("Use the Usual Color", key=f"cl_reset_{ref}"):
+        recolor_block(ref, None)
+        st.rerun()
 
 
 @st.dialog("Add Activity")
 def activity_dialog():
     name = st.text_input("Name", key="ac_name", placeholder="Gym")
     where = st.text_input("Location (Optional)", key="ac_loc")
-    c1, c2, c3 = st.columns([1, 1, 1])
-    color = c1.color_picker("Colour", "#0f766e", key="ac_color")
-    busy = c2.toggle("Blocks Study Time", True, key="ac_busy", help="off: it shows on the calendar, but study may be planned over it")
-    in_breaks = c3.toggle("Also in Breaks", False, key="ac_breaks", help="work, for example, goes on during a break")
+    color = st.color_picker("Color", "#0f766e", key="ac_color")
+    busy = st.toggle("Blocks Study Time", True, key="ac_busy", help="off: it shows on the calendar, but study may be planned over it")
+    in_breaks = st.toggle("Also Happens in Breaks", False, key="ac_breaks", help="work, for example, goes on during a break")
     st.caption("Then drag the activity from the left onto the calendar to add its weekly time.")
     if st.button("Add Activity", key="ac_save", type="primary", disabled=not name.strip()):
         try:
@@ -147,7 +640,7 @@ def handle_drop(what, day, minutes):
     if kind == "task":
         start = _local(tz, day, minutes)
         end = start + timedelta(minutes=_drop_duration(ident))
-        _apply(lambda force: service.add_session(ident, start, end, force=force), start, end, None, "The study session was added.")
+        _apply(lambda force: service.add_session(ident, start, end, force=force), start, end, None, "The study session was added.", task_store.get_task(ident).personal)
     elif kind == "event":
         st.session_state["cal_create"] = (day, minutes, min(minutes + 60, 24 * 60), "Event")
     elif kind in ("course", "activity"):
@@ -249,103 +742,65 @@ def banner(report, courses, tz):
                ". Free up time, lower an estimate or move a deadline.", icon=":material/warning:")
 
 
-# ---------------------------------------------------------------- the task list
-def _task_row(t, cushion, courses, tz, sessions):
-    name, due, plan, badge, actions = st.columns([3.6, 2.2, 1.8, 1.6, 3.6], vertical_alignment="center")
-    where = _course_name(courses, t.course_id)
-    name.markdown(f"**{html.escape(t.title)}**  \n{where + ' · ' if where else ''}{t.category}", unsafe_allow_html=False)
-    due.markdown(_fmt_due(t.due, tz))
-    planned = sum(s.minutes for s in sessions if s.task_id == t.id and s.end > _now())
-    plan.markdown(f"{plan_grid.fmt_minutes(t.remaining_minutes)} left" + (f"  \n{plan_grid.fmt_minutes(planned)} planned" if planned else "") +
-                  (f"  \n{plan_grid.fmt_minutes(t.logged_minutes)} used" if t.logged_minutes else ""))
-    if cushion is not None:
-        color = plan_grid.LEVEL_COLORS[cushion.level]
-        badge.markdown(f'<span class="cu-pill" style="background:{color}" title="{LEVEL_LABEL[cushion.level].lower()}: the free time left before the deadline, '
-                       f'after the work that is due by then">{_cushion_text(cushion.cushion_minutes)}</span>', unsafe_allow_html=True)
-    else:
-        badge.caption("")
-    start, log, done, unplan, delete = actions.columns(5)
-    running = track_store.running_timer() is not None
-    if start.button("", key=f"tk_start_{t.id}", icon=":material/play_arrow:", disabled=running, help="start the study timer on this task" if not running else "a timer is already running"):
-        _start(t.id)
-        st.rerun()
-    if log.button("", key=f"tk_log_{t.id}", icon=":material/more_time:", help="log time you worked on it"):
-        log_dialog(t.id)
-    if done.button("", key=f"tk_done_{t.id}", icon=":material/check:", help="mark done"):
-        task_store.set_done(t.id, True)
-        st.rerun()
-    if unplan.button("", key=f"tk_unplan_{t.id}", icon=":material/event_busy:", disabled=not planned, help="remove its planned sessions that have not started"):
-        service.unplan_task(t.id)
-        st.rerun()
-    if delete.button("", key=f"tk_del_{t.id}", icon=":material/delete:", help="delete the task"):
-        task_store.delete_task(t.id)
-        st.rerun()
-
-
-def task_panel(report, courses, tz):
-    now = _now()
-    lists = task_store.task_lists(now)
-    sessions = session_store.list_sessions()
-    st.subheader("Tasks")
-    top = st.columns([1.4, 1.4, 5])
-    if top[0].button("Add Task", key="tk_add_open", type="primary", icon=":material/add_task:"):
-        add_task_dialog()
-    if top[1].button("Default Estimates", key="tk_defaults_open", icon=":material/timer:", help="the time a new task of each category gets, for each course"):
-        defaults_dialog()
-    cushions = {c.task_id: c for c in report.items}
-    open_tasks = [t for t in lists.todo]
-    if not open_tasks:
-        st.caption("No tasks yet. Add one with a due date and an estimate, and the planner shows how much room each deadline has.")
-    overdue_ids = {t.id for t in lists.overdue}
-    for title, group in (("Overdue", [t for t in open_tasks if t.id in overdue_ids]), ("To Do", [t for t in open_tasks if t.id not in overdue_ids and t.due]),
-                         ("No Due Date", [t for t in open_tasks if t.due is None])):
-        if not group:
-            continue
-        st.markdown(f"**{title} ({len(group)})**")
-        for t in group:
-            _task_row(t, cushions.get(t.id), courses, tz, sessions)
-    if lists.completed:
-        with st.expander(f"Completed ({len(lists.completed)})"):
-            for t in lists.completed:
-                a, b = st.columns([6, 1], vertical_alignment="center")
-                a.markdown(f"~~{t.title}~~ · {_course_name(courses, t.course_id)} · {plan_grid.fmt_minutes(t.logged_minutes)} logged")
-                if b.button("", key=f"tk_reopen_{t.id}", icon=":material/undo:", help="open it again"):
-                    task_store.set_done(t.id, False)
-                    st.rerun()
-
-
 # ---------------------------------------------------------------- dialogs
-@st.dialog("Add Task", width="large")
 def add_task_dialog():
-    courses = _courses()
-    choices = {0: "No Course"} | {cid: crud.label(c) for cid, c in courses.items() if crud.course_status(c) != "Completed"}
-    title = st.text_input("Title", key="nt_title", placeholder="Homework 6")
-    a, b = st.columns(2)
-    course_id = a.selectbox("Course", list(choices), format_func=choices.get, key="nt_course")
-    category = b.selectbox("Category", list(T.CATEGORIES), key="nt_category")
-    default = task_store.estimate_for(course_id or None, category)
-    suggestion = track_store.suggestion(category, course_id or None)
-    est_key = f"nt_est_{course_id}_{category}"
-    if suggestion and suggestion.minutes != default:
-        where = "this course" if suggestion.scope == "course" else "all your courses"
-        s1, s2 = st.columns([4, 1.4], vertical_alignment="center")
-        s1.caption(f"Suggestion: **{suggestion.minutes} minutes**, from your {suggestion.samples} finished {category.lower()} tasks in {where} "
-                   f"(they took {suggestion.low} to {suggestion.high} minutes).")
-        s2.button("Use It", key="nt_use_suggestion", on_click=lambda: st.session_state.__setitem__(est_key, suggestion.minutes))
-    c1, c2 = st.columns(2)
-    has_due = c1.checkbox("Has a Due Date", True, key="nt_has_due")
-    due_date = c1.date_input("Due Date", value=date.today() + timedelta(days=7), key="nt_due_date", disabled=not has_due)
-    due_time = c2.time_input("Due Time", value=time(23, 59), step=300, key="nt_due_time", disabled=not has_due)
-    e1, e2 = st.columns(2)
-    estimate = e1.number_input("Estimate (Minutes)", T.ESTIMATE_RANGE[0], T.ESTIMATE_RANGE[1], default, 5, key=est_key,
-                               help=f"the default for this course and category is {default} minutes; change it for this task only")
-    ahead_on = e2.checkbox("Start Ahead", False, key="nt_ahead_on", disabled=not has_due, help="plan work only from this many days before the due date")
-    ahead = e2.number_input("Days Before the Due Date", 0, T.MAX_START_AHEAD, 3, 1, key="nt_ahead", disabled=not (has_due and ahead_on))
-    if st.button("Add Task", key="nt_save", type="primary", disabled=not title.strip()):
-        tz = store.get_term().zone
-        due = timeutil.to_utc(due_date, due_time, tz) if has_due else None
+    task_dialog()
+
+
+@st.dialog("Task", width="large")
+def task_dialog(task_id=None, default_course=None, default_personal=False):
+    """Add a task (task_id None) or change one. A new task starts for `default_course` (or as a personal task) when the list shown is of that."""
+    editing = None
+    if task_id is not None:
         try:
-            task_store.add_task(title.strip(), course_id or None, category, due, None if estimate == default else int(estimate), int(ahead) if (has_due and ahead_on) else None)
+            editing = task_store.get_task(task_id)
+        except PlannerError:
+            st.caption("This task no longer exists.")
+            return
+    p = f"tk{task_id or 0}_"
+    courses = _courses()
+    choices = {0: "No Course"} | {cid: crud.label(c) for cid, c in courses.items() if crud.course_status(c) != "Completed" or (editing and editing.course_id == cid)}
+    title = st.text_input("Title", editing.title if editing else "", key=p + "title", placeholder="Homework 6")
+    personal = st.toggle("Personal (Not for School)", bool(editing.personal) if editing else bool(default_personal), key=p + "personal",
+                         help="a personal task has no course, and it can be planned in a break and outside the term")
+    a, b = st.columns(2)
+    course_id = a.selectbox("Course", list(choices), index=list(choices).index(editing.course_id if editing else default_course) if (editing.course_id if editing else default_course) in choices else 0,
+                            format_func=choices.get, key=p + "course", disabled=personal)
+    course_id = 0 if personal else course_id
+    category = b.selectbox("Category", list(T.CATEGORIES), index=T.CATEGORIES.index(editing.category) if editing else 0, key=p + "category")
+    default = task_store.estimate_for(course_id or None, category)
+    est_key = f"{p}est_{course_id}_{category}"
+    if not editing:
+        suggestion = track_store.suggestion(category, course_id or None)
+        if suggestion and suggestion.minutes != default:
+            where = "this course" if suggestion.scope == "course" else "all your courses"
+            s1, s2 = st.columns([4, 1.4], vertical_alignment="center")
+            s1.caption(f"Suggestion: **{suggestion.minutes} minutes**, from your {suggestion.samples} finished {category.lower()} tasks in {where} "
+                       f"(they took {suggestion.low} to {suggestion.high} minutes).")
+            s2.button("Use It", key="nt_use_suggestion", on_click=lambda: st.session_state.__setitem__(est_key, suggestion.minutes))
+    tz = store.get_term().zone
+    due_local = timeutil.to_local(editing.due, tz) if editing and editing.due else None
+    c1, c2 = st.columns(2)
+    has_due = c1.checkbox("Has a Due Date", bool(due_local) if editing else True, key=p + "has_due")
+    due_date = c1.date_input("Due Date", due_local.date() if due_local else date.today() + timedelta(days=7), key=p + "due_date", disabled=not has_due)
+    due_time = c2.time_input("Due Time", due_local.time().replace(second=0, microsecond=0) if due_local else time(23, 59), step=300, key=p + "due_time", disabled=not has_due)
+    e1, e2 = st.columns(2)
+    estimate = e1.number_input("Estimate (Minutes)", T.ESTIMATE_RANGE[0], T.ESTIMATE_RANGE[1], editing.estimate_minutes if editing else default, 5,
+                               key=est_key if not editing else p + "est",
+                               help=f"the default for this course and category is {default} minutes; change it for this task only")
+    ahead_on = e2.checkbox("Start Ahead", bool(editing and editing.start_ahead_days is not None), key=p + "ahead_on", disabled=not has_due,
+                           help="plan work only from this many days before the due date")
+    ahead = e2.number_input("Days Before the Due Date", 0, T.MAX_START_AHEAD, editing.start_ahead_days if editing and editing.start_ahead_days is not None else 3, 1,
+                            key=p + "ahead", disabled=not (has_due and ahead_on))
+    if st.button("Save Task" if editing else "Add Task", key=p + "save", type="primary", disabled=not title.strip()):
+        due = timeutil.to_utc(due_date, due_time, tz) if has_due else None
+        days = int(ahead) if (has_due and ahead_on) else None
+        try:
+            if editing:
+                task_store.update_task(task_id, title=title.strip(), course_id=course_id or None, category=category, due=due, estimate=int(estimate),
+                                       start_ahead_days=days, personal=personal)
+            else:
+                task_store.add_task(title.strip(), course_id or None, category, due, None if estimate == default else int(estimate), days, personal=personal)
         except PlannerError as e:
             st.error(str(e))
             return
@@ -388,6 +843,9 @@ def create_dialog(day, a, b, start_kind=None):
     start = t1.time_input("Start", value=time(a // 60, a % 60), step=300, key=f"cr_start_{day}_{a}_{b}")
     end = t2.time_input("End", value=time(min(b, 24 * 60 - 1) // 60, min(b, 24 * 60 - 1) % 60), step=300, key=f"cr_end_{day}_{a}_{b}")
     s_utc, e_utc = _local(tz, day, start.hour * 60 + start.minute), _local(tz, day, end.hour * 60 + end.minute)
+    all_day = kind == "Event" and st.toggle("All Day", False, key="cr_allday", help="the event has no time of day: it shows in the all-day row")
+    if all_day:
+        s_utc, e_utc = timeutil.day_bounds_utc(day, tz)
     if kind == "Study Session":
         tasks = task_store.list_tasks(include_done=False)
         if not tasks:
@@ -399,27 +857,58 @@ def create_dialog(day, a, b, start_kind=None):
         for p in session_store.check_session(s_utc, e_utc):
             st.warning(p.message) if not p.hard else st.error(p.message)
         if st.button("Add Study Session", key="cr_add_session", type="primary", disabled=e_utc <= s_utc):
-            _apply(lambda force: service.add_session(task_id, s_utc, e_utc, force=force), s_utc, e_utc, None, "The study session was added.")
+            _apply(lambda force: service.add_session(task_id, s_utc, e_utc, force=force), s_utc, e_utc, None, "The study session was added.", task_store.get_task(task_id).personal)
         return
     courses = _courses()
     title = st.text_input("Title", key="cr_title", placeholder="Dentist")
     where = st.text_input("Location (Optional)", key="cr_loc")
     ch = {0: "No Course"} | {cid: crud.label(c) for cid, c in courses.items()}
     course_id = st.selectbox("Course (Optional)", list(ch), format_func=ch.get, key="cr_course")
-    c1, c2, c3 = st.columns(3)
-    busy = c1.toggle("Blocks Study Time", True, key="cr_busy", help="off: it shows on the calendar, but study may be planned over it")
-    before = c2.number_input("Travel Before (Minutes)", 0, 240, 0, 5, key="cr_before")
-    after = c3.number_input("Travel After (Minutes)", 0, 240, 0, 5, key="cr_after")
+    busy = st.toggle("Blocks Study Time", True, key="cr_busy", help="off: it shows on the calendar, but study may be planned over it") and not all_day
+    c2, c3 = st.columns(2)
+    before = c2.number_input("Travel Time Before (Minutes)", 0, 240, 0, 5, key="cr_before")
+    after = c3.number_input("Travel Time After (Minutes)", 0, 240, 0, 5, key="cr_after")
     if st.button("Add Event", key="cr_add_event", type="primary", disabled=not title.strip() or e_utc <= s_utc):
         try:
-            commit_store.add_event(title.strip(), s_utc, e_utc, False, where.strip(), int(before), int(after), busy, course_id or None)
+            commit_store.add_event(title.strip(), s_utc, e_utc, all_day, where.strip(), 0 if all_day else int(before), 0 if all_day else int(after), busy, course_id or None)
         except PlannerError as e:
             st.error(str(e))
             return
+        st.session_state["cal_anchor"] = day
         st.rerun()
 
 
-@st.dialog("Study Session")
+# ---------------------------------------------------------------- the compact dialogs of a tile on the schedule
+def _banner(name, color):
+    """The title bar of a dialog, in the color of the course, the activity or the task."""
+    st.markdown(f'<div class="dlg-banner" style="--c:{color}">{html.escape(name)}</div>', unsafe_allow_html=True)
+
+
+def _title_box(label, value, key, color):
+    """The title as a text box that looks like the colored title bar."""
+    st.markdown(f"<style>.st-key-{key} input {{border-left: 4px solid {color}; background: {color}30; font-weight: 700; color: {color};}}</style>", unsafe_allow_html=True)
+    return st.text_input(label, value, key=key, label_visibility="collapsed", placeholder="Title")
+
+
+def _footer(key, delete_label="Delete", save_label="Save", save_disabled=False, delete_disabled=False):
+    """Delete at the left, Cancel and Save at the right. Returns (delete pressed, save pressed); Cancel closes the dialog."""
+    d, _gap, c, s = st.columns([1.5, 1.6, 1, 1.1], vertical_alignment="center")
+    delete = d.button(delete_label, key=f"{key}_del", icon=":material/delete:", type="tertiary", disabled=delete_disabled)
+    if c.button("Cancel", key=f"{key}_cancel", type="tertiary"):
+        st.rerun()
+    save = s.button(save_label, key=f"{key}_save", type="primary", disabled=save_disabled)
+    return delete, save
+
+
+def _color_for(course_id=None, ref=None, default="#6b7280"):
+    prefs = settings.get_block_colors()
+    if ref and prefs.get(ref):
+        return prefs[ref]
+    c = _courses().get(course_id)
+    return crud.course_color(c) if c else default
+
+
+@st.dialog("Study Session", width="medium")
 def session_dialog(session_id):
     try:
         s = session_store.get_session(session_id)
@@ -428,10 +917,14 @@ def session_dialog(session_id):
         st.caption("This session no longer exists.")
         return
     tz = store.get_term().zone
-    local = timeutil.to_local(s.start, tz)
-    st.markdown(f"**{html.escape(t.title)}**")
-    st.caption(f"{local:%A, %b} {local.day} · {timeutil.to_local(s.start, tz):%I:%M %p} to {timeutil.to_local(s.end, tz):%I:%M %p} · {plan_grid.fmt_minutes(s.minutes)} · "
-               + ("placed by hand" if s.source == "manual" else "placed by the auto-planner"))
+    local, local_end = timeutil.to_local(s.start, tz), timeutil.to_local(s.end, tz)
+    k = f"sd_{session_id}"
+    _banner(t.title, _color_for(t.course_id, f"task:{t.id}"))
+    c1, c2, c3 = st.columns([1.7, 1, 1], vertical_alignment="center")
+    day = c1.date_input("Date", local.date(), key=f"{k}_date", label_visibility="collapsed")
+    start = c2.time_input("Start", local.time().replace(second=0, microsecond=0), step=300, key=f"{k}_s", label_visibility="collapsed")
+    end = c3.time_input("End", local_end.time().replace(second=0, microsecond=0), step=300, key=f"{k}_e", label_visibility="collapsed")
+    st.caption(("Placed by hand" if s.source == "manual" else "Placed by the auto-planner") + f" · {plan_grid.fmt_minutes(s.minutes)}")
     use = track_store.usage(s.task_id)
     mine = next((u for u in use.sessions if u.session_id == session_id), None)
     if mine:
@@ -440,46 +933,230 @@ def session_dialog(session_id):
     st.caption(f"The task: {plan_grid.fmt_minutes(use.used_minutes)} used of {plan_grid.fmt_minutes(use.estimate_minutes)} estimated"
                + (" (over the estimate)" if use.over_estimate else "") + f" · {plan_grid.fmt_minutes(use.unplanned_minutes)} not planned yet.")
     running = track_store.running_timer()
-    a, b, c = st.columns(3)
-    if a.button("Start Timer", key="sd_start", icon=":material/play_arrow:", disabled=running is not None or t.is_done,
-                help="studies this task now and counts the time to this session"):
+    if st.button("Start Timer", key=f"{k}_timer", icon=":material/play_arrow:", disabled=running is not None or t.is_done, help="studies this task now and counts the time to this session"):
         _start(s.task_id, session_id)
         st.rerun()
-    if b.button("Delete Session", key="sd_delete", type="primary"):
+    new_start, new_end = timeutil.to_utc(day, start, tz), timeutil.to_utc(day, end, tz)
+    delete, save = _footer(k, save_disabled=new_end <= new_start)
+    if delete:
         service.delete_session(session_id)
         st.rerun()
-    if c.button("Close", key="sd_close"):
-        st.rerun()
+    if save:
+        _apply(lambda force: service.update_session(session_id, new_start, new_end, force=force), new_start, new_end, session_id, "The study session was changed.", t.personal)
 
 
-@st.dialog("Event")
+def event_times(when, all_day, start, end, tz):
+    """The UTC start and end of an event on the local day `when`: the whole day, or from `start` to `end` (an hour when the end is empty or not after the start)."""
+    if all_day or start is None:
+        return timeutil.day_bounds_utc(when, tz)
+    s = timeutil.to_utc(when, start, tz)
+    e = timeutil.to_utc(when, end, tz) if end and end > start else s + timedelta(hours=1)
+    return s, e
+
+
+def save_event(event_id, title, when, all_day, start, end, where, before, after, busy, course_id):
+    """Change an event (any event, also the older dated ones). Returns None or the reason it was refused."""
+    s, e = event_times(when, all_day, start, end, store.get_term().zone)
+    try:
+        commit_store.update_event(event_id, title.strip(), s, e, all_day, where.strip(), 0 if all_day else int(before), 0 if all_day else int(after),
+                                  busy and not all_day, course_id or None)
+    except PlannerError as err:
+        return str(err)
+    return None
+
+
+@st.dialog("Event", width="medium")
 def event_dialog(event_id):
-    ev = next((e for e in commit_store.list_events(date.today() - timedelta(days=400), date.today() + timedelta(days=400)) if e.id == event_id and e.source != "legacy"), None)
-    if ev is None:
+    try:
+        ev = _find_event(event_id)
+    except PlannerError:
         st.caption("This event no longer exists.")
         return
     tz = store.get_term().zone
-    local = timeutil.to_local(ev.start, tz)
-    title = st.text_input("Title", ev.title, key=f"ev_title_{event_id}")
-    where = st.text_input("Location", ev.location, key=f"ev_loc_{event_id}")
-    c1, c2, c3 = st.columns(3)
-    busy = c1.toggle("Blocks Study Time", ev.busy, key=f"ev_busy_{event_id}")
-    before = c2.number_input("Travel Before (Minutes)", 0, 240, ev.commute_before, 5, key=f"ev_before_{event_id}")
-    after = c3.number_input("Travel After (Minutes)", 0, 240, ev.commute_after, 5, key=f"ev_after_{event_id}")
-    st.caption(f"{local:%A, %b} {local.day} · {local:%I:%M %p} to {timeutil.to_local(ev.end, tz):%I:%M %p}. Drag it on the calendar to move it.")
-    a, b, c = st.columns(3)
-    if a.button("Save", key=f"ev_save_{event_id}", type="primary", disabled=not title.strip()):
-        try:
-            commit_store.update_event(event_id, title.strip(), ev.start, ev.end, ev.all_day, where.strip(), int(before), int(after), busy, ev.course_id)
-        except PlannerError as e:
-            st.error(str(e))
-            return
-        st.rerun()
-    if b.button("Delete", key=f"ev_delete_{event_id}"):
+    local, local_end = timeutil.to_local(ev.start, tz), timeutil.to_local(ev.end, tz)
+    k = f"ev_{event_id}_"
+    choices = {0: "No Course"} | {cid: crud.label(c) for cid, c in _courses().items()}
+    course_id = st.selectbox("Course", list(choices), index=list(choices).index(ev.course_id) if ev.course_id in choices else 0, format_func=choices.get, key=k + "course",
+                             label_visibility="collapsed", help="the course of the event (it gives the event its color)")
+    title = _title_box("Title", ev.title, k + "title", _color_for(course_id or None, default="#4c8dff"))
+    c1, c2, c3, c4 = st.columns([1.7, 1, 1, 1.1], vertical_alignment="center")
+    when = c1.date_input("Date", local.date(), key=k + "date", label_visibility="collapsed")
+    all_day = c4.checkbox("All day", ev.all_day, key=k + "allday")
+    start = c2.time_input("Start", local.time().replace(second=0, microsecond=0), step=300, key=k + "start", disabled=all_day, label_visibility="collapsed")
+    end = c3.time_input("End", local_end.time().replace(second=0, microsecond=0) if not ev.all_day else time(min(local.hour + 1, 23), 0), step=300, key=k + "end",
+                        disabled=all_day, label_visibility="collapsed")
+    b2, b3 = st.columns(2)
+    before = b2.number_input("Commute Before (Minutes)", 0, 240, ev.commute_before, 5, key=k + "before", disabled=all_day)
+    after = b3.number_input("Commute After (Minutes)", 0, 240, ev.commute_after, 5, key=k + "after", disabled=all_day)
+    where = st.text_input("Location", ev.location, key=k + "loc", icon=":material/location_on:", label_visibility="collapsed", placeholder="Location")
+    free = st.toggle("Free", not ev.busy or ev.all_day, key=k + "free", disabled=all_day, help="on: it shows on the calendar, but study may be planned over it")
+    delete, save = _footer(k, save_disabled=not title.strip())
+    if delete:
         commit_store.delete_event(event_id)
         st.rerun()
-    if c.button("Close", key=f"ev_close_{event_id}"):
+    if save:
+        problem = save_event(event_id, title, when, all_day, start, end, where, before, after, not free, course_id)
+        if problem:
+            st.error(problem)
+            return
+        st.session_state["cal_anchor"] = when
         st.rerun()
+
+
+# ---------------------------------------------------------------- a class or an activity: this time only, or every week
+OWNER_WORD = {"course": "class", "activity": "activity"}
+
+
+def skip_this(owner, meeting_id, day):
+    """This occurrence does not happen. Returns None or the reason it was refused."""
+    try:
+        commit_store.skip_occurrence(owner, meeting_id, day)
+    except PlannerError as e:
+        return str(e)
+    return None
+
+
+def move_this(owner, meeting_id, day, start, end, location=None):
+    """This occurrence happens at another time (and place); the rest of the series does not change."""
+    try:
+        commit_store.override_occurrence(owner, meeting_id, day, start, end, location or None)
+    except PlannerError as e:
+        return str(e)
+    return None
+
+
+def restore_this(owner, meeting_id, day):
+    commit_store.restore_occurrence(owner, meeting_id, day)
+
+
+def save_series(owner, meeting_id, days, start, end, location="", end_date=None):
+    """Change every occurrence of the weekly meeting (the days, the time, the place, the last day)."""
+    try:
+        commit_store.update_meeting(owner, meeting_id, set(days), start, end, location, end_date)
+    except PlannerError as e:
+        return str(e)
+    return None
+
+
+def remove_series(owner, meeting_id):
+    """Remove the weekly meeting with all its exceptions."""
+    commit_store.delete_meeting(owner, meeting_id)
+
+
+def save_activity(activity_id, name, color, location, busy, in_breaks):
+    try:
+        commit_store.update_activity(activity_id, name, color, location, busy, in_breaks)
+    except PlannerError as e:
+        return str(e)
+    return None
+
+
+@st.dialog("Class or Activity", width="medium")
+def occurrence_dialog(owner, meeting_id, day):
+    try:
+        m = commit_store.get_meeting(owner, meeting_id)
+    except PlannerError:
+        st.caption("This weekly time no longer exists.")
+        return
+    word = OWNER_WORD[owner]
+    courses = _courses()
+    activity = None
+    if owner == "course":
+        course = courses.get(m["course_id"])
+        name = crud.label(course) if course else "Course"
+        color = _color_for(m["course_id"], f"course:{m['course_id']}")
+    else:
+        activity = next((a for a in commit_store.list_activities() if a["id"] == m["activity_id"]), None)
+        name = activity["name"] if activity else "Activity"
+        color = (activity["color"] if activity else None) or plan_grid.ACTIVITY_COLOR
+    exc = commit_store.exception_on(owner, meeting_id, day)
+    usual_start, usual_end = timeutil.parse_hhmm(m["start_time"]), timeutil.parse_hhmm(m["end_time"])
+    key = f"oc_{owner}_{meeting_id}_{day.isoformat()}"
+    _banner(name, color)
+    scope = st.segmented_control("Changes Apply To", ["This Day Only", "Every Week"], default="This Day Only", key=f"{key}_scope", label_visibility="collapsed") or "This Day Only"
+    if exc and exc.kind == "override":
+        st.caption(f"This {word} was changed for this day only (usually {m['start_time']} to {m['end_time']}).")
+    elif exc and exc.kind == "skip":
+        st.caption(f"This {word} is skipped on this day.")
+    if scope == "This Day Only":
+        cur_start = exc.start if exc and exc.kind == "override" else usual_start
+        cur_end = exc.end if exc and exc.kind == "override" else usual_end
+        c1, c2, c3 = st.columns([1.7, 1, 1], vertical_alignment="center")
+        c1.date_input("Date", day, key=f"{key}_date", disabled=True, label_visibility="collapsed", help="to move it to another day, change the whole series or drag it")
+        start = c2.time_input("Start", cur_start, step=300, key=f"{key}_s", label_visibility="collapsed")
+        end = c3.time_input("End", cur_end, step=300, key=f"{key}_e", label_visibility="collapsed")
+        where = st.text_input("Location", (exc.location if exc and exc.kind == "override" and exc.location is not None else m["location"]) or "", key=f"{key}_l",
+                              icon=":material/location_on:", label_visibility="collapsed", placeholder="Location")
+        st.caption(f"Only {day:%A, %b} {day.day} changes; the other weeks stay as they are.")
+        if exc is not None and st.button("Back to Usual", key=f"{key}_restore", type="tertiary", icon=":material/undo:", help="drops the change or the skip of this day"):
+            restore_this(owner, meeting_id, day)
+            st.rerun()
+        delete, save = _footer(key, delete_label=f"Skip This {word.title()}", save_disabled=end <= start)
+        if delete:
+            problem = skip_this(owner, meeting_id, day)
+            if problem:
+                st.error(problem)
+            else:
+                st.session_state["cal_toast"] = f"The {word} on {day:%b} {day.day} was skipped."
+                st.rerun()
+        if save:
+            problem = move_this(owner, meeting_id, day, start, end, where.strip() if where.strip() != (m["location"] or "") else None)
+            if problem:
+                st.error(problem)
+            else:
+                st.session_state["cal_toast"] = f"The {word} was changed for {day:%b} {day.day}."
+                st.rerun()
+    else:
+        c1, c2 = st.columns(2)
+        s2 = c1.time_input("Start", usual_start, step=300, key=f"{key}_s2", label_visibility="collapsed")
+        e2 = c2.time_input("End", usual_end, step=300, key=f"{key}_e2", label_visibility="collapsed")
+        days = st.multiselect("Weekly On", list(range(7)), default=[int(d) for d in m["days"].split(",") if d != ""], format_func=lambda d: crud.DAY_ABBR[d], key=f"{key}_days",
+                              help="the days of the week it happens")
+        u1, u2 = st.columns([1.2, 1.6], vertical_alignment="center")
+        has_end = u1.checkbox("Until", bool(m["end_date"]), key=f"{key}_has_end")
+        end_date = u2.date_input("Until", date.fromisoformat(m["end_date"]) if m["end_date"] else day + timedelta(days=84), key=f"{key}_end", disabled=not has_end, label_visibility="collapsed")
+        where2 = st.text_input("Location", m["location"] or "", key=f"{key}_l2", icon=":material/location_on:", label_visibility="collapsed", placeholder="Location")
+        if activity:
+            free = st.toggle("Free", not bool(activity["busy"]), key=f"{key}_free", help="on: it shows on the calendar, but study may be planned over it")
+        st.caption("Every week changes, from the first to the last one.")
+        delete, save = _footer(key, delete_label="Delete Every Week", save_disabled=not days or e2 <= s2)
+        if delete:
+            st.session_state[f"{key}_sure"] = True
+        if st.session_state.get(f"{key}_sure"):
+            st.warning("This deletes the weekly time and every change made to single days.", icon=":material/warning:")
+            if st.button("Yes, Delete It", key=f"{key}_yes", type="primary"):
+                remove_series(owner, meeting_id)
+                st.session_state["cal_toast"] = "The weekly time was removed."
+                st.rerun()
+        if save:
+            problem = save_series(owner, meeting_id, days, s2, e2, where2.strip(), end_date if has_end else None)
+            if not problem and activity and free != (not bool(activity["busy"])):
+                problem = save_activity(activity["id"], activity["name"], activity["color"] or plan_grid.ACTIVITY_COLOR, activity["location"] or "", not free, bool(activity["in_breaks"]))
+            if problem:
+                st.error(problem)
+            else:
+                st.session_state["cal_toast"] = "The weekly time was changed."
+                st.rerun()
+    if activity:
+        with st.expander("The Activity Itself"):
+            n1, n2 = st.columns([3, 1])
+            new_name = n1.text_input("Name", activity["name"], key=f"{key}_an")
+            color2 = n2.color_picker("Color", activity["color"] or plan_grid.ACTIVITY_COLOR, key=f"{key}_ac")
+            where_a = st.text_input("Usual Location", activity["location"] or "", key=f"{key}_al")
+            busy = st.toggle("Blocks Study Time", bool(activity["busy"]), key=f"{key}_ab")
+            in_breaks = st.toggle("Also Happens in Breaks", bool(activity["in_breaks"]), key=f"{key}_abr")
+            p, q = st.columns(2)
+            if p.button("Save Activity", key=f"{key}_asave", disabled=not new_name.strip()):
+                problem = save_activity(activity["id"], new_name, color2, where_a.strip(), busy, in_breaks)
+                if problem:
+                    st.error(problem)
+                else:
+                    st.rerun()
+            sure = q.checkbox("Delete the whole activity", False, key=f"{key}_adel_on")
+            if q.button("Delete Activity", key=f"{key}_adel", disabled=not sure):
+                commit_store.delete_activity(activity["id"])
+                st.session_state["cal_toast"] = "The activity was deleted."
+                st.rerun()
 
 
 @st.dialog("Place It Anyway?")
@@ -501,14 +1178,14 @@ def confirm_dialog():
         st.rerun()
 
 
-def _apply(run, start, end, ignore_id, ok_message):
+def _apply(run, start, end, ignore_id, ok_message, personal=False):
     """Run a change (run(force) raises PlannerError when refused). Only soft problems ask the student whether to go ahead; hard ones just say why."""
     try:
         run(False)
         st.session_state["cal_toast"] = ok_message
         st.rerun()
     except PlannerError as e:
-        problems = session_store.check_session(start, end, ignore_id) if start and end else []
+        problems = session_store.check_session(start, end, ignore_id, personal) if start and end else []
         if problems and not any(p.hard for p in problems):
             st.session_state["cal_confirm"] = {"message": str(e), "run": run}
             st.rerun()
@@ -527,6 +1204,15 @@ def handle_action(text):
         action = parts[0]
         if action == "create":
             st.session_state["cal_create"] = (date.fromisoformat(parts[1]), int(parts[2]), int(parts[3]))
+        elif action == "tl":
+            if parts[1] == "pick" and (parts[2] in ("all", "personal") or _ref(parts[2])[0] == "course"):
+                st.session_state["tl_which"] = parts[2]
+        elif action == "zoom":
+            settings.set_calendar_hour_px(int(parts[1]))
+        elif action == "panelw":
+            settings.set_calendar_panel_width(int(parts[1]))
+        elif action == "panel":
+            handle_panel(parts[1], parts[2], urllib.parse.unquote(parts[3]) if len(parts) > 3 else "")
         elif action == "drop":
             handle_drop(parts[1], date.fromisoformat(parts[2]), int(parts[3]))
         elif action == "click":
@@ -540,7 +1226,7 @@ def handle_action(text):
                 if kind == "session":
                     cur = session_store.get_session(item_id)
                     new_end = new_start + (cur.end - cur.start)
-                    _apply(lambda force: service.move_session(item_id, new_start, force=force), new_start, new_end, item_id, "The study session was moved.")
+                    _apply(lambda force: service.move_session(item_id, new_start, force=force), new_start, new_end, item_id, "The study session was moved.", task_store.get_task(cur.task_id).personal)
                 else:
                     ev = _find_event(item_id)
                     new_end = new_start + (ev.end - ev.start)
@@ -551,7 +1237,7 @@ def handle_action(text):
                 new_end = _local(tz, day, end_minutes)
                 if kind == "session":
                     cur = session_store.get_session(item_id)
-                    _apply(lambda force: service.resize_session(item_id, new_end=new_end, force=force), cur.start, new_end, item_id, "The study session was resized.")
+                    _apply(lambda force: service.resize_session(item_id, new_end=new_end, force=force), cur.start, new_end, item_id, "The study session was resized.", task_store.get_task(cur.task_id).personal)
                 else:
                     ev = _find_event(item_id)
                     commit_store.update_event(item_id, ev.title, ev.start, new_end, ev.all_day, ev.location, ev.commute_before, ev.commute_after, ev.busy, ev.course_id)
@@ -579,9 +1265,22 @@ def show_pending():
     elif st.session_state.get("cal_create"):
         day, a, b, *kind = st.session_state.pop("cal_create")
         create_dialog(day, a, b, kind[0] if kind else None)
+    elif st.session_state.get("cal_item"):
+        action, ref = st.session_state.pop("cal_item")
+        {"details": details_dialog, "rename": rename_dialog, "color": color_dialog, "delete": delete_dialog}[action](ref)
     elif st.session_state.get("cal_meeting"):
         owner, ident, day, minutes = st.session_state.pop("cal_meeting")
         meeting_dialog(owner, ident, day, minutes)
     elif st.session_state.get("cal_open"):
-        kind, _, raw = st.session_state.pop("cal_open").partition(":")
-        (session_dialog if kind == "session" else event_dialog)(int(raw))
+        what = st.session_state.pop("cal_open")
+        try:
+            if what.startswith("occ:"):
+                _, owner, mid, day = what.split(":")
+                if owner not in OWNER_WORD:
+                    raise ValueError(owner)
+                occurrence_dialog(owner, int(mid), date.fromisoformat(day))
+            else:
+                kind, _, raw = what.partition(":")
+                (session_dialog if kind == "session" else event_dialog)(int(raw))
+        except ValueError:
+            st.toast("That could not be opened.")

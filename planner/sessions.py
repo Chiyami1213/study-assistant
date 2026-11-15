@@ -45,7 +45,7 @@ class Problem:
     hard: bool               # a hard problem can not be overridden
 
 
-def placement_problems(config, start, end, blocks, other_sessions):
+def placement_problems(config, start, end, blocks, other_sessions, personal=False):
     """Everything that is wrong with a session from start to end (UTC): a list of Problems, hard ones first; empty when it fits.
     `blocks`: the commitments around it; `other_sessions`: the sessions it must not overlap (leave the session being moved out of it)."""
     tz = config.term.zone
@@ -54,15 +54,15 @@ def placement_problems(config, start, end, blocks, other_sessions):
         return [Problem("time", "A study session has to end after it starts.", True)]
     day = timeutil.local_day(start, tz)
     end_day = timeutil.local_day(end - timedelta(seconds=1), tz)
-    if not config.term.in_term(day):
-        out.append(Problem("term", "That day is outside the term.", True))
-    elif config.term.break_on(day):
-        out.append(Problem("break", f"That day is in {config.term.break_on(day).name}: nothing is planned in a break.", True))
+    if not personal and not config.term.in_term(day):
+        out.append(Problem("term", "That day is outside the term (only personal tasks can be planned there).", True))
+    elif not personal and config.term.break_on(day):
+        out.append(Problem("break", f"That day is in {config.term.break_on(day).name}: schoolwork is not planned in a break (a personal task can be).", True))
     for s in other_sessions:
         if s.overlaps(start, end):
             out.append(Problem("session", "It overlaps another study session.", True))
             break
-    window = config.awake_interval(day) if config.term.is_planning_day(day) else None
+    window = config.awake_window(day) if personal else (config.awake_interval(day) if config.term.is_planning_day(day) else None)
     if window is not None and (day != end_day or start < window[0] or end > window[1]):
         out.append(Problem("awake", "Part of it is outside your awake hours.", False))
     for b in blocks:
@@ -125,6 +125,18 @@ def _place(candidates, remaining, minimum):
     return chunks, remaining
 
 
+def planning_last_day(config, work, now):
+    """The last local day the planner has to look at for these tasks: the latest school deadline (inside the term), the latest personal deadline (any day), or the end of
+    the term when a task is overdue or has no due date."""
+    tz = config.term.zone
+    first = timeutil.local_day(now, tz)
+    term_end = config.term.exams_end
+    school = [timeutil.local_day(t.due, tz) for t in work if t.due is not None and not t.is_overdue(now) and not t.personal]
+    personal = [timeutil.local_day(t.due, tz) for t in work if t.due is not None and not t.is_overdue(now) and t.personal]
+    base = term_end if any(t.due is None or t.is_overdue(now) for t in work) else (min(max(school), term_end) if school else first)
+    return max(first, base, max(personal) if personal else first)
+
+
 def autoplan(config, tasks, blocks, sessions, now, include_undated=False):
     """Plan study sessions for the unfinished tasks with a due date (earliest deadline first, ties by id).
     - The automatic sessions that have not started are replaced; manual sessions, and any session already begun, stay and count as planned time.
@@ -141,10 +153,9 @@ def autoplan(config, tasks, blocks, sessions, now, include_undated=False):
         return PlanResult((), remove, (), ())
     first = timeutil.local_day(now, tz)
     term_end = config.term.exams_end
-    dated_days = [timeutil.local_day(t.due, tz) for t in work if t.due is not None and not t.is_overdue(now)]
-    needs_term_end = any(t.due is None or t.is_overdue(now) for t in work)
-    last = term_end if needs_term_end or not dated_days else min(max(dated_days), term_end)
-    pool = freetime.free_intervals(config, blocks, kept, first, max(first, last), now)
+    last = planning_last_day(config, work, now)
+    pool = freetime.free_intervals(config, blocks, kept, first, max(first, last), now, personal=True)             # every day; school tasks are cut to the term below
+    school_days = freetime.merge(freetime.awake_intervals(config, first, max(first, last), personal=False))
     horizon = timeutil.day_bounds_utc(term_end, tz)[1]
     add, unplaced, late = [], [], []
     for t in work:
@@ -156,7 +167,8 @@ def autoplan(config, tasks, blocks, sessions, now, include_undated=False):
         need = max(0, t.remaining_minutes - freetime.planned_minutes(kept, t.id, lo, hi))
         if need == 0:
             continue
-        candidates = [(max(s, lo), min(e, hi)) for s, e in pool]
+        usable = pool if t.personal else [(s, e) for s, e in freetime.intersect(pool, school_days)]
+        candidates = [(max(s, lo), min(e, hi)) for s, e in usable]
         candidates = [(s, e) for s, e in candidates if e - s >= timedelta(minutes=minimum)]
         chunks, left = _place(candidates, need, minimum)
         placed = [(s, s + timedelta(minutes=m)) for s, m in chunks]

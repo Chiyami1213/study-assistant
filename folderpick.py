@@ -53,7 +53,7 @@ def _start_folder(start):
 
 
 def _mac(kind, start, title, filter=""):
-    """The folder or file chosen in the macOS dialog (osascript), or None when it was cancelled."""
+    """The folder or file chosen in the macOS dialog (osascript), or None when it was canceled."""
     start = _start_folder(start)
     esc = lambda s: str(s).replace("\\", "\\\\").replace('"', '\\"')
     where = f' default location POSIX file "{esc(start)}"' if start else ""
@@ -85,7 +85,7 @@ def _run(script, start, title, filter=""):
 
 
 def pick(start="", title="Choose a Folder"):
-    """The folder the user chose, or None when the window was cancelled or cannot be opened (not Windows, no PowerShell)."""
+    """The folder the user chose, or None when the window was canceled or cannot be opened (not Windows, no PowerShell)."""
     return _run(_SCRIPT, start, title)
 
 

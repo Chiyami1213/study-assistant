@@ -290,7 +290,8 @@ CREATE TABLE IF NOT EXISTS tasks (
     logged_minutes   INTEGER NOT NULL DEFAULT 0,
     source           TEXT,                                  -- where it came from (NULL = typed in); ready for imports
     created_utc      TEXT NOT NULL,
-    completed_utc    TEXT
+    completed_utc    TEXT,
+    personal         INTEGER NOT NULL DEFAULT 0             -- 1: not for school (no course; may be planned in a break and outside the term)
 );
 CREATE INDEX IF NOT EXISTS idx_tasks_due ON tasks(state, due_utc);
 CREATE TABLE IF NOT EXISTS task_defaults (
@@ -418,6 +419,8 @@ def init_db() -> None:
             conn.execute("ALTER TABLE lab_notes ADD COLUMN course_id INTEGER")
         if "covers" not in [r["name"] for r in conn.execute("PRAGMA table_info(events)")]:
             conn.execute("ALTER TABLE events ADD COLUMN covers TEXT")
+        if "personal" not in [r["name"] for r in conn.execute("PRAGMA table_info(tasks)")]:
+            conn.execute("ALTER TABLE tasks ADD COLUMN personal INTEGER NOT NULL DEFAULT 0")
         if "part" not in [r["name"] for r in conn.execute("PRAGMA table_info(course_outline)")]:
             conn.execute("ALTER TABLE course_outline ADD COLUMN part TEXT NOT NULL DEFAULT ''")       # the part of a merged course ("MA266"); '' for a plain course
         if "orig_name" not in [r["name"] for r in conn.execute("PRAGMA table_info(books)")]:

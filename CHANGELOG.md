@@ -35,7 +35,7 @@
   **this occurrence only** (skipped, or moved to another time or place) or for the **whole series**. **Events** have a start and end in UTC, an all-day flag, a place, travel minutes before
   and after (counted as busy) and a busy flag; the older dated events (exams) are read as before. `planner/commitments.py` (pure) turns it all into the sorted busy blocks of a date range,
   `planner/commit_store.py` keeps it in the database (new tables `activities`, `activity_meetings`, `meeting_exceptions`; new columns on `events` and `class_meetings`; an older database is
-  upgraded without losing a row), and the Calendar already honours the new end dates and exceptions.
+  upgraded without losing a row), and the Calendar already honors the new end dates and exceptions.
 - **Phase 3 of the study planner: tasks (data and logic; the screens come in phase 6).** A task has a title, an optional course, a category (Homework, Exam, Quiz, Reading, Project, Other),
   an optional due moment (UTC), an estimate in minutes, optional start-ahead days (start that many days before the due date), a state (todo or done) and the minutes logged. A new task
   inherits the **course's default estimate for its category** (else a built-in one: homework 2 h, exam 10 h, quiz 45 min, reading 1 h, project 10 h, other 1 h) unless an estimate is given;
@@ -54,13 +54,13 @@
   returns the **new cushion** (`planner/service.py`); a task's own sessions count as work done, so planning its work does not change its cushion, while it does use up free time for the others. New table
   `study_sessions`; `planner/sessions.py` is pure, `planner/session_store.py` keeps them.
 - **Phase 6 of the study planner: the Calendar screens.** The Calendar page now has **Week, 2 Days, Day and Month** views with Prev, Today and Next buttons (and a sideways swipe over the day names on a
-  touch screen). The time grid shows classes (coloured by course, with changed occurrences marked), activities, events with their **travel time** (hatched) and the **study sessions** (dashed, light; solid when
+  touch screen). The time grid shows classes (colored by course, with changed occurrences marked), activities, events with their **travel time** (hatched) and the **study sessions** (dashed, light; solid when
   you placed them), each with a dot for its task's cushion. **Drag** a study session or an event to move it (to another time or day), drag its bottom edge to change its length, drag over empty time to add a
   study session or an event, or click one to open it; a move that only breaks a soft rule (a class, the awake hours) asks first ("Place It Anyway?"), one that breaks a hard rule just says why. **Auto-Plan**
   fills the free time with sessions. Below the grid, **Tasks** lists what is due with a green, yellow or red **cushion badge** (how much free time is left before the deadline), an **Add Task** form (the
   estimate defaults to the course's and the category's), **Default Estimates** per course, and buttons to mark done, unplan or delete; a **warning banner** appears when any cushion is negative. The Add Event
   form can set a place, travel time and whether the event blocks study time. Drawing code is `views/plan_grid.py` (tested), dialogs and the task list are `views/planner_ui.py`.
-- **Blocks on the left, dragged into the schedule.** Beside the grid is a panel with a **Drag a custom event** block, your **tasks** (coloured by course, with their cushion dot and the time left to plan),
+- **Blocks on the left, dragged into the schedule.** Beside the grid is a panel with a **Drag a custom event** block, your **tasks** (colored by course, with their cushion dot and the time left to plan),
   your **courses** and your **activities**. Drag a task onto the calendar to place a study session there (as long as what is left to plan, 30 minutes to 2 hours); drag the custom event block to open the
   new-event form at that time; drag a course or an activity to add a weekly time on that day. **+ Task** and **+ Activity** add new ones. Free time is shaded in the grid with its length written on it
   (**Show Free Time** switches it off).
@@ -70,9 +70,39 @@
   dialog: done, partly used, not used), and the task list shows the time used. **Suggested estimates:** when you add a task, the form suggests the typical time of your finished tasks of that category (the
   median of the time logged, from the same course when it has at least two, rounded to 5 minutes). `planner/tracking.py` is pure, `planner/track_store.py` keeps the timer and the logs (new tables
   `time_logs` and `study_timer`).
+- **Change a class or an activity for one day, or for every week.** Click a class or an activity in the grid to open it. **This Day Only:** change that day's time or place, skip it, or go back to the usual
+  (the rest of the weeks stay as they are; a changed day is marked *moved*). **Every Week:** change the weekdays, the time, the place and the last day of the whole series, or remove the weekly time; an activity's
+  name, color, place, whether it blocks study time and whether it also happens in breaks can be edited, or the activity deleted. The old Calendar code, the planner and the free time all follow these changes.
 - **Settings: a bar to jump to a section.** The top of Settings has a link for each section (Appearance, Eye Rest, Study Planner, Backup, Keyboard Shortcuts, Help, Report an Issue, Danger Zone, About); it
   stays in view while you scroll and the heading it jumps to is lined up under it.
 - **The time zone list shows UTC offsets.** Each zone reads like `America/New_York (UTC-05:00, EST)` (the offset in force today), the list runs from west to east, and typing `utc-5` finds a group.
+
+- **Calendar: Day, Week, Month.** The two-day view is gone and Week is the usual view. The Calendar page now has two pages, Calendar and Task List, and the old Tasks, Add Event and This
+  Month sections under the grid are gone: their functions moved into the Calendar (every event, also the older dated ones such as exams, opens with a click and can be changed or deleted,
+  and a new event can be all day) and the Task List.
+- **Terms (semesters).** A term list above the calendar (and on the Task List) switches the active term; its last entry, Manage Terms, adds, changes and deletes terms. The left bars
+  show the courses of the active term on top and the other courses in a folded section.
+- **Left panel of the Calendar.** Blocks have a grip to drag them into a new order, a ⋯ menu (Details, Rename, Change Color, Hide, Delete) with icons, and a name that renames on double-click.
+  A hidden block waits in a Hidden section. Delete asks first (a course is deleted only after the database is copied to `Backups\Before Delete <time>`). The panel folds and opens with
+  an animation, its right border is dragged to change the width (double-click: usual width), and a dragged block shows a preview of where it lands (an hour tall, a task as long as its
+  session). The line next to the hours zooms the time scale (drag; double-click resets). Auto-Plan lines up with Edit Schedule.
+- **Task List page.** Every task in one table, filtered by course (the same blocks as the Calendar panel), grouped by course, category or due week, sorted by due date, category, course, title
+  or time left (ascending or descending), searched, edited (all fields), made done, timed, logged or deleted. Personal tasks (no course) can be planned in a break and outside the term.
+- **Import From Syllabus.** One button reads each course of the term: the homework and exams already in its course page, and the dated work and class times of its syllabus file in the
+  Library. Every new task is added at once (a graded homework or a past exam as finished, exams also on the Calendar); a task already in the list is never added twice. One course can be
+  checked row by row first, with any row changed, added or unchecked.
+- **Library: sort by type first.** The usual view is a tile for each type; click one to see its files and sort them by course, date added or title. Sort by course shows a tile for each course,
+  Date Added a timeline by day (newest or oldest first), Title the plain grid. The row of type buttons is gone.
+- **The loading screen waits at least 1 second** (it was 2).
+- **Library views and timeline.** Files can be shown as Cards, Tiles (a small cover with the details beside it) or a Details table. Date Added is a chain of bullets by day, month or year;
+  every group folds up. The sort box and the Newest First button sit in the title row.
+- **Courses: a tree of knowledge.** Courses > All > Tree draws the courses as branches (domain, field, topic) with similar fields on the same branch; branches fold and unfold with an animation,
+  and a click on a course opens it. A course page's Overview starts with what is coming up (homework, exams and tasks).
+- **Edit dialogs.** Clicking a class, an activity, an event or a study session opens a compact dialog: a title bar in the course color, the date and times in one row, repeat and until, location,
+  Free, and Delete, Cancel, Save.
+- **Back and Forward** return to the same place inside a page (the Task List, a Library tile and its sort), in the order the places were visited.
+- **Task List.** Every column head sorts (up, down, or both arrows when not sorted by it); a picked course shows only its tasks under its name in its color, with its Completed tasks in a section below.
+- **Fixes.** The line under the Settings jump bar no longer crosses its links (the bar looks like the tabs of a course page); a dragged block shows only its preview on the schedule.
 
 ## 1.0.1 (2026-11-15)
 

@@ -49,14 +49,14 @@ def list_sessions(first=None, last=None, task_id=None):
     return [_session(r) for r in rows]
 
 
-def check_session(start, end, ignore_id=None):
-    """The Problems of a session from start to end (UTC), judged against the saved setup, commitments and the other sessions."""
+def check_session(start, end, ignore_id=None, personal=False):
+    """The Problems of a session from start to end (UTC), judged against the saved setup, commitments and the other sessions. `personal`: the task is not for school."""
     config = store.load_config()
     tz = config.term.zone
     first, last = timeutil.local_day(start, tz), timeutil.local_day(max(end - timedelta(seconds=1), start), tz)
     blocks = commit_store.commitments(first, last)
     others = [s for s in list_sessions(first, last) if s.id != ignore_id]
-    return S.placement_problems(config, start, end, blocks, others)
+    return S.placement_problems(config, start, end, blocks, others, personal)
 
 
 def _refuse(problems, force):
@@ -69,7 +69,7 @@ def add_session(task_id, start, end, source=S.MANUAL, force=False, now=None):
     """Save a study session for a task (UTC start and end). Returns its id."""
     task_store.get_task(task_id)
     S.Session(0, task_id, start, end, source)                                  # validated
-    _refuse(check_session(start, end), force)
+    _refuse(check_session(start, end, personal=task_store.get_task(task_id).personal), force)
     with _conn() as conn:
         cur = conn.execute("INSERT INTO study_sessions(task_id, start_utc, end_utc, source, created_utc) VALUES (?,?,?,?,?)",
                            (task_id, timeutil.utc_iso(start), timeutil.utc_iso(end), source, timeutil.utc_iso(now or _now())))
@@ -80,10 +80,16 @@ def add_session(task_id, start, end, source=S.MANUAL, force=False, now=None):
 def _rewrite(session_id, start, end, force):
     cur = get_session(session_id)
     S.Session(session_id, cur.task_id, start, end, S.MANUAL)                   # validated; a session the student changed is theirs now
-    _refuse(check_session(start, end, ignore_id=session_id), force)
+    _refuse(check_session(start, end, ignore_id=session_id, personal=task_store.get_task(cur.task_id).personal), force)
     with _conn() as conn:
         conn.execute("UPDATE study_sessions SET start_utc=?, end_utc=?, source='manual' WHERE id=?", (timeutil.utc_iso(start), timeutil.utc_iso(end), session_id))
         conn.commit()
+
+
+def update_session(session_id, start, end, force=False):
+    """Change the start and the end of a session together. It becomes a manual session."""
+    get_session(session_id)
+    _rewrite(session_id, start, end, force)
 
 
 def move_session(session_id, new_start, force=False):

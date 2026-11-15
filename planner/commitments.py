@@ -224,7 +224,7 @@ def blocks(config, series, exceptions, events, first, last):
         found.append(Block(s, e, "class" if o.kind == COURSE else "activity", o.name, o.busy, o.owner_id, o.meeting_id, o.color, o.location, o.changed))
     for ev in events:
         found.append(Block(ev.start, ev.end, "event", ev.title, ev.busy, ev.course_id, ev.id, "", ev.location, all_day=ev.all_day, source=ev.source))
-        if ev.busy and not ev.all_day:                                  # travelling takes time too
+        if ev.busy and not ev.all_day:                                  # traveling takes time too
             if ev.commute_before:
                 found.append(Block(ev.busy_start, ev.start, "commute", f"Travel to {ev.title}", True, ev.course_id, ev.id))
             if ev.commute_after:

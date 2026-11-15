@@ -4,6 +4,12 @@
 
 ---
 
+**How do I get my homework and exams into the Task List?** Open Calendar > Task List > **Import From Syllabus**. Tick the courses (the active courses of the term are ticked; a self-study course is
+optional), and the app reads what is already in each course page and in its syllabus file in the Library, and adds every new task. Change or delete any task afterwards; one course can be checked row by row first.
+
+**How do I change the term, the dates or the wake-up time?** The term list above the calendar switches the term; its last entry, Manage Terms, changes the dates and has Add New Term (with its wake-up
+time, bedtime and holidays).
+
 **How do I install or update it?** See [Install](INSTALL.md). The Windows setup wizard detects an installed version and offers to update it, to uninstall it
 first, or to keep both. On a Mac, drag the app over the old one and choose Replace.
 

@@ -339,8 +339,8 @@ def pdf_reader(path, key, height=640, start=1, title=None, on_page=None, marks=N
     st.markdown(f'<div class="rd-scroll{"" if height else " rd-fill"}" data-key="{key}" data-zoom="{zoom}" data-mode="{mode}" data-goto="{page}"'
                 f'{box}{drawn}><div class="rd-spread">{imgs}</div></div>', unsafe_allow_html=True)
     step = len(shown)
-    neighbours = [i for i in (page - 1 + step, page - 1 + 2 * step, page - 1 - step) if 0 <= i < total]   # next spread, then back
-    _prefetch(path, mtime, neighbours, width)
+    neighbors = [i for i in (page - 1 + step, page - 1 + 2 * step, page - 1 - step) if 0 <= i < total]   # next spread, then back
+    _prefetch(path, mtime, neighbors, width)
     if on_page:
         on_page(page)
 

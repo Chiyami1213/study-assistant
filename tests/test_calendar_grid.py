@@ -29,7 +29,7 @@ def test_minutes_and_times_are_written_plainly():
     assert G.hhmm(0) == "00:00" and G.hhmm(545) == "09:05" and G.hhmm(1440) == "24:00" and G.hhmm(2000) == "24:00" and G.hhmm(-5) == "00:00"
 
 
-def test_a_block_becomes_an_item_in_local_minutes_with_its_colour():
+def test_a_block_becomes_an_item_in_local_minutes_with_its_color():
     (it,) = items([block("class", at(MON, 9, 30), at(MON, 10, 45), "AE 6765", color="#abcdef", loc="Room 1")])
     assert (it.kind, it.title, it.start, it.end, it.color, it.sub, it.ref) == ("class", "AE 6765", 570, 645, "#abcdef", "Room 1", "")
 
@@ -61,14 +61,14 @@ def test_an_in_class_exam_replaces_the_class_on_the_grid():
     assert [(i.kind, i.title) for i in got] == [("event", "Midterm 1"), ("class", "AE 6765")]
 
 
-def test_only_events_made_in_the_planner_can_be_dragged():
+def test_every_event_can_be_dragged_and_opened_also_the_older_dated_ones():
     own = block("event", at(MON, 9), at(MON, 10), "Dentist", ref=4)
     old = block("event", at(MON, 11), at(MON, 12), "Midterm", ref=5, source="legacy")
     cls = block("class", at(MON, 13), at(MON, 14), "AE 6765", ref=6)
-    assert [i.ref for i in items([own, old, cls])] == ["event:4", "", ""]
+    assert [i.ref for i in items([own, old, cls])] == ["event:4", "event:5", ""]
 
 
-def test_sessions_carry_their_task_course_colour_and_cushion_level():
+def test_sessions_carry_their_task_course_color_and_cushion_level():
     t = T.Task(7, "HW 6", 1, "Homework", at(MON + timedelta(days=2), 17), 120)
     s = S.Session(12, 7, at(MON, 10), at(MON, 11, 30), S.AUTO)
     (it,) = items([], [s], {7: t}, levels={7: F.RED})

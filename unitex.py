@@ -35,7 +35,7 @@ def _is_marker(token):
 
 
 def _extendable(token, touches_operator):
-    """May this neighbouring token join a math run? Operators and marked tokens always; plain letters and numbers
+    """May this neighboring token join a math run? Operators and marked tokens always; plain letters and numbers
     only when they sit next to an operator (A → U†AU, x + a†)."""
     core = _core(token)
     if not core:

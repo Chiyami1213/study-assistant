@@ -46,17 +46,16 @@ def html_of(at):
 
 
 def test_every_view_opens_without_errors_with_and_without_data(seeded):
-    for view in ("Week", "2 Days", "Day", "Month"):
+    for view in ("Day", "Week", "Month"):
         assert not run(view).exception
     ts.add_task("HW 6", seeded, "Homework", due=due(3), estimate=120)
     service.auto_plan()
-    for view in ("Week", "2 Days", "Day", "Month"):
+    for view in ("Day", "Week", "Month"):
         assert not run(view).exception
 
 
 def test_the_grid_has_the_right_number_of_day_columns(seeded):
     assert html_of(run("Week")).count('class="wk-col') == 7
-    assert html_of(run("2 Days")).count('class="wk-col') == 2
     assert html_of(run("Day")).count('class="wk-col') == 1
 
 
@@ -93,12 +92,12 @@ def test_a_task_can_be_marked_done_unplanned_and_deleted_from_the_list(seeded):
     b = ts.add_task("B", seeded, "Homework", due=due(4), estimate=60)
     c_ = ts.add_task("C", seeded, "Homework", due=due(5), estimate=60)
     service.auto_plan()
-    at = run()
-    at.button(key=f"tk_done_{a}").click(); at.run()
+    at = run(cal_page="Task List")
+    at.checkbox(key=f"tl_done_{a}_0").check().run()
     assert ts.get_task(a).is_done
-    at.button(key=f"tk_unplan_{b}").click(); at.run()
+    at.button(key=f"tl_unplan_{b}").click(); at.run()
     assert ss.list_sessions(task_id=b) == []
-    at.button(key=f"tk_del_{c_}").click(); at.run()
+    at.button(key=f"tl_del_{c_}").click(); at.run()
     assert [t.id for t in ts.list_tasks()] == [a, b] and not at.exception
 
 
@@ -108,11 +107,6 @@ def test_navigation_moves_by_the_size_of_the_view_and_today_returns(seeded):
     assert at.session_state["cal_anchor"] == TODAY + timedelta(days=7)
     at.button(key="cal_today").click(); at.run()
     assert at.session_state["cal_anchor"] == TODAY
-    at = run("2 Days", cal_anchor=TODAY)
-    at.button(key="cal_next").click(); at.run()
-    assert at.session_state["cal_anchor"] == TODAY + timedelta(days=2)
-    at.button(key="cal_prev").click(); at.run(); at.button(key="cal_prev").click(); at.run()
-    assert at.session_state["cal_anchor"] == TODAY - timedelta(days=2)
     at = run("Day", cal_anchor=TODAY)
     at.button(key="cal_next").click(); at.run()
     assert at.session_state["cal_anchor"] == TODAY + timedelta(days=1)

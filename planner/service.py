@@ -20,15 +20,15 @@ def cushion_report(now=None, planned=None):
         return freetime.CushionReport((), (), False)
     tz = config.term.zone
     first = timeutil.local_day(now, tz)
-    last = max(first, min(max(timeutil.local_day(t.due, tz) for t in dated), config.term.exams_end))
+    last = max(first, S.planning_last_day(config, dated, now))
     blocks = commit_store.commitments(first, last)
     return freetime.report(config, tasks, blocks, session_store.list_sessions() if planned is None else planned, now)
 
 
-def free_time(first, last, now=None, planned=None):
+def free_time(first, last, now=None, planned=None, personal=False):
     """The free study intervals (UTC pairs) of the local days first..last from the saved setup (planned sessions are taken out)."""
     config = store.load_config()
-    return freetime.free_intervals(config, commit_store.commitments(first, last), session_store.list_sessions() if planned is None else planned, first, last, now)
+    return freetime.free_intervals(config, commit_store.commitments(first, last), session_store.list_sessions() if planned is None else planned, first, last, now, personal)
 
 
 def auto_plan(now=None, include_undated=False):
@@ -39,8 +39,7 @@ def auto_plan(now=None, include_undated=False):
     tz = config.term.zone
     first = timeutil.local_day(now, tz)
     open_tasks = [t for t in tasks if t.due is not None or include_undated]
-    wide = include_undated or any(t.due is None or t.is_overdue(now) for t in open_tasks)
-    last = config.term.exams_end if wide or not open_tasks else min(max(timeutil.local_day(t.due, tz) for t in open_tasks), config.term.exams_end)
+    last = S.planning_last_day(config, open_tasks, now)
     blocks = commit_store.commitments(first, max(first, last))
     result = S.autoplan(config, tasks, blocks, session_store.list_sessions(), now, include_undated)
     session_store.apply_plan(result, now)
@@ -51,6 +50,11 @@ def add_session(task_id, start, end, force=False, now=None):
     """A manual session. Returns (session id, new CushionReport)."""
     sid = session_store.add_session(task_id, start, end, S.MANUAL, force, now)
     return sid, cushion_report(now)
+
+
+def update_session(session_id, start, end, force=False, now=None):
+    session_store.update_session(session_id, start, end, force)
+    return cushion_report(now)
 
 
 def move_session(session_id, new_start, force=False, now=None):

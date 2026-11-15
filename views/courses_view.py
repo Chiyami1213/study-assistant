@@ -13,7 +13,7 @@ import settings
 import syllabus
 import icons
 import photos
-from views import library_view, quiz_view
+from views import course_tree, library_view, quiz_view
 
 COLUMNS = 5
 RESOURCE_COLUMNS = 6
@@ -263,6 +263,16 @@ def render():
     if not courses:
         st.info("No courses opened yet." if choice == "Recent" and category == "All Categories"
                 else f"No {choice.lower()} courses" + ("" if category == "All Categories" else f" in {category}") + ".")
+    if choice == "All":                                          # the All tab can also be read as a tree of knowledge
+        st.session_state.setdefault("courses_view", st.session_state.get("_courses_view_kept", "Tiles"))
+        v1, _gap = st.columns([2, 6])
+        with v1:
+            view = st.segmented_control("View", ["Tiles", "Tree"], key="courses_view", label_visibility="collapsed",
+                                        format_func=lambda v: ":material/grid_view: Tiles" if v == "Tiles" else ":material/account_tree: Tree") or "Tiles"
+        st.session_state["_courses_view_kept"] = view
+        if view == "Tree" and courses:
+            _tree(courses)
+            return
     if choice == "Recent":                                       # one list, the course opened most lately first
         _tile_grid(courses)
         return
@@ -270,6 +280,24 @@ def render():
         if title:
             st.markdown(f"#### {title} ({len(items)})")
         _tile_grid(items)
+
+
+def _tree(courses):
+    """The courses as a tree of knowledge: a click on a leaf opens the course; the branches fold and unfold (script and CSS in app.py)."""
+    sink = st.text_input("Tree Click", key="tree_sink", label_visibility="collapsed")
+    if sink and sink != st.session_state.get("_tree_sink_done"):
+        st.session_state["_tree_sink_done"] = sink
+        try:
+            cid = int(sink.split("|")[0])
+        except ValueError:
+            cid = None
+        if cid and crud.get_course(cid):
+            st.session_state["course_id"] = cid
+            st.session_state["open_course"] = cid
+            st.session_state.pop("course_tab", None)
+            st.rerun()
+    st.caption("Similar fields grow from the same branch. Click a branch to fold or unfold it, and a course to open it.")
+    st.markdown(course_tree.tree_html(courses, crud.course_status, crud.course_color, st.session_state.get("course_id")), unsafe_allow_html=True)
 
 
 def _tile_grid(courses):
@@ -469,7 +497,7 @@ def _exam_items(course):
 
 
 def _pie(rows, center_top, center_bottom):
-    """A donut of what each part of the grade is worth (the syllabus weights), in the chart colours of the theme.
+    """A donut of what each part of the grade is worth (the syllabus weights), in the chart colors of the theme.
     Hovering a slice names it; the table beside it carries the numbers."""
     import math
     total = sum(r["percent"] for r in rows) or 1
@@ -477,7 +505,7 @@ def _pie(rows, center_top, center_bottom):
     outer, inner = 84, 54
     angle = -math.pi / 2
     paths = ""
-    for i, r in enumerate(rows):                       # every part of the grade gets its own slice and colour (eight colours, then they repeat)
+    for i, r in enumerate(rows):                       # every part of the grade gets its own slice and color (eight colors, then they repeat)
         sweep = r["percent"] / total * 2 * math.pi
         a0, a1 = angle, angle + sweep - 1e-4
         angle += sweep
@@ -596,9 +624,50 @@ def _goals(data, homework, events, assumed):
                + (" The syllabus lists no cutoffs, so 90 / 80 is assumed." if assumed else ""))
 
 
+def coming_up(course, today=None, limit=8):
+    """What is due next in a course, from all three places it is kept: homework not yet graded, exams still ahead, and the Task List's open tasks.
+    [(date text 'YYYY-MM-DD', time or '', title, kind)] in date order; a task that is the same work as a homework or an exam (same title) is listed once."""
+    today = (today or date.today()).isoformat()
+    rows, seen = [], set()
+    norm = lambda s: re.sub(r"[^a-z0-9]+", " ", s.lower()).strip()
+    for h in _homework_items(course):
+        if h["due_date"] and h["due_date"] >= today and h.get("score") is None and h["status"] != "verified":
+            rows.append((h["due_date"], h.get("due_time") or "", h["title"], "Homework"))
+            seen.add(norm(h["title"]))
+    for e in _exam_items(course):
+        if e["date"] >= today and e.get("score") is None:
+            rows.append((e["date"], e.get("time") or "", e["title"], "Exam"))
+            seen.add(norm(e["title"]))
+    try:
+        from planner import store as planner_store, task_store, timeutil
+        zone = planner_store.get_term().zone
+        for k in task_store.list_tasks(course_id=course["id"], include_done=False):
+            if k.due is None:
+                continue
+            local = timeutil.to_local(k.due, zone)
+            if local.date().isoformat() >= today and norm(k.title) not in seen:
+                rows.append((local.date().isoformat(), local.strftime("%H:%M"), k.title, "Task"))
+    except Exception:
+        pass
+    return sorted(rows, key=lambda r: (r[0], r[1], r[2]))[:limit]
+
+
+def _coming_up(course):
+    """The start of the Overview: the next homework, exams and tasks."""
+    if crud.course_status(course) == "Completed":
+        return
+    rows = coming_up(course)
+    st.subheader("Coming Up")
+    if not rows:
+        st.caption("Nothing is due soon.")
+        return
+    st.markdown('<div class="dl-list">' + "".join(_row_html(title, _when(day, time), kind, "none") for day, time, title, kind in rows) + "</div>", unsafe_allow_html=True)
+
+
 def _overview(course):
     """The grades so far (metrics and what is needed for an A or a B on the left, what each part is worth at the right),
     then the syllabus, then how well the materials are understood (quiz scores)."""
+    _coming_up(course)
     st.subheader("Grades")
     homework, exams = _homework_items(course), _exam_items(course)
     hw_avg, ex_avg = _percent(homework), _percent(exams)

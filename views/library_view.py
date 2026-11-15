@@ -805,7 +805,65 @@ def _book_card(book, courses):
             f'{"<div class=book-badges>" + chips + "</div>" if chips else ""}{author}</div>')
 
 
-SORTS = ["Default", "Course", "Title", "Type", "Date Added"]
+SORTS = ["Type", "Course", "Date Added", "Title"]          # Type (tiles of types) is the usual way to look at the Library
+INNER = {"Type": ["Course", "Date Added", "Title"], "Course": ["Type", "Date Added", "Title"]}      # how the files inside a tile can be sorted
+
+
+def type_tiles(books):
+    """[(type name, count)] for the tiles of the Library: one for each family of files that has a file."""
+    out = []
+    for name in FILTERS:
+        n = sum(b["kind"] in FILTER_KINDS.get(name, (name,)) for b in books)
+        if n:
+            out.append((name, n))
+    return out
+
+
+def course_tiles(books, courses):
+    """[(course id or 0 for files without a course, label, color, count)] in menu order (Active, Self-Study, Completed)."""
+    out = []
+    ordered = [c for s in crud.STATUSES for c in crud.courses_by_status(s)]
+    for c in ordered:
+        n = sum(c["id"] in b["course_ids"] for b in books)
+        if n:
+            out.append((c["id"], crud.label(c), crud.course_color(c), n))
+    ids = {c["id"] for c in ordered}
+    loose = sum(not any(i in ids for i in b["course_ids"]) for b in books)
+    if loose:
+        out.append((0, "No Course", "#6b7280", loose))
+    return out
+
+
+def books_of_type(books, name):
+    return [b for b in books if b["kind"] in FILTER_KINDS.get(name, (name,))]
+
+
+def books_of_course(books, course_id):
+    ids = {c["id"] for s in crud.STATUSES for c in crud.courses_by_status(s)}
+    if course_id == 0:
+        return [b for b in books if not any(i in ids for i in b["course_ids"])]
+    return [b for b in books if course_id in b["course_ids"]]
+
+
+TIMELINE_UNITS = ["Day", "Month", "Year"]
+
+
+def timeline_groups(books, descending=True, unit="Day"):
+    """[(heading, books, None)]: the files by the day (or the month, or the year) they were added, the newest first (or the oldest first)."""
+    from datetime import date as _date
+    size = {"Day": 10, "Month": 7, "Year": 4}.get(unit, 10)
+    groups = {}
+    for b in books:
+        groups.setdefault((b.get("added_at") or "")[:size], []).append(b)
+    out = []
+    for key in sorted(groups, reverse=descending):
+        try:
+            d = _date.fromisoformat((key + "-01-01")[:10] if size == 4 else (key + "-01")[:10] if size == 7 else key)
+            heading = f"{d:%A, %B} {d.day}, {d.year}" if size == 10 else f"{d:%B %Y}" if size == 7 else str(d.year)
+        except ValueError:
+            heading = "Date Unknown"
+        out.append((heading, sorted(groups[key], key=lambda b: ((b.get("added_at") or ""), b["id"]), reverse=descending), None))
+    return out
 
 
 def _course_order(book):
@@ -853,15 +911,74 @@ def _sorted_groups(books, sort_by):
     return [("", books, None)]
 
 
+VIEWS = ["Cards", "Tiles", "Details"]
+VIEW_LABEL = {"Cards": ":material/grid_view: Cards", "Tiles": ":material/view_agenda: Tiles", "Details": ":material/table_rows: Details"}
+
+
+def _meta_bits(book, courses):
+    """(lecture or homework label, course code chips, date added, edition and year) of a file, as plain text or HTML."""
+    linked = [courses[i] for i in book["course_ids"] if i in courses]
+    lec = f'{"HW" if book["kind"] in HW_KINDS else "Lec"} {html.escape(book["lecture"])}' if book.get("lecture") else ""
+    chips = "".join(f'<span class="lib-chip" style="border-color:{crud.course_color(c)};color:{crud.course_color(c)}">{html.escape(c["code"] or c["name"])}</span>' for c in linked)
+    added = (book.get("added_at") or "")[:10]
+    edition = " · ".join(html.escape(x) for x in (book["edition"], book.get("year")) if x)
+    return lec, chips, added, edition
+
+
+@st.cache_data(show_spinner=False, max_entries=256)
+def _book_tile(book, courses):
+    """A tile: a small cover with the name, the type, the courses and the day it was added beside it."""
+    lec, chips, added, edition = _meta_bits(book, courses)
+    kind = html.escape(book["kind"]) + (f" · {lec}" if lec else "")
+    author = f"<span>{html.escape(book['author'])}</span>" if book["author"] else ""
+    return (f'<div class="lib-tilecard" data-lib-act="open:{book["id"]}"><div class="lib-thumb">{_cover_html(book)}</div>'
+            f'<div class="lib-tilemeta"><strong>{html.escape(book["title"])}</strong><span>{kind}</span><div class="lib-chips">{chips}</div>'
+            f'{author}<span class="lib-dim">Added {added}{" · " + edition if edition else ""}</span></div>'
+            f'<span class="lib-menu" data-lib-act="edit:{book["id"]}">...</span></div>')
+
+
+@st.cache_data(show_spinner=False, max_entries=512)
+def _book_row(book, courses):
+    """A row of the Details table: name, type, courses, lecture, date added, edition and year, author."""
+    lec, chips, added, edition = _meta_bits(book, courses)
+    return (f'<div class="lib-row" data-lib-act="open:{book["id"]}"><span class="lib-cell lib-name" title="{html.escape(book["title"])}">{html.escape(book["title"])}</span>'
+            f'<span class="lib-cell">{html.escape(book["kind"])}</span><span class="lib-cell lib-chips">{chips}</span><span class="lib-cell">{lec}</span>'
+            f'<span class="lib-cell">{added}</span><span class="lib-cell">{edition}</span><span class="lib-cell lib-dim">{html.escape(book["author"] or "")}</span>'
+            f'<span class="lib-menu" data-lib-act="edit:{book["id"]}">...</span></div>')
+
+
+def _files_html(books, mode, courses, add_course=None, with_add=False):
+    """The files as one block of HTML in the chosen view; `with_add`: the dashed plus that adds a file (to `add_course`)."""
+    tip = ' title="click, or drop a pdf or html file here, to add it"'
+    if mode == "Details":
+        head = "".join(f'<span class="lib-cell">{h}</span>' for h in ("Name", "Type", "Course", "Lecture", "Date Added", "Edition", "Author")) + "<span></span>"
+        rows = "".join(_book_row(b, courses) for b in books)
+        add = f'<div class="lib-row lib-row-add"><span class="lib-add" data-lib-act="add:{add_course or 0}"{tip}>+ Add to Library</span></div>' if with_add else ""
+        return f'<div class="lib-table"><div class="lib-row lib-head">{head}</div>{rows}{add}</div>'
+    if mode == "Tiles":
+        cells = "".join(_book_tile(b, courses) for b in books)
+        add = f'<div class="lib-tilecard lib-tileadd"><div class="lib-add" data-lib-act="add:{add_course or 0}"{tip}>+</div></div>' if with_add else ""
+        return f'<div class="lib-tilegrid">{cells}{add}</div>'
+    cells = "".join(_book_card(b, courses) for b in books)
+    add = f'<div class="lib-card"><div class="lib-add" data-lib-act="add:{add_course or 0}"{tip}>+</div></div>' if with_add else ""
+    return f'<div class="lib-grid">{cells}{add}</div>'
+
+
+def _view_mode():
+    return st.session_state.get("_lib", {}).get("view", "Cards")
+
+
 def _tile_grid(tiles, has_books, courses, default_course=None):
-    cells = []
-    for tile in tiles:
-        if tile == "add":
-            tip = ' title="click, or drop a pdf or html file here, to add it"'
-            cells.append(f'<div class="lib-card"><div class="lib-add" data-lib-act="add:{default_course or 0}"{tip}>+</div></div>')
-        else:
-            cells.append(_book_card(tile, courses))
-    st.markdown(f'<div class="lib-grid">{"".join(cells)}</div>', unsafe_allow_html=True)
+    st.markdown(_files_html([x for x in tiles if x != "add"], _view_mode(), courses, default_course, "add" in tiles), unsafe_allow_html=True)
+
+
+def _timeline(groups, courses, with_add):
+    """Date Added as a chain: a vertical line down the left with a bullet for each day, month or year, and its files hanging from it. A group folds up with a click on its
+    heading (the first two start open), so a long Library can be read by month or by year."""
+    for i, (title, items, _) in enumerate(groups):
+        body = _files_html(items, _view_mode(), courses, None, with_add and i == 0)
+        st.markdown(f'<details class="tl-group{" tl-last" if i == len(groups) - 1 else ""}"{" open" if i < 2 else ""}><summary class="tl-head"><span class="tl-dot"></span>'
+                    f'<b>{html.escape(title)}</b><span class="tl-count">{len(items)}</span><span class="tl-chev">&#9656;</span></summary>{body}</details>', unsafe_allow_html=True)
 
 
 def _handle_click():
@@ -883,6 +1000,12 @@ def _handle_click():
     elif action == "add":
         _reset_add_boxes()
         _add_dialog(ident or None)
+    elif action == "ttile" and 0 <= ident < len(FILTERS):
+        st.session_state["_lib"]["tile"] = FILTERS[ident]
+        st.rerun()
+    elif action == "ctile":
+        st.session_state["_lib"]["tile"] = ident
+        st.rerun()
 
 
 def render():
@@ -894,35 +1017,85 @@ def render():
     all_books = crud.list_books()
     courses = {c["id"]: c for c in crud.list_courses(section=None)}
     _handle_click()
-    st.markdown("<h1 class='lib-title'>Library</h1>", unsafe_allow_html=True)
-    # The filter and the sort are remembered apart from their widgets (a widget's value is dropped while a file is open), so
-    # Back from a homework or a note returns to the same list, for example the Homework filter.
-    options = ["All"] + FILTERS
-    kept = st.session_state.get("_library_filter_kept", "All")
-    kept = kept if kept in options else filter_for(kept) if filter_for(kept) in options else "All"       # an older single-kind filter
-    st.session_state.setdefault("library_filter", kept)
-    if st.session_state.get("library_filter") not in options:
-        st.session_state["library_filter"] = kept
-    counts = {"All": len(all_books), **{f: sum(b["kind"] in FILTER_KINDS.get(f, (f,)) for b in all_books) for f in FILTERS}}
-    f1, f2 = st.columns([6, 1], vertical_alignment="center")
-    with f1:
-        choice = st.segmented_control("Show", options, key="library_filter", label_visibility="collapsed",
-                                      format_func=lambda o: f"{PLURAL.get(o, o)} ({counts[o]})") or "All"
-    st.session_state["_library_filter_kept"] = choice
-    st.session_state.setdefault("library_sort", st.session_state.get("_library_sort_kept", "Course"))   # by course unless you pick another
-    with f2, st.container(key="lib_sort_box"):                              # narrow, at the right edge of the page
-        sort_by = st.selectbox("Sort by", SORTS, key="library_sort", label_visibility="collapsed",
-                               format_func=lambda s: f"Sort: {s}")
-    st.session_state["_library_sort_kept"] = sort_by
-    books = all_books if choice == "All" else [b for b in all_books if b["kind"] in FILTER_KINDS.get(choice, (choice,))]
+    # What is shown is remembered apart from the widgets (a widget's value is dropped while a file is open), so Back from a file returns to the same tile.
+    lib = st.session_state.setdefault("_lib", {"sort": "Type", "tile": None, "inner": {}, "desc": True})
+    in_tile = lib["sort"] in INNER and lib["tile"] is not None
+    lib.setdefault("view", "Cards")
+    title_col, view_col, order_col, sort_col = st.columns([3.6, 2.6, 1.6, 1.4], vertical_alignment="bottom")           # the title, the view and the one sort box share a row, lined up at the bottom
+    title_col.markdown("<h1 class='lib-title'>Library</h1>", unsafe_allow_html=True)
+    inner = None
+    if not in_tile:                                                                    # the overview: sort by type, course, date added or title
+        st.session_state.setdefault("library_sort", lib["sort"] if lib["sort"] in SORTS else "Type")
+        with sort_col, st.container(key="lib_sort_box"):
+            sort_by = st.selectbox("Sort by", SORTS, key="library_sort", label_visibility="collapsed", format_func=lambda s: f"Sort: {s}")
+        if sort_by != lib["sort"]:
+            lib["sort"], lib["tile"] = sort_by, None                                  # another way of sorting starts at its overview
+    else:                                                                              # inside a type or a course: only the sort of its files
+        sort_by = lib["sort"]
+        options = INNER[sort_by]
+        kept = lib["inner"].get(sort_by, options[0])
+        st.session_state.setdefault(f"library_inner_{sort_by}", kept if kept in options else options[0])
+        with sort_col, st.container(key="lib_sort_box"):
+            inner = st.selectbox("Sort inside", options, key=f"library_inner_{sort_by}", label_visibility="collapsed", format_func=lambda s: f"Sort: {s}")
+        lib["inner"][sort_by] = inner
+    tile = lib["tile"]
+    if tile is not None or sort_by in ("Date Added", "Title"):                        # a view only matters where files are shown
+        st.session_state.setdefault("library_view", lib["view"])
+        with view_col:
+            lib["view"] = st.segmented_control("View", VIEWS, key="library_view", label_visibility="collapsed", format_func=VIEW_LABEL.get) or lib["view"]
+    timeline = sort_by == "Date Added" or inner == "Date Added"
+    if timeline:
+        label, icon = ("Newest First", ":material/arrow_downward:") if lib["desc"] else ("Oldest First", ":material/arrow_upward:")
+        if order_col.button(label, key="lib_desc", icon=icon, help="the order of the timeline: tap to reverse it"):
+            lib["desc"] = not lib["desc"]
+            st.rerun()
+    if (tile is not None and sort_by in INNER) or timeline:
+        back, unit_col, _gap = st.columns([1, 2.4, 6])
+        if tile is not None and sort_by in INNER and back.button("‹ " + ("All Types" if sort_by == "Type" else "All Courses"), key="lib_back"):
+            lib["tile"] = None
+            st.rerun()
+        if timeline:
+            lib.setdefault("unit", "Day")
+            st.session_state.setdefault("library_unit", lib["unit"])
+            with unit_col:
+                lib["unit"] = st.segmented_control("Timeline By", TIMELINE_UNITS, key="library_unit", label_visibility="collapsed") or lib["unit"]
+
+    if sort_by in INNER and tile is None:                                   # the overview: one tile for each type, or for each course
+        st.caption(f"{len(all_books)} {'Title' if len(all_books) == 1 else 'Titles'}")
+        if sort_by == "Type":
+            st.markdown('<div class="lib-tiles">' + "".join(
+                f'<div class="lib-tile" data-lib-act="ttile:{FILTERS.index(name)}" style="border-left-color:var(--accent)"><b>{html.escape(PLURAL.get(name, name))}</b>'
+                f'<span>{n} {"title" if n == 1 else "titles"}</span></div>' for name, n in type_tiles(all_books)) + "</div>", unsafe_allow_html=True)
+        else:                                                               # the same course tiles as the Courses page (photo, number, name, icon, category, term, school)
+            from views import courses_view as cv                              # (imported here: the Courses page imports this page)
+            plain = lambda label: (f'<div class="course-tile" style="background: linear-gradient(150deg, #6b7280, #374151);"><div class="ct-top">'
+                                   f'<div class="ct-code ct-title">{html.escape(label)}</div></div></div>')
+            st.markdown('<div class="lib-ctiles">' + "".join(
+                f'<div class="lib-ctile" data-lib-act="ctile:{cid}">{cv._tile_html(courses[cid], crud.course_status(courses[cid])) if cid in courses else plain(label)}'
+                f'<span class="lib-ctcount">{n} {"title" if n == 1 else "titles"}</span></div>' for cid, label, color, n in course_tiles(all_books, courses)) + "</div>", unsafe_allow_html=True)
+        if st.button("Add to Library", key="lib_add_open", icon=":material/add:"):
+            _reset_add_boxes()
+            _add_dialog(None)
+        return
+
+    if sort_by == "Type":
+        books, heading = books_of_type(all_books, tile), PLURAL.get(tile, tile)
+    elif sort_by == "Course":
+        books = books_of_course(all_books, tile)
+        heading = courses[tile]["code"] if tile in courses and courses[tile]["code"] else crud.label(courses[tile]) if tile in courses else "No Course"
+    else:
+        books, heading, inner = all_books, "", sort_by
+    st.markdown(f"<h3>{html.escape(str(heading))}</h3>" if heading else "", unsafe_allow_html=True)
     st.caption(f"{len(books)} {'Title' if len(books) == 1 else 'Titles'}")
 
-    # Books fill rows of six. The dashed "+" add tile follows the last book; when sorted by course, every
+    # Books fill rows of six. The dashed "+" add tile follows the last book; when grouped by course, every
     # course group ends with its own "+" tile that adds a file straight into that course.
-    groups = _sorted_groups(books, sort_by) or [("", [], None)]
+    groups = (timeline_groups(books, lib["desc"], lib.get("unit", "Day")) if inner == "Date Added" else _sorted_groups(books, inner)) or [("", [], None)]
+    if inner == "Date Added":
+        _timeline(groups, courses, bool(all_books))
+        return
     for i, (title, items, course_id) in enumerate(groups):
         if title:
             st.markdown(f"#### {title} ({len(items)})")
         last = i == len(groups) - 1
-        _tile_grid(list(items) + (["add"] if last or sort_by == "Course" else []), bool(all_books),
-                   courses, course_id)
+        _tile_grid(list(items) + (["add"] if last or inner == "Course" else []), bool(all_books), courses, course_id or (tile if sort_by == "Course" and tile else None))

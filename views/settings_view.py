@@ -20,7 +20,7 @@ def _section(name):
 
 def _jump_bar():
     """The bar at the top of the page: one link for each section."""
-    links = "".join(f'<a href="#{_slug(n)}" data-jump="{_slug(n)}">{n}</a>' for n in SECTIONS)
+    links = "".join(f'<a href="#{_slug(n)}" data-jump="{_slug(n)}"{" class=on" if i == 0 else ""}>{n}</a>' for i, n in enumerate(SECTIONS))
     with st.container(key="settings_nav"):
         st.markdown(f'<nav class="set-nav" aria-label="Sections of this page">{links}</nav>', unsafe_allow_html=True)
 

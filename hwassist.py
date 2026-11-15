@@ -258,7 +258,7 @@ _CUES = [
      "Plan the program before coding it. Write the equation you need to solve, choose the numerical method and its stopping test, "
      "code it in small steps, check it against a case you can do by hand, then plot or tabulate the result and say what it shows."),
     (r"\b(plot|graph|sketch|draw|figure)\b",
-     "Plot it. Choose the quantity for each axis and a range that shows the behaviour, compute the points (with a short program if there are "
+     "Plot it. Choose the quantity for each axis and a range that shows the behavior, compute the points (with a short program if there are "
      "many), label the axes with units, and say in a sentence what the curve shows."),
     (r"\b(derive|show that|prove|demonstrate)\b",
      "Start from the definition or the governing equation. Change one thing per line, say what you used, and stop when you reach exactly the "

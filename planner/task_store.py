@@ -23,7 +23,7 @@ def _conn():
 def _task(row):
     return T.Task(row["id"], row["title"], row["course_id"], row["category"], timeutil.parse_utc(row["due_utc"]) if row["due_utc"] else None,
                   row["estimate_minutes"], row["start_ahead_days"], row["state"], row["logged_minutes"], row["source"],
-                  timeutil.parse_utc(row["completed_utc"]) if row["completed_utc"] else None)
+                  timeutil.parse_utc(row["completed_utc"]) if row["completed_utc"] else None, bool(row["personal"]))
 
 
 def _course_exists(conn, course_id):
@@ -60,16 +60,16 @@ def estimate_for(course_id, category):
 
 
 # ---------- tasks ----------
-def add_task(title, course_id=None, category="Homework", due=None, estimate=None, start_ahead_days=None, source=None, now=None):
+def add_task(title, course_id=None, category="Homework", due=None, estimate=None, start_ahead_days=None, source=None, now=None, personal=False):
     """Save a task (due: a UTC datetime or None). estimate=None inherits the default; a number overrides it. Returns the id."""
     now = now or _now()
     est = estimate if estimate is not None else estimate_for(course_id, category)
-    T.Task(0, title, course_id, category, due, est, start_ahead_days, source=source)               # validated
+    T.Task(0, title, course_id, category, due, est, start_ahead_days, source=source, personal=personal)               # validated
     with _conn() as conn:
         _course_exists(conn, course_id)
-        cur = conn.execute("INSERT INTO tasks(title, course_id, category, due_utc, estimate_minutes, start_ahead_days, state, logged_minutes, source, created_utc) "
-                           "VALUES (?,?,?,?,?,?, 'todo', 0, ?, ?)",
-                           (title.strip(), course_id, category, timeutil.utc_iso(due) if due else None, est, start_ahead_days, source, timeutil.utc_iso(now)))
+        cur = conn.execute("INSERT INTO tasks(title, course_id, category, due_utc, estimate_minutes, start_ahead_days, state, logged_minutes, source, created_utc, personal) "
+                           "VALUES (?,?,?,?,?,?, 'todo', 0, ?, ?, ?)",
+                           (title.strip(), course_id, category, timeutil.utc_iso(due) if due else None, est, start_ahead_days, source, timeutil.utc_iso(now), int(bool(personal))))
         conn.commit()
         return cur.lastrowid
 
@@ -82,17 +82,18 @@ def get_task(task_id):
     return _task(row)
 
 
-def update_task(task_id, title=_UNCHANGED, course_id=_UNCHANGED, category=_UNCHANGED, due=_UNCHANGED, estimate=_UNCHANGED, start_ahead_days=_UNCHANGED):
+def update_task(task_id, title=_UNCHANGED, course_id=_UNCHANGED, category=_UNCHANGED, due=_UNCHANGED, estimate=_UNCHANGED, start_ahead_days=_UNCHANGED, personal=_UNCHANGED):
     """Change the fields that are given (pass due=None to remove the due date). Everything is checked before anything is saved."""
     cur = get_task(task_id)
     new = T.Task(task_id, cur.title if title is _UNCHANGED else title, cur.course_id if course_id is _UNCHANGED else course_id,
                  cur.category if category is _UNCHANGED else category, cur.due if due is _UNCHANGED else due,
                  cur.estimate_minutes if estimate is _UNCHANGED else estimate, cur.start_ahead_days if start_ahead_days is _UNCHANGED else start_ahead_days,
-                 cur.state, cur.logged_minutes, cur.source, cur.completed)
+                 cur.state, cur.logged_minutes, cur.source, cur.completed, cur.personal if personal is _UNCHANGED else bool(personal))
     with _conn() as conn:
         _course_exists(conn, new.course_id)
-        conn.execute("UPDATE tasks SET title=?, course_id=?, category=?, due_utc=?, estimate_minutes=?, start_ahead_days=? WHERE id=?",
-                     (new.title.strip(), new.course_id, new.category, timeutil.utc_iso(new.due) if new.due else None, new.estimate_minutes, new.start_ahead_days, task_id))
+        conn.execute("UPDATE tasks SET title=?, course_id=?, category=?, due_utc=?, estimate_minutes=?, start_ahead_days=?, personal=? WHERE id=?",
+                     (new.title.strip(), new.course_id, new.category, timeutil.utc_iso(new.due) if new.due else None, new.estimate_minutes, new.start_ahead_days,
+                      int(new.personal), task_id))
         conn.commit()
 
 

@@ -149,6 +149,11 @@ class PlannerConfig:
         window = self.awake.for_date(day)
         return timeutil.to_utc(day, window.wake, self.term.zone), timeutil.to_utc(day, window.bed, self.term.zone)
 
+    def awake_window(self, day):
+        """(start, end) in UTC of the awake time of a local day, whatever the day is (a break, outside the term): where personal work may go."""
+        window = self.awake.for_date(day)
+        return timeutil.to_utc(day, window.wake, self.term.zone), timeutil.to_utc(day, window.bed, self.term.zone)
+
     def awake_minutes(self, day):
         """How many minutes of the day are awake time (0 on a day without planning)."""
         interval = self.awake_interval(day)

@@ -29,7 +29,7 @@ def source_dirs():
 
 
 def _fingerprint(path):
-    """Size and a hash of the first and last megabyte: enough to recognise a file without reading all of it."""
+    """Size and a hash of the first and last megabyte: enough to recognize a file without reading all of it."""
     size = path.stat().st_size
     h = hashlib.sha1()
     with open(path, "rb") as f:

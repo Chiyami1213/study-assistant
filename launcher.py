@@ -114,7 +114,7 @@ display:flex;align-items:center;justify-content:center;height:100vh"><div style=
 <script>function setProgress(p){p=Math.max(0,Math.min(100,Math.round(p)));
 document.getElementById('bar').style.width=p+'%';document.getElementById('pct').textContent=p+'%';}</script>
 </body></html>"""
-MIN_SPLASH = 2.0           # seconds: the loading screen shows at least this long, even when the server is ready at once
+MIN_SPLASH = 1.0           # seconds: the loading screen shows at least this long, even when the server is ready at once
 
 
 def splash_progress(elapsed, healthy):
