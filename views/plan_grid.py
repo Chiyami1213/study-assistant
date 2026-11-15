@@ -85,6 +85,8 @@ def day_items(day, blocks, sessions, tasks, course_colors, levels, tz, progress=
             color = course_colors.get(b.owner_id, EVENT_COLOR)
         ref = f"event:{b.ref_id}" if b.kind == "event" else ""
         open_ref = f"occ:{'course' if b.kind == 'class' else 'activity'}:{b.ref_id}:{day.isoformat()}" if b.kind in ("class", "activity") else ""
+        if open_ref:
+            ref = open_ref                                                    # a class or an activity is moved and resized for this day only (the weekly time has its own dialog)
         label = (names or {}).get(f"course:{b.owner_id}", b.label) if b.kind == "class" else b.label
         items.append(Item(b.kind, label, span[0], span[1], color, b.location or "", ref, "", b.changed, 0.0, open_ref))
     for s in sessions:
@@ -150,8 +152,11 @@ def block_html(it, lane, count, lo, darken, hour_px=HOUR_PX):
     edit = ' data-edit="1"' if it.ref else (f' data-open="{html.escape(it.open_ref)}"' if it.open_ref else "")
     attrs = f' data-ref="{html.escape(it.ref)}" data-start="{it.start}" data-end="{it.end}"{edit}' if it.ref else edit
     time_text = f"{hhmm(it.start)} - {hhmm(it.end)}"
-    sub = f'<div class="wk-loc">{html.escape(it.sub)}</div>' if it.sub and it.kind != "commute" else ""
-    handle = '<div class="wk-resize" title="drag to change the length"></div>' if it.ref else ""
+    pin = '<svg class="wk-pin" viewBox="0 0 24 24" width="13" height="13" fill="currentColor" aria-hidden="true"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>'
+    sub = f'<div class="wk-loc">{pin}<span>{html.escape(it.sub)}</span></div>' if it.sub and it.kind not in ("commute", "session") else (f'<div class="wk-loc">{html.escape(it.sub)}</div>' if it.sub and it.kind != "commute" else "")
+    trash = (f'<span class="wk-del" data-del="{html.escape(it.ref)}" title="delete"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg></span>'
+             if it.ref else "")
+    handle = ('<div class="wk-resize-top" title="drag to change the start"></div><div class="wk-resize" title="drag to change the end"></div>' if it.ref else "") + trash
     if it.kind == "session":
         dot = f'<span class="wk-dot" style="background:{LEVEL_COLORS.get(it.level, NEUTRAL)}" title="cushion: {it.level or "none"}"></span>' if it.level else ""
         style = f"top:{top:.1f}px;height:{height:.1f}px;{width}border-color:{it.color};background:{it.color}2e"

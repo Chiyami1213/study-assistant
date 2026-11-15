@@ -106,6 +106,8 @@ def run_server(port, parent_pid=None):
 
 SPLASH = """<html><body style="margin:0;background:#0e1117;color:#c9d1d9;font-family:Segoe UI,sans-serif;
 display:flex;align-items:center;justify-content:center;height:100vh"><div style="text-align:center">
+<svg viewBox="0 0 256 256" width="104" height="104" style="display:block;margin:0 auto 18px" fill="none" stroke="#8b95a7" stroke-width="6" stroke-linejoin="round" stroke-linecap="round">
+<rect x="10" y="10" width="236" height="236" rx="52"/><path d="M128 62 222 108 128 154 34 108Z"/><path d="M72 136v40l56 26 56-26v-40M128 154v48"/><path d="M222 108v52"/></svg>
 <div style="font-size:26px;font-weight:600;margin-bottom:10px">Study Assistant</div>
 <div style="opacity:.6">Starting...</div>
 <div style="width:280px;height:6px;border-radius:3px;background:#262b36;margin:22px auto 8px;overflow:hidden">

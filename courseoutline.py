@@ -274,6 +274,89 @@ def _alpha(n, upper):
     return s if upper else s.lower()
 
 
+def rows_to_text(rows, prefix):
+    """The text form of a table of [{number, title, hours}]: one line "Lec 3  Title [hours]" (or "Ch 3 ...") for each row with a title. A row without a number gets the next one."""
+    lines, n = [], 0
+    for r in rows:
+        title = str(r.get("title") or "").strip()
+        if not title:
+            continue
+        n += 1
+        number = str(r.get("number") or "").strip() or str(n)
+        hours = str(r.get("hours") or "").strip()
+        lines.append(f"{prefix} {number}  {title}" + (f"  [{hours}]" if hours else ""))
+    return "\n".join(lines)
+
+
+def rows_from_items(items):
+    """[{number, title, hours}] for the top level of an outline (a lecture or a chapter each); the number is the one in its marker ("Lec 4-5" -> "4-5")."""
+    rows = []
+    for it in items:
+        if it["level"] not in ("L", "I"):
+            continue
+        m = re.search(r"\d+(?:[-\u2013]\d+)?", it["marker"] or "")
+        rows.append({"number": m.group() if m else "", "title": it["title"], "hours": it.get("hours") or ""})
+    return rows
+
+
+def flat_kind(items):
+    """"Lectures" or "Chapters" when the outline is one list of lectures or chapters (nothing under them), else None."""
+    if not items or not all(it["level"] == "L" for it in items):
+        return None
+    return "Chapters" if all(re.match(r"(?i)\s*(ch|chapter)\b", it["marker"] or "") for it in items) else "Lectures"
+
+
+BULLET = re.compile(r"^[•▪◦‣⁃–—*\-]+\s+")
+DECIMAL = re.compile(r"^(\d+(?:\.\d+)+)[.)]?\s+(\S.*)$")
+PAREN = re.compile(r"^\(?([A-Za-z]|\d+|[ivxlcdm]+)[)]\s+(\S.*)$")
+
+
+def normalize_text(raw):
+    """An outline pasted from somewhere else (a syllabus, a web page, a chat) as the text form of the editor: bullets and tabs, "1.1" numbering, I. / A. / 1. / a. markers and
+    "Part 2 Title" lines all become one point per line, indented two spaces for each level. Levels come from the marker (Roman or Part = topic, A. = sub topic, 1. = point,
+    a. = detail, 1.1 = by its dots) and, for a bullet or a plain line, from how far it is indented. A decimal number is dropped (the points are numbered for you)."""
+    out, stack = [], []                                       # stack of (indent, depth) of the lines above
+    for line in (raw or "").replace(chr(9), "    ").splitlines():
+        if not line.strip():
+            continue
+        indent = len(line) - len(line.lstrip(" "))
+        s = line.strip()
+        s = BULLET.sub("", s, count=1) or s
+        marker, title, depth = "", s, None
+        d = DECIMAL.match(s)
+        p = PAREN.match(s)
+        m = MARKER.match(s)
+        if d:
+            title, depth = d.group(2), d.group(1).count(".")
+        elif m:
+            mk = m.group("m").rstrip(".:")
+            marker, title = mk, m.group("t").strip()
+            if re.fullmatch(FLAT_MARKER, mk):
+                depth = 0
+            elif re.fullmatch(r"[IVXLCDM]+", mk) and (len(mk) > 1 or mk in ("I", "V", "X")):
+                depth = 0
+            elif re.fullmatch(r"[A-Z]", mk):
+                depth = 1
+            elif mk.isdigit():
+                depth = 2
+            elif re.fullmatch(r"[a-z]", mk):
+                depth = 3
+        elif p:
+            mk, title = p.group(1), p.group(2).strip()
+            marker = mk
+            depth = 1 if mk.isupper() else 3 if mk.isalpha() else 2
+        if depth is None:                                     # a plain line or a bullet: its place comes from its indent
+            while stack and stack[-1][0] > indent:
+                stack.pop()
+            depth = (stack[-1][1] if stack[-1][0] == indent else stack[-1][1] + 1) if stack else 0
+        depth = min(depth, 3)
+        while stack and stack[-1][0] >= indent and stack[-1][1] >= depth:
+            stack.pop()
+        stack.append((indent, depth))
+        out.append("  " * depth + (f"{marker}.  " if marker and not re.fullmatch(FLAT_MARKER, marker) else f"{marker}  " if marker else "") + title.strip())
+    return chr(10).join(out)
+
+
 def from_text(text, previous=(), course_id=None, part=None):
     """Items from the text form. `previous` are the rows being edited (their Library links are kept for points that did not change)."""
     keep, known = {}, {r["title"].lower() for r in previous}

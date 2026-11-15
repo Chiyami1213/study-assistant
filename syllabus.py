@@ -20,9 +20,10 @@ def load(course_id, part=None):
         return None
 
 
-def save(course_id, data):
+def save(course_id, data, part=None):
+    """Keep the syllabus data of a course (of one part of a merged course: <course id>_<part>.json)."""
     DIR.mkdir(parents=True, exist_ok=True)
-    (DIR / f"{course_id}.json").write_text(json.dumps(data, indent=1, ensure_ascii=False), encoding="utf-8")
+    (DIR / (f"{course_id}_{part}.json" if part else f"{course_id}.json")).write_text(json.dumps(data, indent=1, ensure_ascii=False), encoding="utf-8")
 
 
 def score(kind, homework, events):

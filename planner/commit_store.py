@@ -104,6 +104,71 @@ def delete_meeting(owner, meeting_id):
         conn.commit()
 
 
+SCOPES = ("this", "weekday", "following", "all")
+
+
+def delete_occurrences(owner, meeting_id, day, scope):
+    """Delete part of a repeating meeting, from the occurrence on `day`:
+    "this": only that day (the rest of the series stays); "weekday": that day and every later one on the same weekday (the other days of the meeting go on);
+    "following": that day and everything after it (the series ends the day before); "all": the whole series.
+    A series with nothing left before `day` is deleted. Returns a short text of what was done."""
+    from datetime import timedelta
+    if scope not in SCOPES:
+        raise PlannerError("Choose what to delete: this one, this and the following ones on this weekday, this and all following, or all.")
+    row = dict(_meeting_row(owner, meeting_id))
+    _check_day(owner, meeting_id, day)
+    days = sorted(int(d) for d in row["days"].split(",") if d != "")
+    start, end = timeutil.parse_hhmm(row["start_time"]), timeutil.parse_hhmm(row["end_time"])
+    location = row.get("location") or ""
+    last_kept = day - timedelta(days=1)
+    term_start = store.get_term().start
+
+    def earlier_exists(weekdays):
+        """Does the meeting happen before `day` on one of these weekdays (inside the term)?"""
+        for d in range(1, 8 * 7):
+            before = day - timedelta(days=d)
+            if before < term_start:
+                return False
+            if before.weekday() in weekdays and (not row.get("end_date") or before.isoformat() <= row["end_date"]):
+                return True
+        return False
+
+    def drop_exceptions_from(weekdays):
+        with _conn() as conn:
+            for e in list_exceptions(owner):
+                if e.meeting_id == meeting_id and e.day >= day and e.day.weekday() in weekdays:
+                    conn.execute("DELETE FROM meeting_exceptions WHERE owner=? AND meeting_id=? AND day=?", (owner, meeting_id, e.day.isoformat()))
+            conn.commit()
+
+    if scope == "all":
+        delete_meeting(owner, meeting_id)
+        return "The whole series was deleted."
+    if scope == "this":
+        skip_occurrence(owner, meeting_id, day)
+        return "That day was deleted."
+    if scope == "following" or len(days) == 1:
+        if not earlier_exists(set(days)):
+            delete_meeting(owner, meeting_id)
+            return "The series was deleted (nothing was before that day)."
+        drop_exceptions_from(set(days))
+        update_meeting(owner, meeting_id, days, start, end, location, last_kept)
+        return "That day and the ones after it were deleted."
+    weekday = day.weekday()                                                   # "weekday": the other days go on
+    remaining = [d for d in days if d != weekday]
+    owner_id = row["course_id"] if owner == "course" else row["activity_id"]
+    if earlier_exists({weekday}):
+        new_id = (add_course_meeting if owner == "course" else add_activity_meeting)(owner_id, {weekday}, start, end, location, last_kept)
+        with _conn() as conn:                                                 # what was changed on the earlier days goes with them
+            for e in list_exceptions(owner):
+                if e.meeting_id == meeting_id and e.day < day and e.day.weekday() == weekday:
+                    conn.execute("UPDATE meeting_exceptions SET meeting_id=? WHERE owner=? AND meeting_id=? AND day=?", (new_id, owner, meeting_id, e.day.isoformat()))
+            conn.commit()
+    drop_exceptions_from({weekday})
+    end_date = date.fromisoformat(row["end_date"]) if row.get("end_date") else None
+    update_meeting(owner, meeting_id, remaining, start, end, location, end_date)
+    return "That day and the later ones on this weekday were deleted."
+
+
 def get_meeting(owner, meeting_id):
     """One weekly meeting as a dict (days, start_time, end_time, location, end_date ...), or a PlannerError."""
     return dict(_meeting_row(owner, meeting_id))
@@ -235,7 +300,7 @@ def load_series():
         meetings = by_course.get(c["id"])
         if not meetings or crud.course_status(c) == "Completed":
             continue
-        out.append(Series(COURSE, c["id"], c["code"] or c["name"], tuple(_meeting(m) for m in meetings), crud.course_color(c), True, False))
+        out.append(Series(COURSE, c["id"], crud.show_code(c["code"]) or c["name"], tuple(_meeting(m) for m in meetings), crud.course_color(c), True, False))
     with _conn() as conn:
         for a in conn.execute("SELECT * FROM activities ORDER BY id").fetchall():
             ms = conn.execute("SELECT * FROM activity_meetings WHERE activity_id=? ORDER BY id", (a["id"],)).fetchall()

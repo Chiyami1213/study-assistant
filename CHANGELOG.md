@@ -98,6 +98,17 @@
   files unchecked, and nothing is imported until you press Import. Update From Folder (also on every course page as Update Files) reads the folder your files are kept in: new files and files that
   changed since they were imported are listed for confirmation, an updated file replaces the stored copy, and files already imported are not listed again. The folder is only read, never changed.
 - **The Calendar panel lists courses and activities only.** Tasks are in the Task List.
+- **Calendar tiles.** Classes and activities can be dragged on the schedule too (the time changes for that day only; drag the top or bottom edge to change the start or the end). A tile shows a map
+  pin before its location and a trash bin at its top right. Deleting a repeating class or activity asks what to delete: this event, this and the following events on this weekday, this and all
+  following events, or all events. An event or a study session asks before it is deleted. The warning about work that does not fit has an x to dismiss it.
+- **Courses tree** is now a tree from left to right (a pill for each branch and course, no fill, larger text) that fits the window, folds one bubble at a time with a click (everything slides into place
+  and the view fits what is left), has one Collapse All / Expand All button, zoom with + / - or the wheel, and drag to move. Self-study courses grow on the branch of their own field with a dashed
+  outline and a hover note. A merged course's number is written out (MA 266 / MA 303).
+- **Course page.** The Overview is in a fixed order of foldable sections (a row of numbers, Coming Up, Grades, Syllabus, How Well You Know the Material). Add Syllabus reads a syllabus pdf (grading, letter
+  grades, instructor, outline) and Edit Syllabus changes any of it. The Resources tab starts with Links and every section folds. Edit Outline can be written lecture by lecture or chapter by chapter in a
+  table (number and title), as free text, or pasted from somewhere else.
+- **Imported files are named the Library's way** by default (HW 5, HW 5 Solution, Midterm 1 Practice, a note's topic with its number in the lecture field, Syllabus), and the confirmation page lists
+  homework and exam documents first. The loading screen shows the app icon.
 - **Library views and timeline.** Files can be shown as Cards, Tiles (a small cover with the details beside it) or a Details table. Date Added is a chain of bullets by day, month or year;
   every group folds up. The sort box and the Newest First button sit in the title row.
 - **Courses: a tree of knowledge.** Courses > All > Tree is a mind map: a bubble in the middle, large bubbles for the branches (domain, field, topic) with similar fields on the same branch, and a

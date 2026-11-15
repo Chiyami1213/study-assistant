@@ -65,7 +65,7 @@ def test_class_and_activity_blocks_carry_what_a_click_needs_and_cannot_be_dragge
     assert refs == {"class": f"occ:course:{mid}:{TUE.isoformat()}", "activity": f"occ:activity:{amid}:{TUE.isoformat()}"}
     cls = next(i for i in items if i.kind == "class")
     html = G.block_html(cls, 0, 1, 6, lambda c: c)
-    assert f'data-open="occ:course:{mid}:{TUE.isoformat()}"' in html and "wk-openable" in html and "data-edit" not in html and "wk-resize" not in html
+    assert f'data-ref="occ:course:{mid}:{TUE.isoformat()}"' in html and "data-edit" in html and 'class="wk-resize-top"' in html and 'class="wk-resize"' in html
 
 
 def test_a_changed_occurrence_is_marked_on_the_grid(seeded):
@@ -176,7 +176,7 @@ def test_clicking_a_class_opens_its_compact_dialog_for_this_day_or_every_week(se
     assert any("dlg-banner" in m.value for m in at.markdown)                                      # the title bar in the course's color
     for suffix in ("_del", "_cancel", "_save"):                                                   # Delete (skip this day), Cancel, Save
         assert at.button(key=key + suffix) is not None, suffix
-    assert at.button(key=key + "_del").label == "Skip This Class"
+    assert at.button(key=key + "_del").label == "Delete"
     assert not [b for b in at.button if b.key == key + "_restore"]                                # nothing to go back to yet
     at.get("segmented_control")[-1].set_value("Every Week") if False else None
 
@@ -202,3 +202,68 @@ def test_clicks_on_a_removed_meeting_or_a_bad_reference_do_not_crash(seeded):
     for text in ("click|occ:course:9999:2026-01-01|1", "click|occ:nonsense|2", "click|occ:course:abc:2026-01-01|3", "click|occ:course:1:not-a-date|4"):
         at.text_input(key="cal_sink").set_value(text); at.run()
         assert not at.exception, text
+
+
+# ---------------------------------------------------------------- Deleting a repeating event: this one, this and the following on this weekday, this and all following, all
+def _new_course():
+    return crud.add_course("XX 100", "Test", "Fall 2026", 0, "Active")
+
+
+def _series(cid, days, start=time(9, 30), end=time(10, 45)):
+    return cs.add_course_meeting(cid, set(days), start, end, "Room 1")
+
+
+def _has(cid, day):
+    return any(b.kind == "class" and b.owner_id == cid for b in cs.commitments(day, day))
+
+
+def test_delete_this_event_only(seeded):
+    cid = _new_course()
+    mid = _series(cid, {1, 3})
+    assert "That day" in cs.delete_occurrences("course", mid, TUE, "this")
+    assert not _has(cid, TUE) and _has(cid, TUE + timedelta(days=7)) and _has(cid, TUE + timedelta(days=2))
+
+
+def test_delete_this_and_following_on_this_weekday_keeps_the_other_days_and_the_earlier_tuesdays(seeded):
+    cid = _new_course()
+    mid = _series(cid, {1, 3})
+    later = TUE + timedelta(days=14)
+    cs.delete_occurrences("course", mid, later, "weekday")
+    assert not _has(cid, later) and not _has(cid, later + timedelta(days=7))                              # no more of that weekday from then on
+    assert _has(cid, later + timedelta(days=2)) and _has(cid, later + timedelta(days=9))                  # Thursdays go on
+    assert _has(cid, later - timedelta(days=7))                                                           # the Tuesday before is kept
+
+
+def test_delete_this_and_all_following_ends_the_series_the_day_before(seeded):
+    cid = _new_course()
+    mid = _series(cid, {1, 3})
+    cut = TUE + timedelta(days=14)
+    cs.delete_occurrences("course", mid, cut, "following")
+    assert cs.get_meeting("course", mid)["end_date"] == (cut - timedelta(days=1)).isoformat()
+    assert _has(cid, cut - timedelta(days=5)) and not any(_has(cid, cut + timedelta(days=i)) for i in range(0, 14))
+
+
+def test_delete_all_events_and_a_series_with_nothing_before_is_deleted(seeded):
+    cid = _new_course()
+    mid = _series(cid, {1})
+    cs.delete_occurrences("course", mid, TUE, "all")
+    assert crud.list_meetings(cid) == []
+    first = _series(cid, {1, 3})
+    start = store.get_term().start
+    day = start + timedelta(days=(1 - start.weekday()) % 7)                                                # the first Tuesday of the term: nothing is before it
+    assert "deleted" in cs.delete_occurrences("course", first, day, "following") and crud.list_meetings(cid) == []
+    other = _series(cid, {1})
+    with pytest.raises(Exception):
+        cs.delete_occurrences("course", other, day, "nonsense")
+
+
+def test_the_bin_of_a_tile_asks_before_it_deletes(seeded):
+    cid, mid, *_ = seeded
+    at = run(cal_anchor=TUE)
+    at.text_input(key="cal_sink").set_value(f"delete|occ:course:{mid}:{TUE.isoformat()}|1"); at.run()
+    assert not at.exception and any("od_this" in str(getattr(b, "key", "")) for b in at.button) and crud.list_meetings(cid)         # the choices are shown; nothing is deleted yet
+    eid = cs.add_event("Dentist", timeutil.to_utc(TUE, time(10), NY), timeutil.to_utc(TUE, time(11), NY), False, "", 0, 0, True, None)
+    at = run(cal_anchor=TUE)
+    assert 'class="wk-del"' in " ".join(m.value for m in at.markdown) and 'class="wk-pin"' in " ".join(m.value for m in at.markdown)
+    at.text_input(key="cal_sink").set_value(f"delete|event:{eid}|2"); at.run()
+    assert not at.exception and at.button(key=f"cd_yes_event_{eid}") is not None and cs.list_events(TUE, TUE)

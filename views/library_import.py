@@ -84,11 +84,26 @@ def scan_zip(data):
 
 
 # ---------------------------------------------------------------- what each file probably is
-def guess_fields(name, default_course=None):
+FOLDER_KINDS = (("solution", None), ("syllab", "Syllabus"), ("equation", "Equation Sheet"), ("formula", "Equation Sheet"), ("helper", "Homework Helper"), ("homework", "Homework"),
+                ("assignment", "Homework"), ("problem set", "Homework"), ("midterm", "Exam"), ("final", "Exam"), ("exam", "Exam"), ("quiz", "Exam"), ("lecture", "Lecture Notes"), ("slide", "Lecture Notes"),
+                ("notes", "Notes"), ("note", "Notes"), ("textbook", "Textbook"), ("book", "Textbook"), ("reference", "Textbook"), ("paper", "Textbook"))
+
+
+def kind_from_folders(key):
+    """The type the folders a file is in suggest ('.../AE 6765/Homework/HW 5/x.pdf' -> Homework); None when no folder says. The nearest folder counts most."""
+    parts = [p.lower() for p in re.split(r"[\/]", key or "")[:-1]]
+    for part in reversed(parts):
+        for word, kind in FOLDER_KINDS:
+            if word in part:
+                return kind
+    return None
+
+
+def guess_fields(name, default_course=None, key=""):
     """(kind, title, lecture, course ids) guessed from the file name alone (the file itself is read when it is imported)."""
     from views import library_view as L
     stem = Path(name).stem
-    kind = L.detect_kind(name, "") or "Textbook"
+    kind = L.detect_kind(name, "") or kind_from_folders(key) or "Textbook"           # the file name first, then the folders it is in
     lec, clean = L.split_lecture(stem.replace("_", " ").replace("-", " ") if " " not in stem else stem)
     title = crud.fix_course_ids(L.strip_notes_prefix(clean) if kind in ("Lecture Notes", "Notes") else stem.replace("_", " ").strip())
     lecture = ""
@@ -99,10 +114,49 @@ def guess_fields(name, default_course=None):
             title = f"HW {lecture}" + {"Homework Solution": " Solution", "Graded Homework": " Graded", "Homework Helper": " Helper", "Grade Explanation": " Grade Explanation"}.get(kind, "")
     elif kind in ("Lecture Notes", "Notes"):
         lecture = lec or L.guess_lecture(stem, "") or ""
+    import naming
+    named, named_lecture = naming.default_title(kind, name)                 # the Library's own forms: HW 5 Solution, Midterm 1 Practice, a note's topic with its number apart
+    if named:
+        title, lecture = named, named_lecture or lecture
     courses = {c["id"] for c in crud.list_courses(section=None)}
-    guessed = L.detect_course(name, title)
+    guessed = L.detect_course(name, title) or L.detect_course(" ".join(re.split(r"[\/]", key or "")[:-1]), "")      # the course may be named by a folder
     ids = [guessed] if guessed in courses else ([default_course] if default_course in courses else [])
     return kind, title or stem, lecture, ids
+
+
+def _stored_by_size():
+    """{size: [(book id, path)]} of the files the Library keeps (read once per scan)."""
+    out = {}
+    for b in crud.list_books():
+        try:
+            p = data_path(b["pdf_path"])
+            out.setdefault(p.stat().st_size, []).append((b["id"], p))
+        except (OSError, TypeError):
+            continue
+    return out
+
+
+def _digest(data):
+    import hashlib
+    return hashlib.sha1(data).hexdigest()
+
+
+def same_file_in_library(size, reader, stored):
+    """The id of a book whose stored copy has exactly the same content, or None. Only files of the same size are read and compared."""
+    same = stored.get(size)
+    if not same:
+        return None
+    try:
+        mine = _digest(reader())
+    except Exception:
+        return None
+    for book_id, path in same:
+        try:
+            if _digest(path.read_bytes()) == mine:
+                return book_id
+        except OSError:
+            continue
+    return None
 
 
 def classify(entries, remembered=None, default_course=None):
@@ -113,6 +167,7 @@ def classify(entries, remembered=None, default_course=None):
         if b.get("orig_name"):
             names.setdefault(b["orig_name"].lower(), []).append(b)
     out = []
+    stored = _stored_by_size()
     for key, name, size, mtime, reader in entries:
         known = remembered.get(key)
         status, book_id = "New", None
@@ -123,11 +178,29 @@ def classify(entries, remembered=None, default_course=None):
                 status, book_id = "Changed", known["book_id"]
             else:
                 status, book_id = "In Library", known["book_id"]
+        elif (same := same_file_in_library(size, reader, stored)) is not None:
+            status, book_id = "In Library", same                                 # the very same file, whatever it is titled
         elif name.lower() in names:
             status, book_id = "In Library", names[name.lower()][0]["id"]
-        kind, title, lecture, ids = guess_fields(name, default_course)
+        kind, title, lecture, ids = guess_fields(name, default_course, key)
         out.append(Candidate(key, name, size, mtime, status, book_id, kind, title, lecture, ids, reader))
-    return out
+    return sorted(out, key=priority)
+
+
+def priority(c):
+    """The order files are listed in: homework and exam documents first (the homework, its solution, helper, grade explanation; the exam, practice exam, preparation, reflection, equation sheet),
+    then the syllabus, then notes and lecture slides, then everything else. Inside a group by type, then by title with the numbers in order."""
+    from views import library_view as L
+    if c.kind in L.HW_GROUP or c.kind in L.EXAM_GROUP or c.kind == "Equation Sheet":
+        group = 0
+    elif c.kind == "Syllabus":
+        group = 1
+    elif c.kind in ("Notes", "Lecture Notes"):
+        group = 2
+    else:
+        group = 3
+    kind_rank = L.KINDS.index(c.kind) if c.kind in L.KINDS else 99
+    return (group, c.course_ids[0] if c.course_ids else 10 ** 9, kind_rank, crud._natural_key(c.title))
 
 
 def folder_candidates(folder, default_course=None):
@@ -310,3 +383,22 @@ def folder_dialog(course_id=None):
             _summary(*import_all(chosen, True, course_id))
             st.rerun()
     dialog()
+
+
+def add_syllabus(course_id, name, data, part=None):
+    """Add a syllabus file to the Library as the Syllabus of a course and read it: the grading breakdown, the letter-grade scale and the instructor are kept for the course page (an outline
+    that was not typed by hand follows it). For one part of a merged course the data is kept for that part. Returns (book id, the data read or None)."""
+    import syllabus
+    before = syllabus.load(course_id)
+    candidate = Candidate(key=name, name=name, size=len(data), mtime=0.0, status="New", kind="Syllabus", title=f"Syllabus ({part})" if part else "Syllabus", course_ids=[course_id],
+                          reader=lambda: data)
+    book_id = import_candidate(candidate)                                    # a pdf is read as it is added (syllabus.auto_build)
+    if part:
+        built = syllabus.load(course_id)
+        if built:
+            syllabus.save(course_id, built, part)
+        if before:
+            syllabus.save(course_id, before)
+        else:
+            (syllabus.DIR / f"{course_id}.json").unlink(missing_ok=True)
+    return book_id, syllabus.load(course_id, part)

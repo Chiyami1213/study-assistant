@@ -58,8 +58,8 @@ def _tile_html(course, status):
     color = crud.course_color(course)
     dark = crud.darken(color)
     # Numbered courses: number on top, name below. Self-Study subjects have no number, so the name is the top row.
-    code = html.escape(course["code"] or course["name"])
-    name = "" if (not course["code"] or course["name"] == course["code"]) else html.escape(course["name"])
+    code = html.escape(crud.show_code(course["code"]) or course["name"])
+    name = "" if (not crud.show_code(course["code"]) or course["name"] == course["code"]) else html.escape(course["name"])
     cat = f'<div class="ct-cat">{html.escape(course["category"])}</div>' if course.get("category") else ""
     meta = "".join(f"<div>{html.escape(x)}</div>" for x in (course["semester"], course.get("school")) if x)
     photo = _photo_url(course["id"])
@@ -188,23 +188,23 @@ def _semester_key(course):
 def _sorted_groups(courses, sort_by):
     """[(heading, courses)] - one unlabeled group for flat sorts, headed groups for label sorts."""
     if sort_by == "Course Number":
-        return [("", sorted(courses, key=lambda c: (not c["code"], crud._natural_key(c["code"] or c["name"]))))]
+        return [("", sorted(courses, key=lambda c: (not c["code"], crud._natural_key(crud.show_code(c["code"]) or c["name"]))))]
     if sort_by == "Name":
         return [("", sorted(courses, key=lambda c: c["name"].lower()))]
     if sort_by == "Default":
         return [("", courses)]
     if sort_by == "Category":
         order = {name: i for i, name in enumerate(crud.all_categories())}
-        key = lambda c: (order.get(c.get("category"), len(order)), crud._natural_key(c["code"] or c["name"]))
+        key = lambda c: (order.get(c.get("category"), len(order)), crud._natural_key(crud.show_code(c["code"]) or c["name"]))
         label = lambda c: c.get("category") or "No category"
     elif sort_by == "Semester":
-        key = lambda c: (_semester_key(c), crud._natural_key(c["code"] or c["name"]))
+        key = lambda c: (_semester_key(c), crud._natural_key(crud.show_code(c["code"]) or c["name"]))
         label = lambda c: c["semester"] or "No semester"
     elif sort_by == "School":
-        key = lambda c: (not c.get("school"), (c.get("school") or "").lower(), crud._natural_key(c["code"] or c["name"]))
+        key = lambda c: (not c.get("school"), (c.get("school") or "").lower(), crud._natural_key(crud.show_code(c["code"]) or c["name"]))
         label = lambda c: c.get("school") or "No school"
     else:  # Status
-        key = lambda c: (crud.STATUSES.index(crud.course_status(c)), crud._natural_key(c["code"] or c["name"]))
+        key = lambda c: (crud.STATUSES.index(crud.course_status(c)), crud._natural_key(crud.show_code(c["code"]) or c["name"]))
         label = crud.course_status
     groups = {}
     for c in sorted(courses, key=key):
@@ -349,25 +349,24 @@ def _resource_grid(books):
 
 
 def _resources(course):
-    """Library files linked to this course (Course Notes, Notes, Textbooks), then its web links."""
+    """The web links of the course first, then the Library files linked to it (Course Notes, Notes, Textbooks, and what else there is). Every section folds."""
     files = [b for b in crud.list_books() if course["id"] in b["course_ids"] and crud.in_part(b["title"], course.get("part"))]
     # Notes with a lecture number come first, in lecture order; then the rest by title.
     order = lambda b: ((0, crud._natural_key(b["lecture"])) if b.get("lecture") else (1, []),
                        crud._natural_key(b["title"]))
-    sections = [
-        ("Course Notes", "Lecture Notes", "No course notes yet."),
-        ("Notes", "Notes", "No notes yet."),
-        ("Textbooks", "Textbook", "No textbooks yet."),
-    ]
-    for heading, kind, empty in sections:
-        st.subheader(heading)
-        items = sorted((b for b in files if b["kind"] == kind), key=order)
-        if items:
-            _resource_grid(items)
-        else:
-            st.caption(f"{empty} Add a file in the Library and choose this course.")
-
     _links(course)
+    sections = [
+        ("Course Notes", ("Lecture Notes",), "No course notes yet."),
+        ("Notes", ("Notes",), "No notes yet."),
+        ("Textbooks", ("Textbook",), "No textbooks yet."),
+    ]
+    for heading, kinds, empty in sections:
+        items = sorted((b for b in files if b["kind"] in kinds), key=order)
+        with st.expander(f"{heading} ({len(items)})", expanded=bool(items)):
+            if items:
+                _resource_grid(items)
+            else:
+                st.caption(f"{empty} Add a file in the Library and choose this course.")
 
 
 @st.dialog("Add Link", width="large")
@@ -384,20 +383,19 @@ def _add_link_dialog(course):
 
 def _links(course):
     """Web links of the course (class page, syllabus ...), opened in a new tab."""
-    head, btn = st.columns([6, 1.2], vertical_alignment="center")
-    head.subheader("Links")
-    if btn.button("Add Link", key=f"link_open_{course['id']}"):
-        _add_link_dialog(course)
     links = crud.list_links(course["id"])
-    if not links:
-        st.caption("No links yet.")
-    for ln in links:
-        a, b = st.columns([8, 1], vertical_alignment="center")
-        a.markdown(f'<a class="res-link" href="{html.escape(ln["url"], quote=True)}" target="_blank" '
-                   f'rel="noopener noreferrer" title="{html.escape(ln["url"], quote=True)}">'
-                   f'{html.escape(ln["title"])}</a>', unsafe_allow_html=True)
-        if b.button("Remove", key=f"link_rm_{ln['id']}"):
-            crud.delete_link(ln["id"]); st.rerun()
+    with st.expander(f"Links ({len(links)})", expanded=True):
+        if st.button("Add Link", key=f"link_open_{course['id']}", icon=":material/add_link:"):
+            _add_link_dialog(course)
+        if not links:
+            st.caption("No links yet.")
+        for ln in links:
+            a, b = st.columns([8, 1], vertical_alignment="center")
+            a.markdown(f'<a class="res-link" href="{html.escape(ln["url"], quote=True)}" target="_blank" '
+                       f'rel="noopener noreferrer" title="{html.escape(ln["url"], quote=True)}">'
+                       f'{html.escape(ln["title"])}</a>', unsafe_allow_html=True)
+            if b.button("Remove", key=f"link_rm_{ln['id']}"):
+                crud.delete_link(ln["id"]); st.rerun()
 
 
 def _when(day, time):
@@ -552,15 +550,78 @@ def _syllabus_data(course):
     return syllabus.load(course["id"], course.get("part"))
 
 
+@st.dialog("Add Syllabus", width="large")
+def _syllabus_add_dialog(course):
+    """The syllabus pdf goes to the Library as this course's Syllabus and is read at once; everything read can be changed with Edit Syllabus."""
+    from views import library_import
+    up = st.file_uploader("Syllabus", type=["pdf"], key=f"syl_up_{course['id']}")
+    st.caption("The file is added to the Library as the Syllabus of this course. It is read: what each part of the grade is worth, the letter-grade cutoffs and the instructor are kept here, "
+               "and the outline is built from its topic list. Nothing is final: Edit Syllabus changes any of it, and the Outline has its own editor.")
+    if st.button("Add and Read", key=f"syl_go_{course['id']}", type="primary", disabled=not up):
+        _book, data = library_import.add_syllabus(course["id"], up.name, up.getvalue(), course.get("part"))
+        rows = (data or {}).get("rows") or []
+        st.session_state["lib_toast"] = (f"Syllabus added. {len(rows)} part{'s' if len(rows) != 1 else ''} of the grade found." if rows else
+                                         "Syllabus added. The grading could not be read from it: use Edit Syllabus to type it in.")
+        st.rerun()
+
+
+@st.dialog("Edit Syllabus", width="large")
+def _syllabus_edit_dialog(course):
+    """What was read from the syllabus, as plain boxes and two small tables. Saving keeps it as the student's own."""
+    import pandas as pd
+    cid, part = course["id"], course.get("part")
+    data = dict(syllabus.load(cid, part) or {})
+    k = f"syl_{cid}_{part}_"
+    a, b = st.columns(2)
+    instructor = a.text_input("Instructor", data.get("instructor", ""), key=k + "ins")
+    email = b.text_input("E-mail", data.get("email", ""), key=k + "mail")
+    st.markdown("**Parts of the Grade**")
+    st.caption("Counts From says where your score so far comes from: homework, midterms, final, exams, or event:Midterm 1 (the title of one exam). Leave it empty for anything else.")
+    rows = pd.DataFrame([{"Item": r.get("item", ""), "Percent": r.get("percent"), "Counts From": r.get("kind") or ""} for r in data.get("rows") or []], columns=["Item", "Percent", "Counts From"])
+    got = st.data_editor(rows, key=k + "rows", num_rows="dynamic", hide_index=True, width="stretch",
+                         column_config={"Item": st.column_config.TextColumn("Item", required=True), "Percent": st.column_config.NumberColumn("Percent", min_value=0, max_value=100, step=1, required=True),
+                                        "Counts From": st.column_config.TextColumn("Counts From")})
+    total = float(sum(v for v in got["Percent"] if v == v and v is not None))
+    st.caption(f"The parts add up to {total:g}%." + ("" if abs(total - 100) < 0.5 else " They usually add up to 100%."))
+    st.markdown("**Letter Grades**")
+    scale = pd.DataFrame([{"Grade": r.get("grade", ""), "Score Needed": r.get("rule", "")} for r in data.get("scale") or []], columns=["Grade", "Score Needed"])
+    got_scale = st.data_editor(scale, key=k + "scale", num_rows="dynamic", hide_index=True, width="stretch",
+                               column_config={"Grade": st.column_config.TextColumn("Grade", required=True), "Score Needed": st.column_config.TextColumn("Score Needed", help="for example 90-100 or 80% and above")})
+    curve = st.text_area("Curving", data.get("curve", ""), key=k + "curve", height=70)
+    note = st.text_area("Note", data.get("note", ""), key=k + "note", height=70)
+    s, c = st.columns(2)
+    if s.button("Save", key=k + "save", type="primary"):
+        data["instructor"], data["email"], data["curve"], data["note"] = instructor.strip(), email.strip(), curve.strip(), note.strip()
+        data["rows"] = [{"item": str(r["Item"]).strip(), "percent": int(r["Percent"]) if float(r["Percent"]) == int(float(r["Percent"])) else float(r["Percent"]),
+                         "kind": (str(r["Counts From"]).strip() or None)} for r in got.to_dict("records") if str(r.get("Item") or "").strip() and r.get("Percent") == r.get("Percent") and r.get("Percent") is not None]
+        data["scale"] = []
+        for r in got_scale.to_dict("records"):
+            grade, rule = str(r.get("Grade") or "").strip(), str(r.get("Score Needed") or "").strip()
+            low = re.search(r"\d+(?:\.\d+)?", rule)
+            if grade and low:
+                value = float(low.group())
+                data["scale"].append({"grade": grade, "rule": rule, "min": int(value) if value == int(value) else value})
+        data["scale"].sort(key=lambda r: -r["min"])
+        data["manual"] = True
+        syllabus.save(cid, data, part)
+        st.rerun()
+    if c.button("Cancel", key=k + "cancel"):
+        st.rerun()
+
+
 def _syllabus(course):
     """The syllabus file, what each part of the grade is worth, and the letter-grade scale (from the syllabus)."""
     data = _syllabus_data(course)
-    st.subheader("Syllabus")
     if course.get("parts") and not course.get("part"):
         st.caption("This course has more than one syllabus. Choose a part above to see its syllabus and what each part of the grade is worth.")
         return
+    add_col, edit_col, _gap = st.columns([1.5, 1.5, 6])
+    if add_col.button("Add Syllabus", key=f"syl_add_{course['id']}", icon=":material/upload_file:", help="add the syllabus pdf to the Library and read it: grading, letter grades, instructor and outline"):
+        _syllabus_add_dialog(course)
+    if edit_col.button("Edit Syllabus", key=f"syl_edit_{course['id']}", icon=":material/edit:", disabled=not data, help="change anything that was read from the syllabus, or type it in"):
+        _syllabus_edit_dialog(course)
     if not data:
-        st.caption("No syllabus yet. Add the syllabus file to the Library as a Syllabus.")
+        st.caption("No syllabus yet. Add the syllabus pdf here and it is read: what each part of the grade is worth, the letter-grade cutoffs, the instructor and the outline.")
         return
     info = ""
     if data.get("instructor"):
@@ -658,49 +719,69 @@ def coming_up(course, today=None, limit=8):
     return sorted(rows, key=lambda r: (r[0], r[1], r[2]))[:limit]
 
 
-def _coming_up(course):
-    """The start of the Overview: the next homework, exams and tasks."""
-    if crud.course_status(course) == "Completed":
-        return
-    rows = coming_up(course)
-    st.subheader("Coming Up")
+def _coming_up(course, rows):
+    """The next homework, exams and tasks."""
     if not rows:
         st.caption("Nothing is due soon.")
         return
     st.markdown('<div class="dl-list">' + "".join(_row_html(title, _when(day, time), kind, "none") for day, time, title, kind in rows) + "</div>", unsafe_allow_html=True)
 
 
+def _glance(course, rows, homework, exams, data):
+    """The row at the top of the Overview: what is next, how much is open, how much is graded, and the grade so far."""
+    try:
+        from planner import task_store
+        open_tasks = len(task_store.list_tasks(course_id=course["id"], include_done=False))
+    except Exception:
+        open_tasks = 0
+    graded = sum(1 for h in homework if h.get("score") is not None) + sum(1 for e in exams if e.get("score") is not None)
+    est = syllabus.standing(data, homework, exams) if data else None
+    cols = st.columns(4)
+    nxt = rows[0] if rows else None
+    cols[0].metric("Next Due", (_when(nxt[0], nxt[1]).split(" · ")[0]) if nxt else "Nothing", help=nxt[2] if nxt else "nothing is due soon")
+    cols[1].metric("Open Tasks", open_tasks, help="tasks of this course in the Task List that are not done")
+    cols[2].metric("Graded", f"{graded} of {len(homework) + len(exams)}", help="homework and exams with a score")
+    cols[3].metric("Grade So Far", f"{syllabus.letter(est[0], data)[0]}  ({est[0]:.1f}%)" if est else "None", help="weighted by the syllabus, from what is graded so far")
+
+
 def _overview(course):
-    """The grades so far (metrics and what is needed for an A or a B on the left, what each part is worth at the right),
-    then the syllabus, then how well the materials are understood (quiz scores)."""
-    _coming_up(course)
-    st.subheader("Grades")
+    """The Overview in a fixed order, every section foldable: the row of numbers at the top, Coming Up, Grades (what you have and what is needed, and what each part is worth), the
+    Syllabus (the file, its grading and letter grades, with Add and Edit), and how well the materials are understood (quiz scores)."""
     homework, exams = _homework_items(course), _exam_items(course)
-    hw_avg, ex_avg = _percent(homework), _percent(exams)
     data = _syllabus_data(course)
-    left, right = st.columns([3, 2], gap="large")
-    with right:
-        if data:
-            _weights(course, data)
-    with left:
-        if hw_avg is None and ex_avg is None:
-            st.caption("No grades yet. Homework and exam grades appear here.")
-        else:
-            est = syllabus.standing(data, homework, exams) if data else None
-            cols = st.columns(3 if est else 2)
-            cols[0].metric("Homework Average", f"{hw_avg:.0%}" if hw_avg is not None else "None",
-                           help=f"{sum(1 for h in homework if h.get('score') is not None)} of {len(homework)} graded")
-            cols[1].metric("Exam Average", f"{ex_avg:.0%}" if ex_avg is not None else "None",
-                           help=f"{sum(1 for e in exams if e.get('score') is not None)} of {len(exams)} graded")
-            if est:
-                percent, share = est
-                grade, assumed = syllabus.letter(percent, data)
-                cols[2].metric("Estimated Letter Grade", f"{grade}  ({percent:.1f}%)",
-                               help=f"weighted by the syllabus, from the {share:.0%} of the course graded so far"
-                                    + ("; the syllabus lists no cutoffs, so 90 / 80 / 70 / 60 is assumed" if assumed else ""))
-                _goals(data, homework, exams, assumed)
-    _syllabus(course)
-    quiz_view.understanding(course)
+    finished = crud.course_status(course) == "Completed"
+    rows = [] if finished else coming_up(course)
+    _glance(course, rows, homework, exams, data)
+    if not finished:
+        with st.expander(f"Coming Up ({len(rows)})", expanded=True):
+            _coming_up(course, rows)
+    with st.expander("Grades", expanded=True):
+        hw_avg, ex_avg = _percent(homework), _percent(exams)
+        left, right = st.columns([3, 2], gap="large")
+        with right:
+            if data:
+                _weights(course, data)
+        with left:
+            if hw_avg is None and ex_avg is None:
+                st.caption("No grades yet. Homework and exam grades appear here.")
+            else:
+                est = syllabus.standing(data, homework, exams) if data else None
+                cols = st.columns(3 if est else 2)
+                cols[0].metric("Homework Average", f"{hw_avg:.0%}" if hw_avg is not None else "None",
+                               help=f"{sum(1 for h in homework if h.get('score') is not None)} of {len(homework)} graded")
+                cols[1].metric("Exam Average", f"{ex_avg:.0%}" if ex_avg is not None else "None",
+                               help=f"{sum(1 for e in exams if e.get('score') is not None)} of {len(exams)} graded")
+                if est:
+                    percent, share = est
+                    grade, assumed = syllabus.letter(percent, data)
+                    cols[2].metric("Estimated Letter Grade", f"{grade}  ({percent:.1f}%)",
+                                   help=f"weighted by the syllabus, from the {share:.0%} of the course graded so far"
+                                        + ("; the syllabus lists no cutoffs, so 90 / 80 / 70 / 60 is assumed" if assumed else ""))
+                    _goals(data, homework, exams, assumed)
+    with st.expander("Syllabus", expanded=True):
+        _syllabus(course)
+    with st.expander("How Well You Know the Material", expanded=False):
+        quiz_view.understanding(course)
 
 
 def _homework(course):
@@ -866,30 +947,83 @@ def _fill_outline(key, items):
     st.session_state[key] = courseoutline.to_text(items)
 
 
+def _read_pasted(key, paste_key):
+    import courseoutline
+    text = courseoutline.normalize_text(st.session_state.get(paste_key, ""))
+    if text:
+        st.session_state[key] = text
+
+
+def _outline_rows_to_table(key_rows, key_ver, items):
+    import courseoutline
+    st.session_state[key_rows] = courseoutline.rows_from_items(items)
+    st.session_state[key_ver] = st.session_state.get(key_ver, 0) + 1
+
+
 @st.dialog("Edit Outline", width="large")
 def _outline_dialog(course):
-    """The outline as text: one point per line, two spaces of indent per level. Save keeps it as the user's own (it is no longer rebuilt)."""
+    """The outline written the way the course is organized: lecture by lecture, chapter by chapter (a table: the number and the title), or free text with levels. Save keeps it as the student's own
+    (it is no longer rebuilt); the one it replaces is copied to the outlines folder."""
     import courseoutline
+    import pandas as pd
     import settings
     cid, part = course["id"], course.get("part")
     key = f"outline_text_{cid}_{part}"
-    st.caption("One point per line, indented two spaces for each level (topic, sub topic, point, detail). A line may start with its marker (I. A. 1. a. or Lec 3); "
-               "markers left out are numbered for you. Put [9 Hours] or a web address at the end of a line. Points keep the file they open.")
-    st.text_area("Outline", key=key, height=430, label_visibility="collapsed")
+    rows_key, ver_key, mode_key = f"outline_rows_{cid}_{part}", f"outline_ver_{cid}_{part}", f"outline_mode_{cid}_{part}"
+    current = crud.list_outline(cid, part)
+    if mode_key not in st.session_state:
+        st.session_state[mode_key] = courseoutline.flat_kind(current) or ("Lectures" if not current else "Free Text")
+    mode = st.segmented_control("How is this course organized?", ["Lectures", "Chapters", "Free Text"], key=mode_key) or "Free Text"
     syllabus, titles = courseoutline.from_syllabus(cid, part), courseoutline.from_titles(cid, part)
+    prefix = "Ch" if mode == "Chapters" else "Lec"
+    if mode == "Free Text":
+        st.caption("One point per line, indented two spaces for each level (topic, sub topic, point, detail). A line may start with its marker (I. A. 1. a. or Lec 3); "
+                   "markers left out are numbered for you. Put [9 Hours] or a web address at the end of a line. Points keep the file they open.")
+        st.text_area("Outline", key=key, height=330, label_visibility="collapsed")
+        with st.expander("Paste an Outline From Somewhere Else"):
+            st.text_area("Pasted Outline", key=f"outline_paste_{cid}_{part}", height=140, label_visibility="collapsed",
+                         placeholder="Paste a topic list: bullets, 1.1 numbering, I. A. 1. a. markers or Part 2 lines are all understood")
+            st.button("Read the Pasted Outline", key=f"outline_read_{cid}", icon=":material/auto_fix_high:", on_click=_read_pasted, args=(key, f"outline_paste_{cid}_{part}"),
+                      help="puts it in the box above in the form the editor uses; nothing is saved until you press Save")
+    else:
+        word = "Lecture" if mode == "Lectures" else "Chapter"
+        st.caption(f"One row for each {word.lower()}: type its number ({word.lower()} 3, or 4-5 when one covers two) and its title. Leave the number empty to number the rows in order. "
+                   f"Hours are optional. A {word.lower()} that has notes in the Library opens them from the outline.")
+        if rows_key not in st.session_state:
+            st.session_state[rows_key] = courseoutline.rows_from_items(current)
+            if current and not courseoutline.flat_kind(current):
+                st.session_state["_outline_flat_warning"] = True
+        if st.session_state.pop("_outline_flat_warning", False):
+            st.warning("This outline has sub topics. A table keeps only the top level; use Free Text to keep all of it.", icon=":material/warning:")
+        table = pd.DataFrame(st.session_state[rows_key], columns=["number", "title", "hours"])
+        edited = st.data_editor(table, key=f"outline_table_{cid}_{part}_{st.session_state.get(ver_key, 0)}_{mode}", num_rows="dynamic", hide_index=True, width="stretch", height=330,
+                                column_config={"number": st.column_config.TextColumn(f"{word} Number", help="for example 3, or 4-5", width="small"),
+                                               "title": st.column_config.TextColumn("Title", required=True, width="large"),
+                                               "hours": st.column_config.TextColumn("Hours (Optional)", width="small")})
+        st.session_state["_outline_table_now"] = edited.fillna("").to_dict("records")
     a, b, c, d = st.columns(4)
-    a.button("Use Syllabus Topics", key=f"outline_use_syl_{cid}", disabled=not syllabus, width="stretch", on_click=_fill_outline, args=(key, syllabus),
-             help="fills the box with the topics listed in the syllabus or the lec 0 slides; nothing is saved until you press save")
-    b.button("Use Lecture Titles", key=f"outline_use_titles_{cid}", disabled=not titles, width="stretch", on_click=_fill_outline, args=(key, titles),
-             help="fills the box with the lecture or chapter titles in the library; nothing is saved until you press save")
+    if mode == "Free Text":
+        a.button("Use Syllabus Topics", key=f"outline_use_syl_{cid}", disabled=not syllabus, width="stretch", on_click=_fill_outline, args=(key, syllabus),
+                 help="fills the box with the topics listed in the syllabus or the lec 0 slides; nothing is saved until you press save")
+        b.button("Use Lecture Titles", key=f"outline_use_titles_{cid}", disabled=not titles, width="stretch", on_click=_fill_outline, args=(key, titles),
+                 help="fills the box with the lecture or chapter titles in the library; nothing is saved until you press save")
+    else:
+        a.button("Use Syllabus Topics", key=f"outline_use_syl_{cid}", disabled=not syllabus, width="stretch", on_click=_outline_rows_to_table, args=(rows_key, ver_key, syllabus),
+                 help="fills the table with the topics listed in the syllabus or the lec 0 slides; nothing is saved until you press save")
+        b.button("Use Lecture Titles", key=f"outline_use_titles_{cid}", disabled=not titles, width="stretch", on_click=_outline_rows_to_table, args=(rows_key, ver_key, titles),
+                 help="fills the table with the lecture or chapter titles in the library; nothing is saved until you press save")
     if c.button("Save", key=f"outline_save_{cid}", type="primary", width="stretch", help="keeps this outline; the one it replaces is copied to the outlines folder"):
-        rows = crud.list_outline(cid, part)
-        items = courseoutline.from_text(st.session_state[key], rows, cid, part)
+        text = st.session_state[key] if mode == "Free Text" else courseoutline.rows_to_text(st.session_state.get("_outline_table_now", []), prefix)
+        items = courseoutline.from_text(text, current, cid, part)
         courseoutline.save_previous(cid, part)
         crud.replace_outline(cid, items, part)
         settings.set_outline_state(cid, "manual", "", part)
+        for k in (rows_key, ver_key, mode_key):
+            st.session_state.pop(k, None)
         st.rerun()
     if d.button("Cancel", key=f"outline_cancel_{cid}", width="stretch"):
+        for k in (rows_key, ver_key, mode_key):
+            st.session_state.pop(k, None)
         st.rerun()
 
 

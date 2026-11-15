@@ -25,7 +25,7 @@ def _courses():
 
 def _course_name(courses, course_id):
     c = courses.get(course_id)
-    return (c["code"] or c["name"]) if c else ""
+    return (crud.show_code(c["code"]) or c["name"]) if c else ""
 
 
 def _fmt_due(due, tz):
@@ -82,7 +82,7 @@ def panel_html(tasks, courses, activities, report, usage_left, term_name=None, h
 
     def course_block(c, hide_flag=False):
         ref = f"course:{c['id']}"
-        return _block("course", c["id"], names.get(ref) or c["code"] or c["name"], "", course_color(c), "", hide_flag)
+        return _block("course", c["id"], names.get(ref) or crud.show_code(c["code"]) or c["name"], "", course_color(c), "", hide_flag)
 
     out.append(f'<div class="pl-head">Courses{" · " + html.escape(term_name) if term_name else ""}</div>')
     out += [course_block(c) for cid, c in in_term.items() if f"course:{cid}" not in hidden] or ['<div class="pl-empty">No active courses.</div>']
@@ -133,7 +133,7 @@ def filter_panel_html(courses, term_name, counts, selected, hidden=frozenset(), 
     def course(cid, c, hide_flag=False):
         ref = f"course:{cid}"
         color = colors.get(ref) or crud.course_color(c)
-        return _block("course", cid, names.get(ref) or c["code"] or c["name"], "", color, "", hide_flag, selected == ref, counts.get(cid, 0))
+        return _block("course", cid, names.get(ref) or crud.show_code(c["code"]) or c["name"], "", color, "", hide_flag, selected == ref, counts.get(cid, 0))
 
     out = [plain("all", "All Tasks", "#8b95a7"), '<div class="pl-rule"></div>', f'<div class="pl-head">Courses{" · " + html.escape(term_name) if term_name else ""}</div>']
     out += [course(cid, c) for cid, c in in_term.items() if f"course:{cid}" not in hidden] or ['<div class="pl-empty">No active courses.</div>']
@@ -163,7 +163,7 @@ def block_name(ref):
     kind, ident = _ref(ref)
     if kind == "course":
         c = _courses().get(ident)
-        real = (c["code"] or c["name"]) if c else "Course"
+        real = (crud.show_code(c["code"]) or c["name"]) if c else "Course"
     elif kind == "task":
         real = task_store.get_task(ident).title
     else:
@@ -701,8 +701,11 @@ def log_dialog(task_id):
 
 # ---------------------------------------------------------------- the banner
 def banner(report, courses, tz):
-    """A warning when any task does not fit before its deadline."""
+    """A warning when any task does not fit before its deadline. An x at the right end of the box dismisses it; it comes back when another task stops fitting."""
     if not report.any_negative:
+        return
+    short = {c.task_id for c in report.negative_items}
+    if short <= st.session_state.get("_banner_dismissed", set()):
         return
     tasks = {t.id: t for t in task_store.list_tasks()}
     lines = []
@@ -711,8 +714,12 @@ def banner(report, courses, tz):
         if t:
             lines.append(f"**{t.title}** ({_fmt_due(t.due, tz)}): short by {plan_grid.fmt_minutes(-c.cushion_minutes)}")
     more = len(report.negative_items) - len(lines)
-    st.warning("**Some work does not fit before its deadline.** " + " · ".join(lines) + (f" · and {more} more" if more > 0 else "") +
-               ". Free up time, lower an estimate or move a deadline.", icon=":material/warning:")
+    with st.container(key="cal_banner"):
+        st.warning("**Some work does not fit before its deadline.** " + " · ".join(lines) + (f" · and {more} more" if more > 0 else "") +
+                   ". Free up time, lower an estimate or move a deadline.", icon=":material/warning:")
+        if st.button("", key="cal_banner_x", icon=":material/close:", type="tertiary", help="dismiss this warning"):
+            st.session_state["_banner_dismissed"] = set(st.session_state.get("_banner_dismissed", set())) | short
+            st.rerun()
 
 
 # ---------------------------------------------------------------- dialogs
@@ -1064,14 +1071,10 @@ def occurrence_dialog(owner, meeting_id, day):
         if exc is not None and st.button("Back to Usual", key=f"{key}_restore", type="tertiary", icon=":material/undo:", help="drops the change or the skip of this day"):
             restore_this(owner, meeting_id, day)
             st.rerun()
-        delete, save = _footer(key, delete_label=f"Skip This {word.title()}", save_disabled=end <= start)
+        delete, save = _footer(key, delete_label="Delete", save_disabled=end <= start)
         if delete:
-            problem = skip_this(owner, meeting_id, day)
-            if problem:
-                st.error(problem)
-            else:
-                st.session_state["cal_toast"] = f"The {word} on {day:%b} {day.day} was skipped."
-                st.rerun()
+            st.session_state["cal_delete"] = f"occ:{owner}:{meeting_id}:{day.isoformat()}"            # asks what to delete, in its own window
+            st.rerun()
         if save:
             problem = move_this(owner, meeting_id, day, start, end, where.strip() if where.strip() != (m["location"] or "") else None)
             if problem:
@@ -1092,15 +1095,10 @@ def occurrence_dialog(owner, meeting_id, day):
         if activity:
             free = st.toggle("Free", not bool(activity["busy"]), key=f"{key}_free", help="on: it shows on the calendar, but study may be planned over it")
         st.caption("Every week changes, from the first to the last one.")
-        delete, save = _footer(key, delete_label="Delete Every Week", save_disabled=not days or e2 <= s2)
+        delete, save = _footer(key, delete_label="Delete", save_disabled=not days or e2 <= s2)
         if delete:
-            st.session_state[f"{key}_sure"] = True
-        if st.session_state.get(f"{key}_sure"):
-            st.warning("This deletes the weekly time and every change made to single days.", icon=":material/warning:")
-            if st.button("Yes, Delete It", key=f"{key}_yes", type="primary"):
-                remove_series(owner, meeting_id)
-                st.session_state["cal_toast"] = "The weekly time was removed."
-                st.rerun()
+            st.session_state["cal_delete"] = f"occ:{owner}:{meeting_id}:{day.isoformat()}"
+            st.rerun()
         if save:
             problem = save_series(owner, meeting_id, days, s2, e2, where2.strip(), end_date if has_end else None)
             if not problem and activity and free != (not bool(activity["busy"])):
@@ -1190,7 +1188,11 @@ def handle_action(text):
             handle_drop(parts[1], date.fromisoformat(parts[2]), int(parts[3]))
         elif action == "click":
             st.session_state["cal_open"] = parts[1]
-        elif action in ("move", "resize"):
+        elif action == "delete":
+            st.session_state["cal_delete"] = parts[1]
+        elif action in ("move", "resize", "resizetop") and parts[1].startswith("occ:"):
+            st.session_state["cal_toast"] = occurrence_drag(action, parts[1], date.fromisoformat(parts[2]), int(parts[3]))
+        elif action in ("move", "resize", "resizetop"):
             kind, _, raw = parts[1].partition(":")
             item_id = int(raw)
             if action == "move":
@@ -1205,6 +1207,17 @@ def handle_action(text):
                     new_end = new_start + (ev.end - ev.start)
                     commit_store.update_event(item_id, ev.title, new_start, new_end, ev.all_day, ev.location, ev.commute_before, ev.commute_after, ev.busy, ev.course_id)
                     st.session_state["cal_toast"] = "The event was moved."
+            elif action == "resizetop":
+                day, start_minutes = date.fromisoformat(parts[2]), int(parts[3])
+                new_start = _local(tz, day, start_minutes)
+                if kind == "session":
+                    cur = session_store.get_session(item_id)
+                    _apply(lambda force: service.update_session(item_id, new_start, cur.end, force=force), new_start, cur.end, item_id, "The study session was changed.",
+                           task_store.get_task(cur.task_id).personal)
+                else:
+                    ev = _find_event(item_id)
+                    commit_store.update_event(item_id, ev.title, new_start, ev.end, ev.all_day, ev.location, ev.commute_before, ev.commute_after, ev.busy, ev.course_id)
+                    st.session_state["cal_toast"] = "The event was changed."
             else:
                 day, end_minutes = date.fromisoformat(parts[2]), int(parts[3])
                 new_end = _local(tz, day, end_minutes)
@@ -1221,6 +1234,100 @@ def handle_action(text):
         st.session_state["cal_toast"] = "That change could not be read."
 
 
+@st.dialog("Deleting a Repeating Event")
+def occurrence_delete_dialog(owner, meeting_id, day):
+    """What to delete of a repeating class or activity: only this day, this and the following ones on this weekday, this and everything after it, or the whole series."""
+    try:
+        meeting = commit_store.get_meeting(owner, meeting_id)
+    except PlannerError:
+        st.caption("This weekly time no longer exists.")
+        return
+    weekdays = [d for d in meeting["days"].split(",") if d != ""]
+    choices = [("this", "This Event", "primary")]
+    if len(weekdays) > 1:
+        choices.append(("weekday", f"This and Following {day:%A} Events", "secondary"))
+    choices += [("following", "This and All Following Events", "secondary"), ("all", "All Events", "secondary")]
+    for scope, label, kind in choices:
+        if st.button(label, key=f"od_{scope}_{owner}_{meeting_id}_{day.isoformat()}", type=kind, width="stretch"):
+            try:
+                st.session_state["cal_toast"] = commit_store.delete_occurrences(owner, meeting_id, day, scope)
+            except PlannerError as e:
+                st.session_state["cal_toast"] = str(e)
+            st.rerun()
+    if st.button("Cancel", key=f"od_cancel_{owner}_{meeting_id}_{day.isoformat()}", type="tertiary", width="stretch"):
+        st.rerun()
+
+
+@st.dialog("Delete?")
+def confirm_delete_dialog(kind, item_id):
+    """The bin of an event or a study session asks first."""
+    try:
+        if kind == "event":
+            name = _find_event(item_id).title
+        else:
+            s = session_store.get_session(item_id)
+            name = task_store.get_task(s.task_id).title + " (study session)"
+    except PlannerError:
+        st.caption("That no longer exists.")
+        return
+    st.markdown(f"**Delete {html.escape(name)}?**")
+    st.caption("This can not be undone.")
+    a, b = st.columns(2)
+    if a.button("Delete", key=f"cd_yes_{kind}_{item_id}", type="primary", width="stretch"):
+        if kind == "event":
+            commit_store.delete_event(item_id)
+        else:
+            service.delete_session(item_id)
+        st.session_state["cal_toast"] = "Deleted."
+        st.rerun()
+    if b.button("Cancel", key=f"cd_no_{kind}_{item_id}", width="stretch"):
+        st.rerun()
+
+
+def open_delete(ref):
+    """Open the right question for a tile's bin: the choices for a repeating class or activity, a plain question for an event or a study session."""
+    try:
+        if ref.startswith("occ:"):
+            _, owner, mid, day = ref.split(":")
+            occurrence_delete_dialog(owner, int(mid), date.fromisoformat(day))
+        else:
+            kind, _, raw = ref.partition(":")
+            if kind not in ("event", "session"):
+                raise ValueError(ref)
+            confirm_delete_dialog(kind, int(raw))
+    except ValueError:
+        st.toast("That could not be deleted.")
+
+
+def occurrence_drag(action, ref, target_day, minutes):
+    """A class or an activity dragged on the grid: moved up or down (its time changes for this day only), or its top or bottom edge dragged (its start or its end changes for this day only).
+    A repeating class stays on its day: to put it on another day, change the weekly time. Returns the message to show."""
+    try:
+        _, owner, mid, day_text = ref.split(":")
+        mid, day = int(mid), date.fromisoformat(day_text)
+        meeting = commit_store.get_meeting(owner, mid)
+    except (ValueError, PlannerError):
+        return "That could not be changed."
+    exc = commit_store.exception_on(owner, mid, day)
+    cur_start = exc.start if exc and exc.kind == "override" else timeutil.parse_hhmm(meeting["start_time"])
+    cur_end = exc.end if exc and exc.kind == "override" else timeutil.parse_hhmm(meeting["end_time"])
+    clock = lambda m: time(min(m, 24 * 60 - 1) // 60, min(m, 24 * 60 - 1) % 60)
+    minutes_of = lambda t: t.hour * 60 + t.minute
+    if action == "move":
+        if target_day != day:
+            return "A class repeats every week. To put it on another day, change its weekly time (click it, then Every Week)."
+        length = minutes_of(cur_end) - minutes_of(cur_start)
+        start, end = clock(minutes), clock(minutes + length)
+    elif action == "resizetop":
+        start, end = clock(minutes), cur_end
+    else:
+        start, end = cur_start, clock(minutes)
+    if minutes_of(end) <= minutes_of(start):
+        return "The end has to be after the start."
+    problem = move_this(owner, mid, day, start, end, None)
+    return problem or f"Changed for {day:%b} {day.day} only; the other weeks stay as they are."
+
+
 def _find_event(event_id):
     with commit_store._conn() as conn:
         row = conn.execute("SELECT * FROM events WHERE id=?", (event_id,)).fetchone()
@@ -1233,7 +1340,9 @@ def show_pending():
     """Open what the last drag or click asked for (a dialog), and show the message of the last change."""
     if st.session_state.get("cal_toast"):
         st.toast(st.session_state.pop("cal_toast"))
-    if st.session_state.get("cal_confirm"):
+    if st.session_state.get("cal_delete"):
+        open_delete(st.session_state.pop("cal_delete"))
+    elif st.session_state.get("cal_confirm"):
         confirm_dialog()
     elif st.session_state.get("cal_create"):
         day, a, b, *kind = st.session_state.pop("cal_create")

@@ -25,7 +25,7 @@ def course_label(courses, task):
     if task.personal:
         return "Personal"
     c = courses.get(task.course_id)
-    return (c["code"] or c["name"]) if c else ""
+    return (crud.show_code(c["code"]) or c["name"]) if c else ""
 
 
 def filter_tasks(tasks, courses, which="all", query="", show_done=False):
@@ -135,7 +135,7 @@ def course_work(course_id, today=None):
     that has passed, is a finished task. An exam is already on the Calendar, so it is not put there again."""
     today = (today or date.today()).isoformat()
     course = next((c for c in crud.list_courses(section=None) if c["id"] == course_id), None)
-    code = (course["code"] or course["name"]) if course else ""
+    code = (crud.show_code(course["code"]) or course["name"]) if course else ""
     rows = []
     for h in crud.list_homework(course_id):
         if not h["due_date"]:
@@ -198,7 +198,7 @@ def apply_import(course_id, rows, meetings, tz):
     """Save the checked rows: a task each (finished when the row says so), and an event on the Calendar when asked, and the checked class times.
     Returns (tasks added, events added, class times added, problems)."""
     course = next((c for c in crud.list_courses(section=None) if c["id"] == course_id), None)
-    code = (course["code"] or course["name"]) if course else ""
+    code = (crud.show_code(course["code"]) or course["name"]) if course else ""
     tasks_n = events_n = meetings_n = 0
     problems = []
     for r in rows:
@@ -450,7 +450,7 @@ def render(report, courses, tz):
         # the title is the picked course in its own color (or All Tasks), with the button that adds a task to it
         if course_id:
             c = courses[course_id]
-            name = prefs.get(f"course:{course_id}") and settings.get_block_names().get(f"course:{course_id}") or c["code"] or c["name"]
+            name = prefs.get(f"course:{course_id}") and settings.get_block_names().get(f"course:{course_id}") or crud.show_code(c["code"]) or c["name"]
             color = prefs.get(f"course:{course_id}") or crud.course_color(c)
         else:
             name, color = ("Personal / No Course" if which == "personal" else "All Tasks"), "var(--text)"

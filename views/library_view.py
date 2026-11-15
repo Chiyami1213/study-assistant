@@ -193,15 +193,17 @@ def _add_dialog(default_course=None):
     lec_guess, clean_title = split_lecture(info["title"])
     if not lec_guess and up:
         lec_guess = guess_lecture(up.name.rsplit(".", 1)[0], info["title"])          # "Lec 3", or "Chapter 3" in an html note's name or title
-    title = st.text_input("Title", key=_auto("title", crud.fix_course_ids(strip_notes_prefix(clean_title) if is_notes else info["title"])))     # "AE333" -> "AE 333"
+    import naming
+    named_title, named_lecture = naming.default_title(kind, up.name, info["title"]) if up else (None, "")        # the Library's own forms for the title of a homework, an exam or a note
+    title = st.text_input("Title", key=_auto("title", crud.fix_course_ids(named_title or (strip_notes_prefix(clean_title) if is_notes else info["title"]))))     # "AE333" -> "AE 333"
     lecture = ""
     if is_hw:                                                        # "hw4.pdf" -> homework number 4, title "HW 4"
         num = (re.search(r"\d+", up.name) or re.search(r"\d+", info["title"] or "")) if up else None
-        lecture = st.text_input("Homework Number", key=_auto("hw", num.group() if num else ""), placeholder="4")
+        lecture = st.text_input("Homework Number", key=_auto("hw", named_lecture or (num.group() if num else "")), placeholder="4")
         if lecture.strip() and not title.strip().lower().startswith("hw"):
             title = f"HW {lecture.strip()}" + {"Homework Solution": " Solution", "Graded Homework": " Graded", "Homework Helper": " Helper", "Grade Explanation": " Grade Explanation"}.get(kind, "")
     elif is_notes:
-        lecture = st.text_input("Lecture", key=_auto("lec", lec_guess), placeholder="3 or 3-4")
+        lecture = st.text_input("Lecture", key=_auto("lec", named_lecture or lec_guess), placeholder="3 or 3-4")
     c1, c2, c3 = st.columns([3, 2, 1.2])
     author = c1.text_input("Author", key=_auto("author", info["author"]))
     edition = c2.text_input("Edition", key=_auto("edition", info["edition"]), placeholder="7th Edition")
@@ -790,7 +792,7 @@ def _book_card(book, courses):
     """One card as plain HTML (a grid of these is a single element, so the page stays light with many files)."""
     linked = [courses[i] for i in book["course_ids"] if i in courses]
     tag = "".join(f'<span class="book-badge tag" style="background:{crud.course_color(c)};'
-                  f'border-color:{crud.course_color(c)}">{html.escape(c["code"])}</span>' for c in linked if c["code"])
+                  f'border-color:{crud.course_color(c)}">{html.escape(crud.show_code(c["code"]))}</span>' for c in linked if c["code"])
     states = list(dict.fromkeys(crud.course_status(c) for c in linked))     # one label per distinct status
     lec = (f'<span class="book-badge meta">{"HW" if book["kind"] in HW_KINDS else "Lec"} {html.escape(book["lecture"])}</span>'
            if book.get("lecture") else "")
@@ -919,7 +921,7 @@ def _meta_bits(book, courses):
     """(lecture or homework label, course code chips, date added, edition and year) of a file, as plain text or HTML."""
     linked = [courses[i] for i in book["course_ids"] if i in courses]
     lec = f'{"HW" if book["kind"] in HW_KINDS else "Lec"} {html.escape(book["lecture"])}' if book.get("lecture") else ""
-    chips = "".join(f'<span class="lib-chip" style="border-color:{crud.course_color(c)};color:{crud.course_color(c)}">{html.escape(c["code"] or c["name"])}</span>' for c in linked)
+    chips = "".join(f'<span class="lib-chip" style="border-color:{crud.course_color(c)};color:{crud.course_color(c)}">{html.escape(crud.show_code(c["code"]) or c["name"])}</span>' for c in linked)
     added = (book.get("added_at") or "")[:10]
     edition = " · ".join(html.escape(x) for x in (book["edition"], book.get("year")) if x)
     return lec, chips, added, edition
@@ -975,6 +977,7 @@ def _tile_grid(tiles, has_books, courses, default_course=None):
 def _timeline(groups, courses, with_add):
     """Date Added as a chain: a vertical line down the left with a bullet for each day, month or year, and its files hanging from it. A group folds up with a click on its
     heading (the first two start open), so a long Library can be read by month or by year."""
+    st.markdown('<div class="tl-actions"><button type="button" data-tl-all="toggle">Collapse All</button></div>', unsafe_allow_html=True)
     for i, (title, items, _) in enumerate(groups):
         body = _files_html(items, _view_mode(), courses, None, with_add and i == 0)
         st.markdown(f'<details class="tl-group{" tl-last" if i == len(groups) - 1 else ""}"{" open" if i < 2 else ""}><summary class="tl-head"><span class="tl-dot"></span>'
@@ -1021,11 +1024,11 @@ def render():
     lib = st.session_state.setdefault("_lib", {"sort": "Type", "tile": None, "inner": {}, "desc": True})
     in_tile = lib["sort"] in INNER and lib["tile"] is not None
     lib.setdefault("view", "Cards")
-    title_col, import_col, view_col, order_col, sort_col = st.columns([2.6, 1.3, 2.6, 1.6, 1.4], vertical_alignment="bottom")           # the title, the view and the one sort box share a row, lined up at the bottom
+    title_col, view_col, order_col, import_col, sort_col = st.columns([2.6, 2.6, 1.6, 1.3, 1.4], vertical_alignment="bottom")           # the title, the view and the one sort box share a row, lined up at the bottom
     title_col.markdown("<h1 class='lib-title'>Library</h1>", unsafe_allow_html=True)
     if st.session_state.get("lib_toast"):
         st.toast(st.session_state.pop("lib_toast"))
-    with import_col.popover("Import", icon=":material/upload_file:", help="add files to the Library"):
+    with import_col.container(key="lib_import_box"), st.popover("Import", icon=":material/upload_file:", help="add files to the Library", type="secondary", width="stretch"):
         from views import library_import
         if st.button("Add a File", key="imp_menu_add", icon=":material/add:", width="stretch"):
             _reset_add_boxes()

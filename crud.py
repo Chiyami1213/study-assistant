@@ -24,11 +24,24 @@ def _exec(sql, params=()):
 
 
 # ---------- Courses & syllabus ----------
+_MULTI_CODE = re.compile(r"^([A-Za-z]+)\s*(\d+[A-Za-z]?)((?:\s*/\s*\d+[A-Za-z]?)+)$")
+
+
+def show_code(code):
+    """A merged course's number written out in full for display: "MA 266 / 303" -> "MA 266 / MA 303", "MA 161 / 162 / 261" -> "MA 161 / MA 162 / MA 261". Other codes are unchanged."""
+    m = _MULTI_CODE.match((code or "").strip())
+    if not m:
+        return code or ""
+    numbers = [m.group(2)] + [n.strip() for n in m.group(3).split("/") if n.strip()]
+    return " / ".join(f"{m.group(1).upper()} {n}" for n in numbers)
+
+
 def label(course):
     """Display name: just the code when the course has no separate title."""
     if not course["code"]:
         return course["name"]
-    return course["code"] if course["name"] == course["code"] else f"{course['code']}: {course['name']}"
+    code = show_code(course["code"])
+    return code if course["name"] == course["code"] else f"{code}: {course['name']}"
 
 
 

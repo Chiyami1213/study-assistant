@@ -94,7 +94,7 @@ def _upcoming(courses, homework):
             for day, time, title, kind, c, covers, item_id in items[:SHOWN]:
                 label, css = _countdown(day, today)
                 tag = (f'<span class="book-badge tag" style="background:{crud.course_color(c)};'
-                       f'border-color:{crud.course_color(c)}">{html.escape(c["code"])}</span>')
+                       f'border-color:{crud.course_color(c)}">{html.escape(crud.show_code(c["code"]))}</span>')
                 kind_badge = '<span class="book-badge">Exam</span>' if kind == "Exam" else ""
                 info, pill, check = st.columns([8, 2.2, 0.9], vertical_alignment="center")
                 info.markdown(f'<div><div class="dl-title">{html.escape(title)}</div>'

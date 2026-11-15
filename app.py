@@ -408,6 +408,12 @@ body.pl-dragging, body.pl-dragging * {{cursor: grabbing !important; user-select:
 .wk-block {{z-index: 1;}}
 
 
+/* The warning banner of the Calendar: an x at the right end of the box */
+.st-key-cal_banner {{position: relative;}}
+.st-key-cal_banner .st-key-cal_banner_x {{position: absolute; right: 10px; top: 50%; transform: translateY(-50%); width: auto; z-index: 3;}}
+.st-key-cal_banner .st-key-cal_banner_x button {{min-height: 32px; width: 32px; padding: 0; border-radius: 50%; opacity: 0.75;}}
+.st-key-cal_banner .st-key-cal_banner_x button:hover {{opacity: 1; background: #ffffff1f;}}
+.st-key-cal_banner [data-testid="stAlert"] {{padding-right: 52px;}}
 /* Calendar: the two buttons at the right edge line up; the Task List header row */
 .st-key-cal_autoplan, .st-key-edit_schedule_open {{display: flex; justify-content: flex-end; width: 100% !important;}}
 .tl-head {{font-size: 0.78rem; font-weight: 700; opacity: 0.65; text-transform: none;}}
@@ -529,7 +535,15 @@ div[data-testid="stColumn"]:has(.pl-wrap) + div[data-testid="stColumn"] {{flex: 
 .wk-moved {{position: absolute; right: 4px; top: 3px; font-size: 0.62rem; background: #0007; border-radius: 3px; padding: 0 4px;}}
 .wk-block[data-edit] {{cursor: grab; user-select: none; touch-action: none;}}
 .wk-block.dragging {{opacity: 0.85; z-index: 6; box-shadow: 0 8px 18px #0007; cursor: grabbing;}}
-.wk-resize {{position: absolute; left: 0; right: 0; bottom: 0; height: 9px; cursor: ns-resize;}}
+.wk-del {{position: absolute; right: 5px; top: 4px; z-index: 3; cursor: pointer; opacity: 0; padding: 2px; border-radius: 6px; line-height: 0; transition: opacity .12s, background .12s;}}
+.wk-block:hover .wk-del {{opacity: 0.85;}}
+.wk-del:hover {{opacity: 1 !important; background: #ffffff26;}}
+.wk-loc {{display: flex; align-items: center; gap: 4px;}}
+.wk-pin {{flex: none; opacity: 0.9;}}
+.wk-resize-top {{position: absolute; left: 0; right: 0; top: 0; height: 9px; cursor: ns-resize; z-index: 2;}}
+.wk-resize-top::after {{content: ""; position: absolute; left: 50%; top: 2px; width: 22px; margin-left: -11px; height: 3px; border-radius: 2px; background: currentColor; opacity: 0.45;}}
+.wk-block:hover .wk-resize-top::after, .wk-block:hover .wk-resize::after {{opacity: 0.9;}}
+.wk-resize {{position: absolute; left: 0; right: 0; bottom: 0; height: 9px; cursor: ns-resize; z-index: 2;}}
 .wk-resize::after {{content: ""; position: absolute; left: 50%; bottom: 2px; width: 22px; margin-left: -11px; height: 3px; border-radius: 2px; background: currentColor; opacity: 0.45;}}
 .wk-ghost {{position: absolute; left: 2px; right: 2px; background: rgba(76, 141, 255, 0.28); border: 2px solid var(--accent); border-radius: 6px; z-index: 5; pointer-events: none;}}
 .wk-col {{user-select: none;}}
@@ -692,36 +706,42 @@ div[data-testid="stColumn"]:has(.pl-wrap) + div[data-testid="stColumn"] {{flex: 
 /* Library */
 /* Library grid: one HTML block, cards are clickable through data-lib-act */
 .st-key-lib_inner_box {{width: 150px; max-width: 100%; margin-left: auto;}}
-/* Courses > All > Tree: a mind map. Every bubble sits at --x/--y; a folded one slides into its parent (--px/--py), shrinks and fades. */
-.mm-wrap {{margin: 0.4rem 0 1.5rem; overflow: auto; border: 1px solid var(--border); border-radius: 14px; padding: 12px 14px 4px; background: radial-gradient(circle at 50% 50%, #ffffff0d, transparent 70%);}}
-.tk-top {{display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; position: sticky; left: 0;}}
+/* Courses > All > Tree: a tree from left to right. Every pill sits at --x/--y (the script moves them when a branch folds; the transition slides them). No fill: the page shows through. */
+.mm-wrap {{position: relative; margin: 0.4rem 0 0.5rem; overflow: hidden; border: 0; padding: 4px 0 0;}}
+.tk-top {{display: flex; align-items: center; gap: 10px; margin-bottom: 8px;}}
 .tk-note {{font-size: 0.85rem; opacity: 0.7;}}
-.tk-actions button {{background: transparent; border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 4px 12px; margin-left: 8px; cursor: pointer; font-size: 0.82rem;}}
-.tk-actions button:hover {{border-color: var(--accent); color: var(--accent);}}
-svg.mm {{width: 100%; min-width: 1100px; height: auto; display: block; user-select: none;}}
-.mm-node {{transform: translate(var(--x), var(--y)); transition: transform .55s cubic-bezier(.4, 0, .2, 1), opacity .4s ease; cursor: pointer;}}
-.mm-node.mm-hidden {{transform: translate(var(--px), var(--py)) scale(0); opacity: 0; pointer-events: none;}}
-.mm-line {{stroke: #3b8fd4; stroke-width: 5; stroke-linecap: round; opacity: 0.85;}}
-.mm-l0 .mm-line {{display: none;}}
-.mm-l3 .mm-line, .mm-l4 .mm-line {{stroke-width: 3;}}
-.mm-node circle {{transition: filter .2s, stroke-width .2s;}}
-.mm-node:hover circle {{filter: brightness(1.18) drop-shadow(0 6px 10px #0008);}}
-.mm-l0 circle {{fill: #0b9be3; stroke: #8fd3ff; stroke-width: 4;}}
-.mm-l1 circle {{fill: hsl(var(--h), 100%, 32%); stroke: hsl(var(--h), 90%, 60%); stroke-width: 3;}}
-.mm-l2 circle {{fill: hsl(var(--h), 80%, 40%); stroke: hsl(var(--h), 85%, 68%); stroke-width: 3;}}
-.mm-l3 circle {{fill: var(--card); stroke: hsl(var(--h), 80%, 62%); stroke-width: 4;}}
-.mm-l4 circle {{fill: #f4f6fa; stroke: var(--c); stroke-width: 5;}}
-.mm-l4.sel circle {{fill: var(--c); stroke: #fff; stroke-width: 6;}}
-.mm-label, .mm-l0 text, .mm-l1 text, .mm-l2 text {{fill: #fff; font-weight: 700; pointer-events: none;}}
-.mm-l3 text {{fill: var(--text); font-weight: 700; pointer-events: none;}}
-.mm-count {{font-size: 13px !important; font-weight: 600 !important; opacity: 0.75;}}
-.mm-plus {{font-size: 26px !important; opacity: 0; transition: opacity .3s; fill: #fff;}}
-.mm-l3 .mm-plus {{fill: var(--text);}}
-.mm-collapsed .mm-plus {{opacity: 0.9;}}
-.mm-l4 text {{pointer-events: none;}}
-.mm-code {{font-size: 15px; font-weight: 800; fill: #0b1220;}}
-.mm-sub {{font-size: 11px; font-weight: 500; fill: #2a3345;}}
-.mm-l4.sel .mm-code, .mm-l4.sel .mm-sub {{fill: #fff;}}
+.tk-btn {{cursor: pointer; border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 5px 16px; font-size: 0.85rem; user-select: none; background: var(--input); transition: border-color .15s, color .15s;}}
+.tk-btn:hover {{border-color: var(--accent); color: var(--accent);}}
+svg.mm {{width: 100%; height: calc(100vh - 330px); min-height: 520px; display: block; user-select: none;}}   /* the whole map fits the window; wheel and + / - zoom it */
+.mm-node {{transform: translate(var(--x), var(--y)); transition: transform .5s cubic-bezier(.4, 0, .2, 1), opacity .35s ease; cursor: pointer;}}
+.mm-node.mm-hidden {{opacity: 0; pointer-events: none; transform: translate(var(--x), var(--y)) scale(0.4);}}
+.mm-line {{fill: none; stroke: var(--c, #3b8fd4); stroke-width: 3; stroke-linecap: round; opacity: 0.8; transition: d .5s cubic-bezier(.4, 0, .2, 1), opacity .35s ease;}}
+.mm-line.mm-e1 {{stroke-width: 5;}}
+.mm-line.mm-e2 {{stroke-width: 4;}}
+.mm-line.mm-hidden {{opacity: 0;}}
+.mm-node rect {{fill: transparent; stroke-width: 2.5; transition: fill .2s, stroke .2s;}}
+.mm-node:hover rect {{fill: #ffffff14;}}
+.mm-l0 rect {{stroke: #46b4f5; stroke-width: 3.5; fill: #0b9be333;}}
+.mm-l1 rect {{stroke: hsl(var(--h), 90%, 62%); fill: hsl(var(--h), 90%, 40%, 0.55); stroke-width: 3;}}
+.mm-l2 rect {{stroke: hsl(var(--h), 85%, 64%); fill: hsl(var(--h), 80%, 45%, 0.28);}}
+.mm-l3 rect {{stroke: hsl(var(--h), 75%, 62%);}}
+.mm-l4 rect {{stroke: var(--c);}}
+.mm-l4.sel rect {{fill: color-mix(in srgb, var(--c) 40%, transparent);}}
+.mm-l4.mm-study rect {{stroke-dasharray: 7 4;}}
+.mm-node text {{fill: var(--text); font-weight: 700; pointer-events: none;}}
+.mm-l4 text {{font-size: 15px;}}
+.mm-code {{font-weight: 800;}}
+.mm-sub {{font-weight: 400; opacity: 0.8; font-size: 14px;}}
+.mm-tag {{font-size: 11px; font-weight: 700; fill: #e0a82e; letter-spacing: 0.3px;}}
+.mm-count {{font-size: 12px; font-weight: 600; opacity: 0.65;}}
+.mm-chev {{font-size: 13px; opacity: 0.7; transition: transform .3s; transform-box: fill-box; transform-origin: center; pointer-events: none;}}
+.mm-node:not(.mm-collapsed) > .mm-chev {{transform: rotate(90deg);}}
+.mm-l4 .mm-chev {{display: none;}}
+.tk-zoom {{margin-left: auto; display: inline-flex; gap: 4px; margin-right: 8px;}}
+.tk-zoom button {{min-width: 34px; background: var(--input); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 4px 10px; cursor: pointer; font-size: 0.95rem; line-height: 1.2;}}
+.tk-zoom button:hover {{border-color: var(--accent); color: var(--accent);}}
+svg.mm {{cursor: grab; touch-action: none;}}
+svg.mm.panning {{cursor: grabbing;}}
 /* Library, by course: the tiles of the Courses page */
 .lib-ctiles {{display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 1rem; margin: 0.5rem 0 1.2rem;}}
 .lib-ctile {{position: relative; cursor: pointer; transition: transform .12s ease, filter .12s;}}
@@ -757,18 +777,28 @@ svg.mm {{width: 100%; min-width: 1100px; height: auto; display: block; user-sele
 .lib-row-add .lib-add {{display: inline-block; aspect-ratio: auto; border: 0; padding: 2px 4px; font-size: 0.9rem; cursor: pointer; opacity: 0.8;}}
 @media (max-width: 1100px) {{.lib-tilegrid {{grid-template-columns: repeat(2, minmax(0, 1fr));}}}}
 /* Library, Date Added: a chain of bullets on a vertical line */
-.tl-group {{position: relative; padding-left: 34px; margin-bottom: -1rem; padding-bottom: 1.4rem;}}
-.tl-group::before {{content: ""; position: absolute; left: 8px; top: 14px; bottom: -1rem; width: 2px; background: var(--border);}}
-.tl-group.tl-last::before {{bottom: 1.4rem;}}
-summary.tl-head {{display: flex; align-items: center; gap: 10px; margin-bottom: 0.9rem; font-size: 1.05rem; cursor: pointer; list-style: none; user-select: none;}}
+.tl-actions {{display: flex; gap: 8px; margin: 2px 0 14px 38px;}}
+.tl-actions button {{background: transparent; border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 5px 14px; cursor: pointer; font-size: 0.85rem;}}
+.tl-actions button:hover {{border-color: var(--accent); color: var(--accent);}}
+.tl-group {{position: relative; padding-left: 38px; margin-bottom: -1rem; padding-bottom: 2.3rem;}}
+.tl-group::before {{content: ""; position: absolute; left: 8px; top: 18px; bottom: -1rem; width: 2px; background: var(--border);}}
+.tl-group.tl-last::before {{bottom: 2.3rem;}}
+summary.tl-head {{display: flex; align-items: center; gap: 10px; min-height: 34px; margin-bottom: 1.1rem; font-size: 1.05rem; cursor: pointer; list-style: none; user-select: none;}}
 summary.tl-head::-webkit-details-marker {{display: none;}}
 .tl-chev {{margin-left: 4px; opacity: 0.6; transition: transform .15s;}}
 details[open] > summary .tl-chev {{transform: rotate(90deg);}}
-details.tl-group:not([open]) {{padding-bottom: 0.4rem;}}
+details.tl-group:not([open]) {{padding-bottom: 2.3rem;}}
 details.tl-group:not([open]) > summary {{margin-bottom: 0;}}
 summary.tl-head:hover b {{color: var(--accent);}}
-.tl-dot {{position: absolute; left: 0; top: 4px; width: 18px; height: 18px; border-radius: 50%; background: var(--bg, #0e1117); border: 3px solid var(--accent); box-sizing: border-box;}}
+.tl-dot {{position: absolute; left: 0; top: 8px; width: 18px; height: 18px; border-radius: 50%; background: var(--bg, #0e1117); border: 3px solid var(--accent); box-sizing: border-box;}}
 .tl-count {{opacity: 0.6; font-size: 0.8rem; border: 1px solid var(--border); border-radius: 999px; padding: 0 8px;}}
+/* Library: the Import menu is a button like the others (the sort box next to it is 40 px high; icon and text sit in the middle) */
+.st-key-lib_import_box [data-testid="stPopover"] button {{min-height: 40px !important; height: 40px; padding: 0 16px !important; border: 1px solid var(--border) !important; border-radius: 8px !important;
+  background: var(--input) !important; width: 100%; display: flex !important; align-items: center !important; justify-content: center !important;}}
+.st-key-lib_import_box [data-testid="stPopover"] button:hover {{border-color: var(--accent) !important;}}
+.st-key-lib_import_box [data-testid="stPopover"] button > div {{display: flex !important; align-items: center !important; justify-content: center !important; gap: 8px !important; width: auto !important;}}
+.st-key-lib_import_box [data-testid="stPopover"] button p {{font-size: 0.9rem !important; font-weight: 400 !important; line-height: 1 !important; letter-spacing: 0 !important; margin: 0 !important;}}
+.st-key-lib_import_box [data-testid="stPopover"] button [data-testid="stIconMaterial"] {{font-size: 1.2rem !important; color: var(--text) !important;}}
 .lib-tiles {{display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1rem; margin: 0.5rem 0 1.2rem;}}
 .lib-tile {{cursor: pointer; border: 1px solid var(--border); border-left: 5px solid var(--accent); border-radius: 12px; padding: 22px 20px; background: var(--card);
   display: flex; flex-direction: column; gap: 6px; transition: transform .12s ease, box-shadow .12s ease, filter .12s;}}
@@ -960,14 +990,19 @@ if (!win.__calDragV1) {
     inp.dispatchEvent(new win.KeyboardEvent('keydown', {key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true}));
     inp.blur();
   };
+  doc.addEventListener('click', e => {
+    const bin = e.target.closest && e.target.closest('.wk-del'); if (!bin) return;
+    e.preventDefault(); e.stopPropagation(); sendCal('delete|' + bin.dataset.del);
+  }, true);
   let drag = null;
   const snapMin = (grid, px) => { const per = +grid.dataset.hourPx / 60, s = +grid.dataset.snap; return Math.round(px / per / s) * s; };
   doc.addEventListener('pointerdown', e => {
+    if (e.target.closest && e.target.closest('.wk-del')) return;                  // the trash bin is a button, not a place to drag from
     const grid = e.target.closest && e.target.closest('.wk'); if (!grid || e.button !== 0) return;
     const col = e.target.closest('.wk-col'); if (!col) return;
     const block = e.target.closest('.wk-block');
     if (block && block.dataset.edit) {
-      drag = {mode: e.target.closest('.wk-resize') ? 'resize' : 'move', block, grid, col, startX: e.clientX, startY: e.clientY, moved: false,
+      drag = {mode: e.target.closest('.wk-resize-top') ? 'resizetop' : e.target.closest('.wk-resize') ? 'resize' : 'move', block, grid, col, startX: e.clientX, startY: e.clientY, moved: false,
               start: +block.dataset.start, end: +block.dataset.end, day: col.dataset.day, dMin: 0};
     } else if (block && block.dataset.open) {
       drag = {mode: 'open', block, grid, col, startX: e.clientX, startY: e.clientY, moved: false};
@@ -989,6 +1024,11 @@ if (!win.__calDragV1) {
       drag.block.classList.add('dragging');
       drag.block.style.transform = 'translate(' + dx + 'px,' + (drag.dMin * per) + 'px)';
       drag.target = [...drag.grid.querySelectorAll('.wk-col')].find(c => { const r = c.getBoundingClientRect(); return e.clientX >= r.left && e.clientX < r.right; }) || drag.col;
+    } else if (drag.mode === 'resizetop') {
+      drag.newStart = Math.min(drag.end - 15, drag.start + snapMin(drag.grid, dy));
+      const lo = +drag.col.dataset.lo;
+      drag.block.style.top = ((drag.newStart - lo * 60) * per) + 'px';
+      drag.block.style.height = ((drag.end - drag.newStart) * per - 2) + 'px';
     } else if (drag.mode === 'resize') {
       drag.newEnd = Math.max(drag.start + 15, drag.end + snapMin(drag.grid, dy));
       drag.block.style.height = ((drag.newEnd - drag.start) * per - 2) + 'px';
@@ -1010,6 +1050,7 @@ if (!win.__calDragV1) {
     if (d.mode === 'open') { if (!d.moved) sendCal('click|' + d.block.dataset.open); return; }
     if (!d.moved) { sendCal('click|' + d.block.dataset.ref); return; }
     if (d.mode === 'move') sendCal('move|' + d.block.dataset.ref + '|' + (d.target || d.col).dataset.day + '|' + (d.start + d.dMin));
+    else if (d.mode === 'resizetop') sendCal('resizetop|' + d.block.dataset.ref + '|' + d.day + '|' + (d.newStart === undefined ? d.start : d.newStart));
     else sendCal('resize|' + d.block.dataset.ref + '|' + d.day + '|' + (d.newEnd || d.end));
   }, true);
   let swipe = null;
@@ -1148,20 +1189,59 @@ if (!win.__calOrderV1) {
     sendOrder('panel|order|' + d.item.dataset.drag + '|' + refs.join(','));
   }, true);
 }
-// Courses > All > Tree (a mind map): a click on a bubble folds its branches into it (CSS slides them), Expand All and Collapse All do it for every bubble, and a click on a course sends its id
-// to the hidden box.
-if (!win.__treeV2) {
-  win.__treeV2 = true;
-  const refresh = svg => {
-    const nodes = new Map(); svg.querySelectorAll('.mm-node').forEach(n => nodes.set(n.dataset.id, n));
+// Library, Date Added: one button folds every group of the timeline, or opens them all when they are folded.
+if (!win.__tlAllV2) {
+  win.__tlAllV2 = true;
+  doc.addEventListener('click', e => {
+    const b = e.target.closest && e.target.closest('[data-tl-all]'); if (!b) return;
+    const groups = [...doc.querySelectorAll('details.tl-group')];
+    const open = !groups.some(d => d.open);
+    groups.forEach(d => { d.open = open; });
+    b.textContent = open ? 'Collapse All' : 'Expand All';
+  }, true);
+}
+// Courses > All > Tree: a click on a bubble folds or unfolds that bubble only. The pills are laid out again (the visible leaves are the rows, a branch is in the middle of its rows, the others slide
+// into their parent) and the view fits what is visible. One button folds every branch into its domain, or unfolds all. A click on a course sends its id to the hidden box.
+if (!win.__treeV3) {
+  win.__treeV3 = true;
+  const pack = svg => {
+    const PITCH = +svg.dataset.pitch || 58, GAP = +svg.dataset.gap || 120;
+    const nodes = new Map();
+    svg.querySelectorAll('.mm-node').forEach(g => nodes.set(g.dataset.id, {g, id: g.dataset.id, parent: g.dataset.parent, level: +g.dataset.level, w: +g.dataset.w, h: +g.dataset.h, kids: [], collapsed: g.classList.contains('mm-collapsed')}));
+    nodes.forEach(n => { if (n.parent && nodes.has(n.parent)) nodes.get(n.parent).kids.push(n); });
+    const left = {0: 0}, widest = {};
+    nodes.forEach(n => { widest[n.level] = Math.max(widest[n.level] || 0, n.w); });
+    for (let l = 1; l <= 4; l++) left[l] = left[l - 1] + (widest[l - 1] || 0) + GAP;
+    let row = 0; const root = [...nodes.values()].find(n => !n.parent);
+    const place = n => {
+      n.shown = true; n.x = left[n.level];
+      const ks = n.collapsed ? [] : n.kids;
+      if (!ks.length) { n.y = row * PITCH; row += 1; return; }
+      ks.forEach(place); n.y = (ks[0].y + ks[ks.length - 1].y) / 2;
+    };
+    place(root);
+    const hide = (n, at) => { n.kids.forEach(k => { if (!k.shown) { k.x = at.x; k.y = at.y; hide(k, at); } }); };
+    nodes.forEach(n => { if (n.shown) hide(n, n); });
+    let box = [1e9, 1e9, -1e9, -1e9];
     nodes.forEach(n => {
-      let p = n.dataset.parent, hide = false;
-      while (p && nodes.has(p)) { const pn = nodes.get(p); if (pn.classList.contains('mm-collapsed')) { hide = true; break; } p = pn.dataset.parent; }
-      n.classList.toggle('mm-hidden', hide);
+      n.g.style.setProperty('--x', n.x + 'px'); n.g.style.setProperty('--y', n.y + 'px'); n.g.classList.toggle('mm-hidden', !n.shown);
+      if (n.shown) { box = [Math.min(box[0], n.x), Math.min(box[1], n.y - n.h / 2), Math.max(box[2], n.x + n.w), Math.max(box[3], n.y + n.h / 2)]; }
     });
+    svg.querySelectorAll('.mm-line').forEach(p => {
+      const n = nodes.get(p.dataset.for), par = n && nodes.get(n.parent); if (!n || !par) return;
+      const x1 = par.x + par.w, y1 = par.y, x2 = n.x, y2 = n.y, mid = (x1 + x2) / 2;
+      p.style.d = "path('M " + x1 + ' ' + y1 + ' C ' + mid + ' ' + y1 + ', ' + mid + ' ' + y2 + ', ' + x2 + ' ' + y2 + "')"; p.classList.toggle('mm-hidden', !n.shown);
+    });
+    const target = [box[0] - 20, box[1] - 16, box[2] - box[0] + 40, box[3] - box[1] + 32];
+    svg.__home = target; fit(svg, target);
+  };
+  const fit = (svg, b) => {
+    const v = svg.viewBox.baseVal, from = [v.x, v.y, v.width, v.height], t0 = win.performance.now();
+    const step = now => { const k = Math.min(1, (now - t0) / 380), e = 1 - Math.pow(1 - k, 3); svg.setAttribute('viewBox', from.map((x, i) => x + (b[i] - x) * e).join(' ')); if (k < 1) win.requestAnimationFrame(step); };
+    win.requestAnimationFrame(step);
   };
   doc.addEventListener('click', e => {
-    const t = e.target.closest && e.target.closest('[data-mm-toggle], [data-tree-all], [data-tree-course]'); if (!t) return;
+    const t = e.target.closest && e.target.closest('[data-mm-toggle], [data-tree-course], [data-mm-all]'); if (!t) return;
     if (t.dataset.treeCourse) {
       const inp = doc.querySelector('.st-key-tree_sink input'); if (!inp) return;
       const set = Object.getOwnPropertyDescriptor(win.HTMLInputElement.prototype, 'value').set;
@@ -1171,9 +1251,51 @@ if (!win.__treeV2) {
       inp.blur(); return;
     }
     const svg = (t.closest('.mm-wrap') || doc).querySelector('svg.mm'); if (!svg) return;
-    if (t.dataset.treeAll) { svg.querySelectorAll('.mm-node[data-mm-toggle]').forEach(n => n.classList.toggle('mm-collapsed', t.dataset.treeAll === 'close' && n.dataset.parent !== '')); refresh(svg); return; }
-    t.classList.toggle('mm-collapsed'); refresh(svg);
+    if (t.dataset.mmAll) {
+      const close = t.dataset.mmAll === 'close';
+      svg.querySelectorAll('.mm-node[data-mm-toggle]').forEach(n => n.classList.toggle('mm-collapsed', close && n.dataset.level === '1'));
+      t.dataset.mmAll = close ? 'open' : 'close'; t.textContent = close ? 'Expand All' : 'Collapse All';
+    } else t.classList.toggle('mm-collapsed');
+    pack(svg);
   }, true);
+}
+// Courses > All > Tree: zoom with the + and - buttons or the mouse wheel, move the map by dragging an empty place, Fit shows all of it again. The map is an SVG: zooming changes its viewBox.
+if (!win.__treeZoomV2) {
+  win.__treeZoomV2 = true;
+  const home = svg => { if (!svg.__home) { const v = svg.viewBox.baseVal; svg.__home = [v.x, v.y, v.width, v.height]; } return svg.__home; };
+  const setBox = (svg, b, animate) => {
+    if (!animate) { svg.setAttribute('viewBox', b.join(' ')); return; }
+    const from = [svg.viewBox.baseVal.x, svg.viewBox.baseVal.y, svg.viewBox.baseVal.width, svg.viewBox.baseVal.height], t0 = win.performance.now();
+    const step = now => { const k = Math.min(1, (now - t0) / 220), e = 1 - Math.pow(1 - k, 3); svg.setAttribute('viewBox', from.map((v, i) => v + (b[i] - v) * e).join(' ')); if (k < 1) win.requestAnimationFrame(step); };
+    win.requestAnimationFrame(step);
+  };
+  const zoomAt = (svg, factor, fx, fy, animate) => {
+    const h = home(svg), v = svg.viewBox.baseVal;
+    const w = Math.max(h[2] / 8, Math.min(h[2] * 1.5, v.width / factor)), k = w / v.width, hh = v.height * k;
+    setBox(svg, [v.x + (v.width - w) * fx, v.y + (v.height - hh) * fy, w, hh], animate);
+  };
+  doc.addEventListener('click', e => {
+    const b = e.target.closest && e.target.closest('[data-mm-zoom]'); if (!b) return;
+    const svg = (b.closest('.mm-wrap') || doc).querySelector('svg.mm'); if (!svg) return;
+    if (b.dataset.mmZoom === 'fit') setBox(svg, home(svg), true); else zoomAt(svg, b.dataset.mmZoom === 'in' ? 1.35 : 1 / 1.35, 0.5, 0.5, true);
+  }, true);
+  doc.addEventListener('wheel', e => {
+    const svg = e.target.closest && e.target.closest('svg.mm'); if (!svg) return;
+    e.preventDefault();
+    const r = svg.getBoundingClientRect();
+    zoomAt(svg, e.deltaY < 0 ? 1.15 : 1 / 1.15, (e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height, false);
+  }, {passive: false, capture: true});
+  let pan = null;
+  doc.addEventListener('pointerdown', e => {
+    const svg = e.target.closest && e.target.closest('svg.mm'); if (!svg || e.button !== 0 || e.target.closest('.mm-node')) return;
+    const v = svg.viewBox.baseVal; pan = {svg, x: e.clientX, y: e.clientY, box: [v.x, v.y, v.width, v.height]}; svg.classList.add('panning'); e.preventDefault();
+  }, true);
+  doc.addEventListener('pointermove', e => {
+    if (!pan) return;
+    const r = pan.svg.getBoundingClientRect(), k = pan.box[2] / r.width;
+    setBox(pan.svg, [pan.box[0] - (e.clientX - pan.x) * k, pan.box[1] - (e.clientY - pan.y) * k, pan.box[2], pan.box[3]], false);
+  }, true);
+  doc.addEventListener('pointerup', () => { if (pan) { pan.svg.classList.remove('panning'); pan = null; } }, true);
 }
 // Calendar: drag the splitter at the right edge of the left panel to change its width (double-click: back to the usual width), drag the line next to the hours to
 // zoom the time scale (double-click: back to the usual height), and a click on a block of the Task List bar picks that course.
@@ -2066,7 +2188,7 @@ def course_sub_buttons():
             for c in items:
                 selected = st.session_state["page"] == "Courses" and st.session_state.get("course_id") == c["id"]
                 icon = ":material/water:" if icons.is_custom(c.get("icon")) else c.get("icon") or ":material/book:"
-                if st.button(c["code"] or c["name"], icon=icon, key=f"nav_course_{c['id']}",
+                if st.button(crud.show_code(c["code"]) or c["name"], icon=icon, key=f"nav_course_{c['id']}",
                              type="primary" if selected else "tertiary"):
                     _open_course(c)
 

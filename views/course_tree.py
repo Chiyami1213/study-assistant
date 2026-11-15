@@ -7,6 +7,8 @@ import html
 import math
 import re
 
+import crud
+
 # letters of a course number -> field; a category the student typed is matched by the words in FIELD_WORDS
 PREFIX_FIELD = {"AE": "Aerospace Engineering", "AAE": "Aerospace Engineering", "AERO": "Aerospace Engineering", "ASE": "Aerospace Engineering", "MAE": "Mechanical Engineering",
                 "ME": "Mechanical Engineering", "NUCL": "Nuclear Engineering", "NRE": "Nuclear Engineering", "ECE": "Electrical and Computer Engineering",
@@ -20,6 +22,14 @@ FIELD_DOMAIN = {"Aerospace Engineering": "Engineering", "Mechanical Engineering"
                 "Civil Engineering": "Engineering", "Chemical Engineering": "Engineering", "Industrial Engineering": "Engineering", "Physics": "Natural Sciences",
                 "Chemistry": "Natural Sciences", "Biology": "Natural Sciences", "Mathematics": "Mathematics and Computing", "Statistics": "Mathematics and Computing",
                 "Computer Science": "Mathematics and Computing", "Economics": "Humanities and Social Sciences", "Humanities": "Humanities and Social Sciences"}
+# a course without a course number (self-study) is placed by the words in its name
+NAME_FIELDS = ((("anatom", "physiolog", "biolog", "genetic", "neuro", "medic", "cell "), "Biology"), (("chem", "pyro", "molecul"), "Chemistry"),
+               (("econom", "financ", "accounting", "market"), "Economics"), (("calculus", "algebra", "statistic", "probab", "geometry", "topology", "math"), "Mathematics"),
+               (("music", "tonal", "piano", "guitar", "violin", "harmony", "singing", "choir", "drum"), "Music"), (("quantum", "physics", "relativity", "optics", "thermodynamic"), "Physics"),
+               (("orbit", "rocket", "aerodynam", "propulsion", "flight", "aerospace", "aircraft", "spacecraft"), "Aerospace Engineering"),
+               (("program", "python", "algorithm", "computer", "software", "machine learning", "data science", "coding"), "Computer Science"),
+               (("language", "japanese", "english", "spanish", "chinese", "french", "history", "philosoph", "psycholog", "literature", "writing"), "Humanities"))
+FIELD_DOMAIN["Music"] = "Humanities and Social Sciences"
 SELF_STUDY, OTHER_DOMAIN, OTHER_FIELD, GENERAL = "Self-Study", "Other Subjects", "Other", "General"
 
 # topics inside a field, by words in the course name (the first group that matches wins)
@@ -45,6 +55,10 @@ def field_of(course):
         return category
     code = (course.get("code") or "").strip()
     if not code:
+        name = f" {(course.get('name') or '').lower()} "
+        for words, field in NAME_FIELDS:
+            if any(w in name for w in words):
+                return field
         return SELF_STUDY
     letters = re.match(r"[A-Za-z]+", code)
     return PREFIX_FIELD.get(letters.group().upper(), letters.group().upper()) if letters else OTHER_FIELD
@@ -67,7 +81,7 @@ def build_tree(courses):
     tree = {}
     for c in courses:
         field = field_of(c)
-        tree.setdefault(domain_of(field), {}).setdefault(field, {}).setdefault(topic_of(c) if field != SELF_STUDY else GENERAL, []).append(c)
+        tree.setdefault(domain_of(field), {}).setdefault(field, {}).setdefault(topic_of(c) if field != SELF_STUDY else GENERAL, []).append(c)   # (self-study only when no field fits)
     last = lambda name: (name in (SELF_STUDY, OTHER_DOMAIN, OTHER_FIELD, GENERAL), name.lower())
     out = []
     for domain in sorted(tree, key=last):
@@ -88,153 +102,107 @@ def _hue(i, n):
     return round(210 + 300 * i / max(1, n)) % 360
 
 
-# ---------------------------------------------------------------- the mind map: a bubble in the middle, bubbles for the branches around it, and a white bubble for each course
-RADII = {0: 112, 1: 96, 2: 82, 3: 70, 4: 60}            # center, domain, field, topic, course
-MIN_WEIGHT = {1: 3.0, 2: 2.6, 3: 2.2}                    # room a branch takes on its ring, in courses (so a branch with one course is not squeezed)
+# ---------------------------------------------------------------- the map: a tree from left to right, a pill for the whole, each domain, field, topic and course
+HEIGHT = {0: 46, 1: 40, 2: 36, 3: 34, 4: 34}          # root, domain, field, topic, course
+SIZE = {0: 21, 1: 18, 2: 16, 3: 15, 4: 15}            # the size of the text of each level
+PITCH = 58                                            # the distance between two rows
+GAP = 120                                             # the distance between two columns
 
 
-def _lines(text, width):
-    """Break a label into lines of about `width` characters (a long word stays whole; the last line ends with ... when the text is too long for 3 lines)."""
-    words, out, cur = (text or "").split(), [], ""
-    for w in words:
-        if cur and len(cur) + 1 + len(w) > width:
-            out.append(cur)
-            cur = w
-        else:
-            cur = f"{cur} {w}".strip()
-    if cur:
-        out.append(cur)
-    if len(out) > 3:
-        out = out[:3]
-        out[-1] = out[-1][:max(1, width - 3)] + "..."
-    return out
+def _width(text, size, bold=True):
+    return len(text) * size * (0.60 if bold else 0.53)
 
 
-def layout(courses):
-    """The mind map as a list of nodes, each {id, parent, level, label, x, y, r, hue, course, kids} with the center at (0, 0), and its half width and height. Branches share the circle by
-    how many courses they hold; the outer ring is as far out as the courses need (one course takes a fixed arc of it)."""
+def layout(courses, status_of=None):
+    """The map as nodes {id, parent, level, label, name, count, course, w, h, x, y, hue, kids}: x is the left edge of the node and y its middle. The levels are columns (left to right: the whole,
+    domain, field, topic, course); the courses are rows in the order of the branches, and a branch is in the middle of its rows. Returns (nodes, (left, top, right, bottom)) of what is drawn."""
     tree = build_tree(courses)
     nodes = []
-    counter = [0]
 
     def make(level, parent, label, **extra):
-        counter[0] += 1
-        node = {"id": f"n{counter[0]}", "parent": parent, "level": level, "label": label, "kids": 0, "weight": 1.0, **extra}
+        node = {"id": f"n{len(nodes) + 1}", "parent": parent, "level": level, "label": label, "name": "", "count": 0, "course": None, "hue": 210, "kids": [], "y": 0.0, **extra}
+        node["h"] = HEIGHT[level]
         nodes.append(node)
+        if parent:
+            next(n for n in nodes if n["id"] == parent)["kids"].append(node["id"])
         return node
 
     root = make(0, None, "All Courses", count=len(courses))
-
-    def build(level, parent_node, items, hue_base):
-        """The children of a node as [(node, [their children])] and the room they need."""
-        total = 0.0
-        out = []
-        for i, item in enumerate(items):
-            hue = _hue(i, len(items)) if level == 1 else (hue_base + 7 * i) % 360
-            if level == 4:
-                node = make(4, parent_node["id"], item.get("code") or item.get("name") or "Course", course=item, hue=hue_base)
-                out.append((node, []))
-                total += 1.0
-                continue
-            label, children = item
-            if level == 3:
-                node = make(3, parent_node["id"], label, hue=hue, count=len(children))
-                sub, w = build(4, node, children, hue)
-            elif level == 2:
-                node = make(2, parent_node["id"], label, hue=hue, count=count(children))
-                sub, w = build(3, node, children, hue)
-            else:
-                node = make(1, parent_node["id"], label, hue=hue, count=sum(count(t) for _, t in children))
-                sub, w = build(2, node, children, hue)
-            node["kids"] = len(sub)
-            node["weight"] = max(w, MIN_WEIGHT[level])
-            total += node["weight"]
-            out.append((node, sub))
-        return out, total
-
-    top, total = build(1, root, tree, 210)
-    root["kids"] = len(top)
-    unit = 2 * RADII[4] + 12
-    base4 = max(840.0, max(1.0, total) * unit / (2 * math.pi))
-
-    def shares(weights, span, min_share):
-        """Angles for siblings: proportional to their weights, none below min_share (water-filling); None when they cannot all fit in the span."""
-        n = len(weights)
-        if n * min_share > span:
-            return None
-        fixed = set()
-        out = [0.0] * n
-        while True:
-            free = [i for i in range(n) if i not in fixed]
-            room = span - sum(out[i] for i in fixed)
-            whole = sum(weights[i] for i in free) or 1.0
-            low = [i for i in free if room * weights[i] / whole < min_share]
-            if not low:
-                for i in free:
-                    out[i] = room * weights[i] / whole
-                return out
-            for i in low:
-                out[i] = min_share
-                fixed.add(i)
-
-    def place(entries, a0, a1, level, rings):
-        """Put the siblings on their ring inside the arc a0..a1; False when they do not fit there (the rings are then moved outward)."""
-        angles = shares([e[0]["weight"] for e in entries], a1 - a0, (2 * RADII[level] + 18) / rings[level])
-        if angles is None:
-            return False
-        angle = a0
-        for (node, sub), share in zip(entries, angles):
-            mid = angle + share / 2
-            node["x"], node["y"], node["r"] = rings[level] * math.cos(mid), rings[level] * math.sin(mid), RADII[level]
-            if sub and not place(sub, angle, angle + share, level + 1, rings):
-                return False
-            angle += share
-        return True
-
-    for extra in range(0, 4000, 40):                                  # the rings move outward until every bubble has room
-        ring4 = base4 + extra
-        rings = {1: max(ring4 - 590, RADII[0] + RADII[1] + 60), 2: ring4 - 340, 3: ring4 - 170, 4: ring4}
-        if place(top, -math.pi / 2, 3 * math.pi / 2, 1, rings):
-            break
-    root.update(x=0.0, y=0.0, r=RADII[0], hue=210)
-    where = {n["id"]: (n["x"], n["y"]) for n in nodes}
+    for i, (domain, fields) in enumerate(tree):
+        hue = _hue(i, len(tree))
+        dn = make(1, root["id"], domain, count=sum(count(ts) for _, ts in fields), hue=hue)
+        for j, (field, topics) in enumerate(fields):
+            fh = (hue + 6 * j) % 360
+            fn = make(2, dn["id"], field, count=count(topics), hue=fh)
+            for k, (topic, cs) in enumerate(topics):
+                tn = make(3, fn["id"], topic, count=len(cs), hue=(fh + 5 * k) % 360)
+                for c in cs:
+                    make(4, tn["id"], c.get("code") and crud.show_code(c["code"]) or c.get("name") or "Course", course=c, hue=tn["hue"],
+                         name="" if (not c.get("code") or c.get("name") == c.get("code")) else c.get("name") or "")
+    for n in nodes:                                                          # the width of a pill: its text and, for a branch, the number of courses behind it
+        size = SIZE[n["level"]]
+        text = _width(n["label"], size) + (_width(n["name"], size - 1, False) + 10 if n["name"] else 0) + (_width(str(n["count"]), size - 3) + 26 if n["level"] < 4 else 0)
+        n["w"] = round(max(110, min(460, text + 38)))
+    columns = {}
     for n in nodes:
-        n["px"], n["py"] = where.get(n["parent"], (0.0, 0.0))
-    return nodes, (max(abs(n["x"]) + n["r"] for n in nodes) + 30, max(abs(n["y"]) + n["r"] for n in nodes) + 30)
+        columns[n["level"]] = max(columns.get(n["level"], 0), n["w"])
+    left = {0: 0.0}
+    for level in range(1, 5):
+        left[level] = left[level - 1] + columns.get(level - 1, 0) + GAP
+    by_id = {n["id"]: n for n in nodes}
+    for n in nodes:
+        n["x"] = left[n["level"]]
+    row = [0]
+
+    def place(n):
+        if not n["kids"]:
+            n["y"] = row[0] * PITCH
+            row[0] += 1
+            return
+        for kid in n["kids"]:
+            place(by_id[kid])
+        n["y"] = (by_id[n["kids"][0]]["y"] + by_id[n["kids"][-1]]["y"]) / 2
+
+    place(root)
+    box = (min(n["x"] for n in nodes) - 20, min(n["y"] - n["h"] / 2 for n in nodes) - 16, max(n["x"] + n["w"] for n in nodes) + 20, max(n["y"] + n["h"] / 2 for n in nodes) + 16)
+    return nodes, box
+
+
+def _curve(parent, node):
+    """The line from the right edge of a branch to the left edge of what grows from it, as an SVG path."""
+    x1, y1, x2, y2 = parent["x"] + parent["w"], parent["y"], node["x"], node["y"]
+    mid = (x1 + x2) / 2
+    return f"M {x1:.1f} {y1:.1f} C {mid:.1f} {y1:.1f}, {mid:.1f} {y2:.1f}, {x2:.1f} {y2:.1f}"
 
 
 def tree_html(courses, status_of, color_of, selected=None, root_label="All Courses"):
-    """The mind map as one SVG. A bubble with branches folds them into itself when clicked (CSS animates every bubble to its parent and back, see app.py); a white bubble is a course and
-    a click on it opens the course. `status_of(course)` / `color_of(course)`: the status text and the color of a course; `selected`: the id of the course to mark."""
+    """The map as one SVG. A branch folds its own branches away when it is clicked (the script in app.py moves everything to its new place and the CSS slides it there); a course opens when
+    it is clicked. Pills have no fill, so the page shows through. `status_of(course)` / `color_of(course)`: the status text and the color of a course; `selected`: the id of the course to mark."""
     if not courses:
         return ""
-    nodes, (ex, ey) = layout(courses)
-    parts = []
-    for n in sorted(nodes, key=lambda m: -m["level"]):              # outer bubbles first: a bubble covers the lines of the ones it holds
-        r, level = n["r"], n["level"]
-        dx, dy = n["px"] - n["x"], n["py"] - n["y"]
-        style = f'--x:{n["x"]:.1f}px;--y:{n["y"]:.1f}px;--px:{n["px"]:.1f}px;--py:{n["py"]:.1f}px'
-        line = "" if n["parent"] is None else f'<line class="mm-line" x1="0" y1="0" x2="{dx:.1f}" y2="{dy:.1f}"/>'
+    nodes, (x0, y0, x1, y1) = layout(courses, status_of)
+    by_id = {n["id"]: n for n in nodes}
+    edges, shapes = [], []
+    for n in nodes:
+        h, w, level = n["h"], n["w"], n["level"]
+        if n["parent"]:
+            edges.append(f'<path class="mm-line mm-e{level}" data-for="{n["id"]}" style="--c:hsl({n["hue"]},75%,55%)" d="{_curve(by_id[n["parent"]], n)}"/>')
+        style = f'--x:{n["x"]:.1f}px;--y:{n["y"]:.1f}px;--h:{n["hue"]}'
+        common = f'data-id="{n["id"]}" data-parent="{n["parent"] or ""}" data-level="{level}" data-w="{w}" data-h="{h}"'
         if level == 4:
             c = n["course"]
-            code = _lines(c.get("code") or c.get("name") or "Course", 11)[0]
-            name = "" if (not c.get("code") or c.get("name") == c.get("code")) else c.get("name") or ""
-            name_lines = _lines(name, 14)[:2]
-            first = -8 * len(name_lines) if name_lines else 5
-            text = f'<tspan x="0" dy="{first}" class="mm-code">{html.escape(code)}</tspan>'
-            text += "".join(f'<tspan x="0" dy="{13 if i else 17}" class="mm-sub">{html.escape(s)}</tspan>' for i, s in enumerate(name_lines))
-            parts.append(f'<g class="mm-node mm-l4{" sel" if c["id"] == selected else ""}" data-id="{n["id"]}" data-parent="{n["parent"]}" data-tree-course="{c["id"]}" style="{style};--c:{color_of(c)}">'
-                         f'{line}<circle r="{r}"/><text text-anchor="middle">{text}</text>'
-                         f'<title>{html.escape((c.get("code") or "") + " " + (c.get("name") or ""))} - {html.escape(status_of(c))}</title></g>')
-            continue
-        lines = _lines(n["label"], {0: 12, 1: 13, 2: 12, 3: 11}[level])
-        size = {0: 27, 1: 21, 2: 17, 3: 14}[level]
-        start = -(len(lines) - 1) * size * 0.58
-        text = "".join(f'<tspan x="0" dy="{size * 1.15 if i else start + size * 0.35:.1f}">{html.escape(s)}</tspan>' for i, s in enumerate(lines))
-        badge = (f'<text class="mm-count" y="{r - 14}" text-anchor="middle">{n.get("count", 0)}</text>' if level
-                 else f'<text class="mm-count" y="{r - 22}" text-anchor="middle">{n.get("count", 0)} courses</text>')
-        parts.append(f'<g class="mm-node mm-l{level}" data-id="{n["id"]}" data-parent="{n["parent"] or ""}" data-mm-toggle="{n["id"]}" style="{style};--h:{n["hue"]}">{line}<circle r="{r}"/>'
-                     f'<text class="mm-label" text-anchor="middle" style="font-size:{size}px">{text}</text>{badge}<text class="mm-plus" y="{-r + 24}" text-anchor="middle">+</text></g>')
-    return (f'<div class="mm-wrap"><div class="tk-top"><span class="tk-note">Click a bubble to fold its branches, a white bubble to open the course.</span>'
-            f'<span class="tk-actions"><button type="button" data-tree-all="open">Expand All</button><button type="button" data-tree-all="close">Collapse All</button></span></div>'
-            f'<svg class="mm" viewBox="{-ex:.0f} {-ey:.0f} {2 * ex:.0f} {2 * ey:.0f}" role="img" aria-label="{html.escape(root_label)}">{"".join(parts)}</svg></div>')
+            study = status_of(c) == "Self-Study"
+            name = f'<tspan class="mm-sub" dx="9">{html.escape(n["name"])}</tspan>' if n["name"] else ""
+            tag = ""
+            shapes.append(f'<g class="mm-node mm-l4{" sel" if c["id"] == selected else ""}{" mm-study" if study else ""}" {common} data-tree-course="{c["id"]}" style="{style};--c:{color_of(c)}">'
+                          f'<rect y="{-h / 2}" width="{w}" height="{h}" rx="{h / 2}"/><text x="{w / 2}" y="5" text-anchor="middle"><tspan class="mm-code">{html.escape(n["label"])}</tspan>{name}{tag}</text>'
+                          f'<title>{html.escape(n["label"] + " " + (c.get("name") or ""))} - {"this is a self-study course" if study else html.escape(status_of(c))}</title></g>')
+        else:
+            shapes.append(f'<g class="mm-node mm-l{level}" {common} data-mm-toggle="{n["id"]}" style="{style}"><rect y="{-h / 2}" width="{w}" height="{h}" rx="{h / 2}"/>'
+                          f'<text x="{w / 2 - (12 if level else 0)}" y="{SIZE[level] / 3:.1f}" text-anchor="middle" style="font-size:{SIZE[level]}px"><tspan>{html.escape(n["label"])}</tspan>'
+                          f'<tspan class="mm-count" dx="10">{n["count"]}</tspan></text><text class="mm-chev" x="{w - 18}" y="5" text-anchor="middle">&#9656;</text></g>')
+    return (f'<div class="mm-wrap"><div class="tk-top"><span class="tk-note">Click a bubble to fold or unfold its branches; click a course to open it. Scroll to zoom, drag to move.</span>'
+            f'<span class="tk-zoom"><button type="button" data-mm-zoom="out" title="zoom out">&minus;</button><button type="button" data-mm-zoom="in" title="zoom in">+</button>'
+            f'<button type="button" data-mm-zoom="fit" title="show the whole map">Fit</button></span>'
+            f'<button type="button" class="tk-btn" data-mm-all="close">Collapse All</button></div>'
+            f'<svg class="mm" data-pitch="{PITCH}" data-gap="{GAP}" viewBox="{x0:.0f} {y0:.0f} {x1 - x0:.0f} {y1 - y0:.0f}" role="img" aria-label="{html.escape(root_label)}"><g class="mm-edges">{"".join(edges)}</g>{"".join(shapes)}</svg></div>')

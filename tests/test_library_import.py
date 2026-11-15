@@ -24,6 +24,11 @@ def no_books():
         conn.commit()
 
 
+def pdf(n):
+    """A pdf with its own content (the same bytes in two files are the same file, which the Library notices)."""
+    return PDF + b"\n%" + str(n).encode()
+
+
 def make_zip(files):
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w") as zf:
@@ -73,7 +78,7 @@ def test_the_type_title_lecture_and_course_are_guessed_from_the_file_name():
 # ---------------------------------------------------------------- confirmation first, import second
 def test_importing_a_zip_adds_books_only_for_the_checked_files_and_never_twice():
     cid = crud.add_course("AE 6009", "Viscous Fluid Flow", "Fall 2026", 0, "Active")
-    data = make_zip({"AE 6009 HW4.pdf": PDF, "Lec 3 Thermal.html": HTML, "extra.pdf": PDF})
+    data = make_zip({"AE 6009 HW4.pdf": pdf(1), "Lec 3 Thermal.html": HTML, "extra.pdf": pdf(2)})
     cands = LI.zip_candidates(data, cid)
     assert len(cands) == 3 and all(c.status == "New" for c in cands) and crud.list_books() == []     # looking adds nothing
     chosen = [c for c in cands if c.name != "extra.pdf"]
@@ -96,7 +101,7 @@ def test_the_edited_type_title_and_course_are_what_is_imported():
 
 
 def test_a_bad_file_is_reported_and_the_others_still_import():
-    good, bad = LI.zip_candidates(make_zip({"a.pdf": PDF, "b.pdf": PDF}), None)
+    good, bad = LI.zip_candidates(make_zip({"a.pdf": pdf(1), "b.pdf": pdf(2)}), None)
     bad.reader = lambda: (_ for _ in ()).throw(OSError("disk error"))
     added, replaced, problems = LI.import_all([good, bad])
     assert added == 1 and len(problems) == 1 and "b.pdf" in problems[0]
@@ -109,7 +114,7 @@ def test_an_update_lists_new_files_then_only_changed_ones_and_replaces_the_store
     folder.mkdir()
     source = folder / "Lec 3 Thermal.html"
     source.write_bytes(HTML)
-    (folder / "AE 6009 HW4.pdf").write_bytes(PDF)
+    (folder / "AE 6009 HW4.pdf").write_bytes(pdf(1))
     settings.set_import_folder(str(folder), cid)
     assert settings.get_import_folder(cid) == str(folder) and settings.get_import_folder(999) == "" and settings.get_own_import_folder(cid) == str(folder)
     first = LI.folder_candidates(str(folder), cid)
@@ -119,7 +124,7 @@ def test_an_update_lists_new_files_then_only_changed_ones_and_replaces_the_store
     before = {b["orig_name"]: LI.data_path(b["pdf_path"]).read_bytes() for b in crud.list_books()}
     source.write_bytes(HTML + b"<p>newer</p>")
     os.utime(source, (time.time() + 10, time.time() + 10))
-    (folder / "new.pdf").write_bytes(PDF)
+    (folder / "new.pdf").write_bytes(pdf(2))
     statuses = {c.name: c.status for c in LI.folder_candidates(str(folder), cid)}
     assert statuses == {"Lec 3 Thermal.html": "Changed", "AE 6009 HW4.pdf": "In Library", "new.pdf": "New"}
     cands = [c for c in LI.folder_candidates(str(folder), cid) if c.status != "In Library"]
@@ -161,3 +166,103 @@ def test_the_buttons_are_on_the_library_and_the_course_page():
     at.session_state["open_course"] = cid
     at.run()
     assert not at.exception and at.button(key="course_update_files") is not None
+
+
+# ---------------------------------------------------------------- the same file under another title; the folders a file is in
+def test_a_file_that_is_already_in_the_library_under_another_name_is_not_new(tmp_path):
+    from database import PDF_DIR, stored_path
+    PDF_DIR.mkdir(parents=True, exist_ok=True)
+    stored = PDF_DIR / "book_old.pdf"
+    stored.write_bytes(pdf(7))
+    crud.add_book("Some Old Title", "", "", stored_path(stored), 1, [], "Textbook")                   # imported long ago, no file name kept
+    (tmp_path / "different name.pdf").write_bytes(pdf(7))
+    (tmp_path / "other.pdf").write_bytes(pdf(8))
+    statuses = {c.name: c for c in LI.folder_candidates(str(tmp_path))}
+    assert statuses["different name.pdf"].status == "In Library" and statuses["different name.pdf"].book_id and statuses["other.pdf"].status == "New"
+
+
+def test_the_folders_a_file_is_in_tell_its_type_and_its_course():
+    cid = crud.add_course("AE 6765", "Kinetics", "Fall 2026", 0, "Active")
+    kind = lambda key: LI.guess_fields(key.rsplit("/", 1)[-1], None, key)[0]
+    assert kind("AE 6765/Homework/Homework 5/AE6765_HW5_Prob2.pdf").startswith("Homework")
+    assert kind("AE 6765/Notes/chapter one.pdf") == "Notes" and kind("AE 6765/Lecture/slides week 2.pdf") == "Lecture Notes"
+    assert kind("AE 6765/Textbooks/Thermodynamics.pdf") == "Textbook" and kind("AE 6765/Midterm 1/stats.pdf") == "Exam"
+    assert kind("loose/whatever.pdf") == "Textbook"                                                          # nothing says: a textbook, like the Add File window
+    assert LI.guess_fields("something.pdf", None, "Fall 2026/AE 6765/Notes/something.pdf")[3] == [cid]       # the course is named by a folder
+    assert LI.kind_from_folders("a/Solutions/b.pdf") is None
+
+
+def test_an_imported_file_gets_the_title_forms_the_library_already_uses():
+    cid = crud.add_course("AE 6765", "Kinetics", "Fall 2026", 0, "Active")
+    data = make_zip({"AE6765 Homework 5 Solution.pdf": pdf(1), "AE6765 Midterm 1 Practice.pdf": pdf(2), "AE6765 Homework 5 Grades.html": HTML,
+                     "AE6009 Ch17 - Illingworth-Levy Similarity (Lec 20).html": HTML + b"<!--2-->"})
+    by = {c.name: c for c in LI.zip_candidates(data, cid)}
+    assert (by["AE6765 Homework 5 Solution.pdf"].kind, by["AE6765 Homework 5 Solution.pdf"].title, by["AE6765 Homework 5 Solution.pdf"].lecture) == ("Homework Solution", "HW 5 Solution", "5")
+    assert by["AE6765 Midterm 1 Practice.pdf"].title == "Midterm 1 Practice" and by["AE6765 Homework 5 Grades.html"].title == "HW 5 Grade Explanation"
+    note = by["AE6009 Ch17 - Illingworth-Levy Similarity (Lec 20).html"]
+    assert (note.title, note.lecture) == ("Illingworth-Levy Similarity", "17")
+    LI.import_all([by["AE6765 Homework 5 Solution.pdf"]])                                                        # and that is how it is kept
+    assert crud.list_books()[0]["title"] == "HW 5 Solution"
+
+
+def test_homework_and_exam_documents_are_listed_first():
+    names = ["Textbook chapter.pdf", "AE6765 Ch3 - Notes on Entropy.html", "AE6765 Homework 2.pdf", "AE6765 Midterm 1.pdf", "AE6765 Syllabus.pdf", "AE6765 Homework 10.pdf", "AE6765 Homework 2 Solution.pdf"]
+    data = make_zip({n: HTML + str(i).encode() for i, n in enumerate(names)})
+    order = [c.title for c in LI.zip_candidates(data)]
+    assert [c.kind for c in LI.zip_candidates(data)][:5] == ["Homework", "Homework", "Homework Solution", "Exam", "Syllabus"] or order[:3] == ["HW 2", "HW 10", "HW 2 Solution"]
+    kinds = [c.kind for c in LI.zip_candidates(data)]
+    assert max(kinds.index(k) for k in ("Homework", "Homework Solution", "Exam")) < kinds.index("Syllabus") < min(i for i, k in enumerate(kinds) if k in ("Notes", "Lecture Notes"))
+    assert order.index("HW 2") < order.index("HW 10")                                                           # the numbers are in order
+
+
+# ---------------------------------------------------------------- a syllabus added on the course page
+def syllabus_pdf():
+    import pymupdf
+    doc = pymupdf.open()
+    page = doc.new_page()
+    page.insert_text((72, 72), "Course Syllabus\nProfessor: Dr. Ada Lovelace\nGrading\nHomework 30%\nMidterm 1 30%\nFinal Exam 40%\nA 90-100\nB 80-89\nC 70-79", fontsize=11)
+    return doc.tobytes()
+
+
+def test_a_syllabus_added_on_the_course_page_is_a_library_file_and_is_read(tmp_path):
+    import syllabus
+    cid = crud.add_course("AE 6009", "Viscous Fluid Flow", "Fall 2026", 0, "Active")
+    book_id, data = LI.add_syllabus(cid, "AE6009 Syllabus.pdf", syllabus_pdf())
+    book = crud.get_book(book_id)
+    assert book["kind"] == "Syllabus" and book["title"] == "Syllabus" and cid in book["course_ids"]
+    assert [(r["item"], r["percent"]) for r in data["rows"]] == [("Homework", 30), ("Midterm 1", 30), ("Final Exam", 40)]
+    assert [r["grade"] for r in data["scale"]] == ["A", "B", "C"] and data["book"] == book_id
+    assert data["rows"][1]["kind"] == "event:Midterm 1"
+
+
+def test_a_syllabus_for_one_part_of_a_merged_course_leaves_the_other_parts_alone():
+    import syllabus
+    cid = crud.add_course("MA 266 / 303", "Differential Equations", "Fall 2026", 0, "Active")
+    syllabus.save(cid, {"book": 0, "rows": [{"item": "Old", "percent": 100, "kind": None}], "scale": []})
+    book_id, data = LI.add_syllabus(cid, "syl.pdf", syllabus_pdf(), "MA303")
+    assert [r["item"] for r in data["rows"]] == ["Homework", "Midterm 1", "Final Exam"] and crud.get_book(book_id)["title"] == "Syllabus (MA 303)"
+    assert syllabus.load(cid)["rows"][0]["item"] == "Old"                                                          # the course's own file is as it was
+
+
+def test_the_overview_has_add_and_edit_syllabus_and_an_edit_keeps_the_students_changes():
+    import syllabus
+    from pathlib import Path as P
+    from streamlit.testing.v1 import AppTest
+    app = str(P(__file__).resolve().parent.parent / "app.py")
+    cid = crud.add_course("AE 6009", "Viscous Fluid Flow", "Fall 2026", 0, "Active")
+    at = AppTest.from_file(app, default_timeout=90)
+    at.session_state["page"] = "Courses"
+    at.session_state["open_course"] = cid
+    at.run()
+    assert not at.exception and at.button(key=f"syl_add_{cid}") is not None and at.button(key=f"syl_edit_{cid}").disabled        # nothing to edit yet
+    LI.add_syllabus(cid, "syl.pdf", syllabus_pdf())
+    at = AppTest.from_file(app, default_timeout=90)
+    at.session_state["page"] = "Courses"
+    at.session_state["open_course"] = cid
+    at.run()
+    assert not at.exception and not at.button(key=f"syl_edit_{cid}").disabled
+    data = syllabus.load(cid)
+    data["rows"][0]["percent"] = 35
+    data["manual"] = True
+    syllabus.save(cid, data)                                                                                          # what the edit dialog saves
+    assert syllabus.load(cid)["rows"][0]["percent"] == 35 and syllabus.load(cid)["manual"] is True

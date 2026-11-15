@@ -91,7 +91,7 @@ def _day_items(first, last, skip_timed_exams=False, skip_timed=False):
 
     def add(day, title, course_id, time, due=False):
         c = courses.get(course_id)
-        code = ((c["code"] or c["name"]) if c else "")
+        code = ((crud.show_code(c["code"]) or c["name"]) if c else "")
         label = " ".join(x for x in (("Due" if due else "") + (f" {time}" if time and due else (time or "")),
                                      code, title) if x).strip()
         rows.setdefault(date.fromisoformat(day), []).append((time or "99:99", label, _color(c)))
@@ -227,7 +227,7 @@ def _items_by_day(year, month):
         for o in _merge_in_class(occs, exams.get(day, []))[0]:      # no class chip on an in-class exam day
             c = courses.get(o["course_id"])
             items.setdefault(day.isoformat(), []).append(
-                (f'{o["start"]} {(c["code"] or c["name"]) if c else ""}', _color(c)))
+                (f'{o["start"]} {(crud.show_code(c["code"]) or c["name"]) if c else ""}', _color(c)))
     return items
 
 

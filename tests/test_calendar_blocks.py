@@ -237,3 +237,16 @@ def test_the_task_list_bar_marks_the_picked_course_and_a_click_picks_it(seeded):
     U.handle_action(f"tl|pick|personal|1")
     import streamlit as st
     assert st.session_state["tl_which"] == "personal"
+
+
+def test_the_warning_banner_can_be_dismissed_and_comes_back_for_another_task(seeded):
+    ts.add_task("Impossible", seeded, "Project", due=due(1), estimate=6000)
+    at = AppTest.from_file(APP, default_timeout=90)
+    at.session_state["page"] = "Calendar"
+    at.run()
+    assert not at.exception and any("does not fit" in w.value for w in at.warning) and at.button(key="cal_banner_x") is not None
+    at.button(key="cal_banner_x").click(); at.run()
+    assert not any("does not fit" in w.value for w in at.warning)                                              # dismissed
+    ts.add_task("Also impossible", seeded, "Project", due=due(2), estimate=6000)
+    at.run()
+    assert any("does not fit" in w.value for w in at.warning)                                                  # another task stopped fitting: the warning is back

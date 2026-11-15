@@ -31,7 +31,7 @@ def test_minutes_and_times_are_written_plainly():
 
 def test_a_block_becomes_an_item_in_local_minutes_with_its_color():
     (it,) = items([block("class", at(MON, 9, 30), at(MON, 10, 45), "AE 6765", color="#abcdef", loc="Room 1")])
-    assert (it.kind, it.title, it.start, it.end, it.color, it.sub, it.ref) == ("class", "AE 6765", 570, 645, "#abcdef", "Room 1", "")
+    assert (it.kind, it.title, it.start, it.end, it.color, it.sub) == ("class", "AE 6765", 570, 645, "#abcdef", "Room 1") and it.ref.startswith("occ:course:")
 
 
 def test_items_use_the_wall_clock_on_clock_change_days():
@@ -65,7 +65,8 @@ def test_every_event_can_be_dragged_and_opened_also_the_older_dated_ones():
     own = block("event", at(MON, 9), at(MON, 10), "Dentist", ref=4)
     old = block("event", at(MON, 11), at(MON, 12), "Midterm", ref=5, source="legacy")
     cls = block("class", at(MON, 13), at(MON, 14), "AE 6765", ref=6)
-    assert [i.ref for i in items([own, old, cls])] == ["event:4", "event:5", ""]
+    refs = [i.ref for i in items([own, old, cls])]
+    assert refs[:2] == ["event:4", "event:5"] and refs[2].startswith("occ:course:6:")                           # a class is dragged for its own day
 
 
 def test_sessions_carry_their_task_course_color_and_cushion_level():

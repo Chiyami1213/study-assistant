@@ -90,7 +90,7 @@ def _reference(win):
     courses = {c["id"]: c for c in crud.list_courses(section=None)}
 
     def label(b):                    # "MATH 101 · Notes · Eigenvalues"
-        codes = " / ".join(courses[i]["code"] or courses[i]["name"] for i in b["course_ids"] if i in courses) or "No Course"
+        codes = " / ".join(crud.show_code(courses[i]["code"]) or courses[i]["name"] for i in b["course_ids"] if i in courses) or "No Course"
         return f"{codes} · {b['kind']} · {b['title']}"
 
     kind_rank = {"Textbook": 0, "Lecture Notes": 1, "Notes": 2, "Homework": 3, "Homework Solution": 4, "Exam": 5, "Graded Homework": 6, "Practice Exam": 7, "Exam Solution": 8, "Graded Exam": 9, "Exam Preparation": 10, "Exam Reflection": 10.5, "Syllabus": 11, "Equation Sheet": 12}
@@ -104,7 +104,7 @@ def _reference(win):
     own_course = lambda b: next((i for i in b["course_ids"] if i in courses), 0)       # 0 = a file with no course
     order = {c["id"]: n for n, c in enumerate(c for s in crud.STATUSES for c in crud.courses_by_status(s))}
     course_ids = sorted({own_course(b) for b in books}, key=lambda i: (order.get(i, 999), i))
-    course_name = lambda i: (courses[i]["code"] or courses[i]["name"]) if i in courses else "No Course"
+    course_name = lambda i: (crud.show_code(courses[i]["code"]) or courses[i]["name"]) if i in courses else "No Course"
     st.session_state.setdefault(ck, own_course(cur))
     if st.session_state[ck] not in course_ids:
         st.session_state[ck] = own_course(cur)
@@ -232,7 +232,7 @@ def _notes():
     f_col.button("", icon=":material/fullscreen:", key="lab_full_open", help="show the notes full screen", width="stretch",
                  on_click=lambda: st.session_state.update(lab_full=True))
     course_id = c_col.selectbox("Course", list(courses), key="lab_course", label_visibility="collapsed",
-                                format_func=lambda i: courses[i]["code"] or courses[i]["name"])
+                                format_func=lambda i: crud.show_code(courses[i]["code"]) or courses[i]["name"])
     notes = _course_notes(course_id)
     _remember(course=course_id)
     if not notes:
