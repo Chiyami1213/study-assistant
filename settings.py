@@ -468,6 +468,43 @@ def set_calendar_panel_width(px):
     _save(data)
 
 
+# ---------- Library: the folders the software reads files from (Update), and the files it has already imported from them ----------
+def get_import_folder(course_id=None):
+    """The folder to update the Library from: the one set for this course (when a course is given and has its own), else the general one. "" when none is set."""
+    folders = _load().get("import_folders") or {}
+    return (folders.get(str(course_id)) if course_id else None) or folders.get("all") or ""
+
+
+def get_own_import_folder(course_id=None):
+    """The folder set for exactly this course (or the general one when no course is given); "" when it has none."""
+    return (_load().get("import_folders") or {}).get(str(course_id) if course_id else "all") or ""
+
+
+def set_import_folder(path, course_id=None):
+    data = _load()
+    folders = dict(data.get("import_folders") or {})
+    key = str(course_id) if course_id else "all"
+    if (path or "").strip():
+        folders[key] = path.strip()
+    else:
+        folders.pop(key, None)
+    data["import_folders"] = folders
+    _save(data)
+
+
+def get_import_sources():
+    """{path of a file read from a folder: {"size", "mtime", "book_id"}}: what an Update has imported already."""
+    return dict(_load().get("import_sources") or {})
+
+
+def remember_import_source(key, size, mtime, book_id):
+    data = _load()
+    sources = dict(data.get("import_sources") or {})
+    sources[key] = {"size": size, "mtime": mtime, "book_id": book_id}
+    data["import_sources"] = sources
+    _save(data)
+
+
 def get_calendar_panel_open():
     """Is the panel of blocks on the left of the Calendar shown (True) or folded away (False)?"""
     return bool(_load().get("calendar_panel_open", True))

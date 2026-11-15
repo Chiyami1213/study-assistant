@@ -219,10 +219,16 @@ def render():
         if st.session_state.get("_recent_touched") != course["id"]:          # opened now: remember it for the Recent list
             st.session_state["_recent_touched"] = course["id"]
             settings.touch_course(course["id"])
-        if st.button("← All Courses", key="course_back"):
+        if st.session_state.get("lib_toast"):
+            st.toast(st.session_state.pop("lib_toast"))
+        back_col, update_col, _gap = st.columns([1.4, 2.2, 6])
+        if back_col.button("← All Courses", key="course_back"):
             st.session_state["open_course"] = None
             st.session_state.pop("course_tab", None)
             st.rerun()
+        if update_col.button("Update Files", key="course_update_files", icon=":material/sync:", help="reads the folder your files are kept in and lists the new and the changed ones for this course"):
+            from views import library_import
+            library_import.folder_dialog(course["id"])
         st.markdown(_hero_html(course), unsafe_allow_html=True)  # banner between the button row and the tabs
         _manage(course)
         return
@@ -296,7 +302,7 @@ def _tree(courses):
             st.session_state["open_course"] = cid
             st.session_state.pop("course_tab", None)
             st.rerun()
-    st.caption("Similar fields grow from the same branch. Click a branch to fold or unfold it, and a course to open it.")
+    st.caption("Similar fields grow from the same branch of the map.")
     st.markdown(course_tree.tree_html(courses, crud.course_status, crud.course_color, st.session_state.get("course_id")), unsafe_allow_html=True)
 
 

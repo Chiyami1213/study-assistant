@@ -12,7 +12,7 @@ side, and let the app keep track of deadlines, grades and outlines. It runs enti
 ## Main features
 
 - **Course library.** Import PDFs and HTML pages (textbooks, lecture slides, notes, homework, exams, syllabi) and browse them by type or by course (tiles), by the day, month or year they were
-  added (a timeline that folds), or by title, as cards, tiles or a details table. Imports are copies; your originals are never changed.
+  added (a timeline that folds), or by title, as cards, tiles or a details table. Add files one by one, from a zip (after a confirmation page), or by pressing Update to read the folder you keep them in. Imports are copies; your originals are never changed.
 - **Note Reader.** Interactive HTML notes with tabs for the notes, mind map, equation sheet, assumptions, quiz and errata, next to a PDF window. Click an equation
   or a source line and the matching slide or textbook page opens.
 - **PDF reader.** Single, double or continuous pages, zoom and drag to move, search, and pen or highlighter drawing that is saved with the file.

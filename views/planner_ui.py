@@ -68,13 +68,11 @@ def _block(kind, ident, label, sub, color, dot="", hidden=False, selected=None, 
 
 
 def panel_html(tasks, courses, activities, report, usage_left, term_name=None, hidden=frozenset(), names=None, colors=None, order=()):
-    """The blocks on the left of the Calendar. Dragging one onto the grid adds it there: a task becomes a study session, a course or an activity a weekly time,
-    and the Custom Event block opens the new-event form. Each block has a ⋯ menu (details, rename, change color, hide). The active term's courses and the tasks
-    that go with them are on top; the other courses and tasks are in a section that is folded until it is opened. `usage_left`: {task id: minutes not yet in a session}."""
+    """The blocks on the left of the Calendar. Dragging one onto the grid adds it there: a course or an activity becomes a weekly time, and the Custom Event block opens the
+    new-event form. Each block has a ⋯ menu (details, rename, change color, hide, delete). The active term's courses are on top, the other courses in a section that is folded until
+    it is opened. Tasks are not listed here: they are in the Task List, and the auto-planner places their study sessions. (`tasks`, `report` and `usage_left` stay in the call for older callers.)"""
     names, colors = names or {}, colors or {}
-    levels = {c.task_id: c.level for c in report.items}
     in_term = dict(in_saved_order(list(term_courses(courses, term_name).items()), lambda kv: f"course:{kv[0]}", order))
-    tasks = in_saved_order(tasks, lambda t: f"task:{t.id}", order)
     activities = in_saved_order(activities, lambda a: f"activity:{a['id']}", order)
     out = ['<div class="pl-title">Drag a block into the schedule. Drag the Custom Event block to add an event of your own.</div>',
            '<div class="pl-item pl-event" data-drag="event:0" title="drag it onto the calendar to add an event of your own"><span class="pl-grip">&#10303;</span>Custom Event</div>']
@@ -82,26 +80,10 @@ def panel_html(tasks, courses, activities, report, usage_left, term_name=None, h
     def course_color(c):
         return colors.get(f"course:{c['id']}") or crud.course_color(c)
 
-    def task_block(t, hide_flag=False):
-        ref = f"task:{t.id}"
-        color = colors.get(ref) or (course_color(courses[t.course_id]) if t.course_id in courses else "#6b7280")
-        dot = f'<span class="wk-dot" style="background:{plan_grid.LEVEL_COLORS[levels[t.id]]}" title="cushion: {levels[t.id]}"></span>' if t.id in levels else ""
-        who = "Personal" if t.personal else _course_name(courses, t.course_id)
-        left = usage_left.get(t.id, t.remaining_minutes)
-        try:
-            length = _drop_duration(t.id)                                  # the length of the session a drop makes: the preview on the grid is as long
-        except PlannerError:
-            length = 60
-        return _block("task", t.id, names.get(ref, t.title), f'{html.escape(who)}{" · " if who else ""}{plan_grid.fmt_minutes(left)} to plan', color, dot, hide_flag, minutes=length)
-
     def course_block(c, hide_flag=False):
         ref = f"course:{c['id']}"
         return _block("course", c["id"], names.get(ref) or c["code"] or c["name"], "", course_color(c), "", hide_flag)
 
-    shown_tasks = [t for t in tasks if f"task:{t.id}" not in hidden and (t.personal or t.course_id in in_term or t.course_id is None)]
-    other_tasks = [t for t in tasks if f"task:{t.id}" not in hidden and not (t.personal or t.course_id in in_term or t.course_id is None)]
-    out.append(f'<div class="pl-head">Tasks</div>')
-    out += [task_block(t) for t in shown_tasks] or ['<div class="pl-empty">No tasks to plan.</div>']
     out.append(f'<div class="pl-head">Courses{" · " + html.escape(term_name) if term_name else ""}</div>')
     out += [course_block(c) for cid, c in in_term.items() if f"course:{cid}" not in hidden] or ['<div class="pl-empty">No active courses.</div>']
     shown_acts = [a for a in activities if f"activity:{a['id']}" not in hidden]
@@ -112,22 +94,13 @@ def panel_html(tasks, courses, activities, report, usage_left, term_name=None, h
             out.append(_block("activity", a["id"], names.get(ref) or a["name"], "", colors.get(ref) or a["color"] or plan_grid.ACTIVITY_COLOR))
     other_courses = in_saved_order([c for cid, c in courses.items() if cid not in in_term and crud.course_status(c) == "Active" and f"course:{cid}" not in hidden],
                                    lambda c: f"course:{c['id']}", order)
-    if other_courses or other_tasks:
-        inner = ""
-        if other_courses:
-            inner += '<div class="pl-head">Other Courses</div>' + "".join(course_block(c) for c in other_courses)
-        if other_tasks:
-            inner += '<div class="pl-head">Other Tasks</div>' + "".join(task_block(t) for t in other_tasks)
-        out.append(f'<details class="pl-fold"><summary>Other Courses and Tasks ({len(other_courses) + len(other_tasks)})</summary>{inner}</details>')
+    if other_courses:
+        out.append(f'<details class="pl-fold"><summary>Other Courses ({len(other_courses)})</summary>{"".join(course_block(c) for c in other_courses)}</details>')
     hidden_blocks = []
     for ref in sorted(hidden):
         kind, _, raw = ref.partition(":")
         if kind == "course" and raw.isdigit() and int(raw) in courses:
             hidden_blocks.append(course_block(courses[int(raw)], True))
-        elif kind == "task":
-            t = next((x for x in tasks if f"task:{x.id}" == ref), None)
-            if t:
-                hidden_blocks.append(task_block(t, True))
         elif kind == "activity":
             a = next((x for x in activities if f"activity:{x['id']}" == ref), None)
             if a:

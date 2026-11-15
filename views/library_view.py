@@ -1021,8 +1021,19 @@ def render():
     lib = st.session_state.setdefault("_lib", {"sort": "Type", "tile": None, "inner": {}, "desc": True})
     in_tile = lib["sort"] in INNER and lib["tile"] is not None
     lib.setdefault("view", "Cards")
-    title_col, view_col, order_col, sort_col = st.columns([3.6, 2.6, 1.6, 1.4], vertical_alignment="bottom")           # the title, the view and the one sort box share a row, lined up at the bottom
+    title_col, import_col, view_col, order_col, sort_col = st.columns([2.6, 1.3, 2.6, 1.6, 1.4], vertical_alignment="bottom")           # the title, the view and the one sort box share a row, lined up at the bottom
     title_col.markdown("<h1 class='lib-title'>Library</h1>", unsafe_allow_html=True)
+    if st.session_state.get("lib_toast"):
+        st.toast(st.session_state.pop("lib_toast"))
+    with import_col.popover("Import", icon=":material/upload_file:", help="add files to the Library"):
+        from views import library_import
+        if st.button("Add a File", key="imp_menu_add", icon=":material/add:", width="stretch"):
+            _reset_add_boxes()
+            _add_dialog(None)
+        if st.button("Import a Zip", key="imp_menu_zip", icon=":material/folder_zip:", width="stretch", help="a zip of pdf and html files; you confirm the list before anything is imported"):
+            library_import.zip_dialog()
+        if st.button("Update From Folder", key="imp_menu_folder", icon=":material/sync:", width="stretch", help="reads the folder your files are kept in and lists the new and the changed ones"):
+            library_import.folder_dialog()
     inner = None
     if not in_tile:                                                                    # the overview: sort by type, course, date added or title
         st.session_state.setdefault("library_sort", lib["sort"] if lib["sort"] in SORTS else "Type")

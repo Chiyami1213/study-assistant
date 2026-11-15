@@ -4,6 +4,7 @@ Levels, like the levels of the tree of life: Domain (Engineering, Natural Scienc
 Propulsion and Energy, ...) > Course. The field comes from the course's category when it has one, else from the letters of its course number (AE, PHYS, MATH ...); the topic from
 words in its name. `build_tree` is pure; `tree_html` draws it (branches fold and unfold with a CSS animation, see app.py)."""
 import html
+import math
 import re
 
 # letters of a course number -> field; a category the student typed is matched by the words in FIELD_WORDS
@@ -87,37 +88,153 @@ def _hue(i, n):
     return round(210 + 300 * i / max(1, n)) % 360
 
 
-def _branch(label, n, body, hue, level, open_=True, path=""):
-    sat, light = 62, 58 - 4 * level
-    return (f'<div class="tk-branch{" open" if open_ else ""}" data-level="{level}" style="--bc:hsl({hue},{sat}%,{light}%)">'
-            f'<button type="button" class="tk-head" data-tree-toggle="{html.escape(path)}"><span class="tk-chev">&#9656;</span><span class="tk-name">{html.escape(label)}</span>'
-            f'<span class="tk-n">{n}</span></button><div class="tk-body"><div class="tk-inner">{body}</div></div></div>')
+# ---------------------------------------------------------------- the mind map: a bubble in the middle, bubbles for the branches around it, and a white bubble for each course
+RADII = {0: 112, 1: 96, 2: 82, 3: 70, 4: 60}            # center, domain, field, topic, course
+MIN_WEIGHT = {1: 3.0, 2: 2.6, 3: 2.2}                    # room a branch takes on its ring, in courses (so a branch with one course is not squeezed)
 
 
-def _leaf(c, status, color, selected):
-    code = html.escape(c.get("code") or c.get("name") or "Course")
-    name = "" if (not c.get("code") or c.get("name") == c.get("code")) else html.escape(c.get("name") or "")
-    term = html.escape(c.get("semester") or "")
-    return (f'<div class="tk-leaf{" sel" if selected else ""}" data-tree-course="{c["id"]}" style="--c:{color}" title="open {code}"><b>{code}</b>'
-            f'<span>{name}</span><i>{term}{" · " if term else ""}{html.escape(status)}</i></div>')
+def _lines(text, width):
+    """Break a label into lines of about `width` characters (a long word stays whole; the last line ends with ... when the text is too long for 3 lines)."""
+    words, out, cur = (text or "").split(), [], ""
+    for w in words:
+        if cur and len(cur) + 1 + len(w) > width:
+            out.append(cur)
+            cur = w
+        else:
+            cur = f"{cur} {w}".strip()
+    if cur:
+        out.append(cur)
+    if len(out) > 3:
+        out = out[:3]
+        out[-1] = out[-1][:max(1, width - 3)] + "..."
+    return out
+
+
+def layout(courses):
+    """The mind map as a list of nodes, each {id, parent, level, label, x, y, r, hue, course, kids} with the center at (0, 0), and its half width and height. Branches share the circle by
+    how many courses they hold; the outer ring is as far out as the courses need (one course takes a fixed arc of it)."""
+    tree = build_tree(courses)
+    nodes = []
+    counter = [0]
+
+    def make(level, parent, label, **extra):
+        counter[0] += 1
+        node = {"id": f"n{counter[0]}", "parent": parent, "level": level, "label": label, "kids": 0, "weight": 1.0, **extra}
+        nodes.append(node)
+        return node
+
+    root = make(0, None, "All Courses", count=len(courses))
+
+    def build(level, parent_node, items, hue_base):
+        """The children of a node as [(node, [their children])] and the room they need."""
+        total = 0.0
+        out = []
+        for i, item in enumerate(items):
+            hue = _hue(i, len(items)) if level == 1 else (hue_base + 7 * i) % 360
+            if level == 4:
+                node = make(4, parent_node["id"], item.get("code") or item.get("name") or "Course", course=item, hue=hue_base)
+                out.append((node, []))
+                total += 1.0
+                continue
+            label, children = item
+            if level == 3:
+                node = make(3, parent_node["id"], label, hue=hue, count=len(children))
+                sub, w = build(4, node, children, hue)
+            elif level == 2:
+                node = make(2, parent_node["id"], label, hue=hue, count=count(children))
+                sub, w = build(3, node, children, hue)
+            else:
+                node = make(1, parent_node["id"], label, hue=hue, count=sum(count(t) for _, t in children))
+                sub, w = build(2, node, children, hue)
+            node["kids"] = len(sub)
+            node["weight"] = max(w, MIN_WEIGHT[level])
+            total += node["weight"]
+            out.append((node, sub))
+        return out, total
+
+    top, total = build(1, root, tree, 210)
+    root["kids"] = len(top)
+    unit = 2 * RADII[4] + 12
+    base4 = max(840.0, max(1.0, total) * unit / (2 * math.pi))
+
+    def shares(weights, span, min_share):
+        """Angles for siblings: proportional to their weights, none below min_share (water-filling); None when they cannot all fit in the span."""
+        n = len(weights)
+        if n * min_share > span:
+            return None
+        fixed = set()
+        out = [0.0] * n
+        while True:
+            free = [i for i in range(n) if i not in fixed]
+            room = span - sum(out[i] for i in fixed)
+            whole = sum(weights[i] for i in free) or 1.0
+            low = [i for i in free if room * weights[i] / whole < min_share]
+            if not low:
+                for i in free:
+                    out[i] = room * weights[i] / whole
+                return out
+            for i in low:
+                out[i] = min_share
+                fixed.add(i)
+
+    def place(entries, a0, a1, level, rings):
+        """Put the siblings on their ring inside the arc a0..a1; False when they do not fit there (the rings are then moved outward)."""
+        angles = shares([e[0]["weight"] for e in entries], a1 - a0, (2 * RADII[level] + 18) / rings[level])
+        if angles is None:
+            return False
+        angle = a0
+        for (node, sub), share in zip(entries, angles):
+            mid = angle + share / 2
+            node["x"], node["y"], node["r"] = rings[level] * math.cos(mid), rings[level] * math.sin(mid), RADII[level]
+            if sub and not place(sub, angle, angle + share, level + 1, rings):
+                return False
+            angle += share
+        return True
+
+    for extra in range(0, 4000, 40):                                  # the rings move outward until every bubble has room
+        ring4 = base4 + extra
+        rings = {1: max(ring4 - 590, RADII[0] + RADII[1] + 60), 2: ring4 - 340, 3: ring4 - 170, 4: ring4}
+        if place(top, -math.pi / 2, 3 * math.pi / 2, 1, rings):
+            break
+    root.update(x=0.0, y=0.0, r=RADII[0], hue=210)
+    where = {n["id"]: (n["x"], n["y"]) for n in nodes}
+    for n in nodes:
+        n["px"], n["py"] = where.get(n["parent"], (0.0, 0.0))
+    return nodes, (max(abs(n["x"]) + n["r"] for n in nodes) + 30, max(abs(n["y"]) + n["r"] for n in nodes) + 30)
 
 
 def tree_html(courses, status_of, color_of, selected=None, root_label="All Courses"):
-    """The tree as one block of HTML. `status_of(course)` / `color_of(course)`: the status text and the color of a leaf; `selected`: the id of the course to mark."""
-    tree = build_tree(courses)
-    parts = []
-    for i, (domain, fields) in enumerate(tree):
-        hue = _hue(i, len(tree))
-        field_html = ""
-        for j, (field, topics) in enumerate(fields):
-            topic_html = ""
-            for topic, cs in topics:
-                leaves = "".join(_leaf(c, status_of(c), color_of(c), c["id"] == selected) for c in cs)
-                topic_html += _branch(topic, len(cs), f'<div class="tk-leaves">{leaves}</div>', (hue + 8 * j + 4) % 360, 3, True, f"{domain}/{field}/{topic}")
-            field_html += _branch(field, count(topics), topic_html, (hue + 8 * j) % 360, 2, True, f"{domain}/{field}")
-        parts.append(_branch(domain, sum(count(t) for _, t in fields), field_html, hue, 1, True, domain))
-    if not parts:
+    """The mind map as one SVG. A bubble with branches folds them into itself when clicked (CSS animates every bubble to its parent and back, see app.py); a white bubble is a course and
+    a click on it opens the course. `status_of(course)` / `color_of(course)`: the status text and the color of a course; `selected`: the id of the course to mark."""
+    if not courses:
         return ""
-    return (f'<div class="tk-tree"><div class="tk-top"><span class="tk-root">{html.escape(root_label)}<i>{len(courses)}</i></span>'
+    nodes, (ex, ey) = layout(courses)
+    parts = []
+    for n in sorted(nodes, key=lambda m: -m["level"]):              # outer bubbles first: a bubble covers the lines of the ones it holds
+        r, level = n["r"], n["level"]
+        dx, dy = n["px"] - n["x"], n["py"] - n["y"]
+        style = f'--x:{n["x"]:.1f}px;--y:{n["y"]:.1f}px;--px:{n["px"]:.1f}px;--py:{n["py"]:.1f}px'
+        line = "" if n["parent"] is None else f'<line class="mm-line" x1="0" y1="0" x2="{dx:.1f}" y2="{dy:.1f}"/>'
+        if level == 4:
+            c = n["course"]
+            code = _lines(c.get("code") or c.get("name") or "Course", 11)[0]
+            name = "" if (not c.get("code") or c.get("name") == c.get("code")) else c.get("name") or ""
+            name_lines = _lines(name, 14)[:2]
+            first = -8 * len(name_lines) if name_lines else 5
+            text = f'<tspan x="0" dy="{first}" class="mm-code">{html.escape(code)}</tspan>'
+            text += "".join(f'<tspan x="0" dy="{13 if i else 17}" class="mm-sub">{html.escape(s)}</tspan>' for i, s in enumerate(name_lines))
+            parts.append(f'<g class="mm-node mm-l4{" sel" if c["id"] == selected else ""}" data-id="{n["id"]}" data-parent="{n["parent"]}" data-tree-course="{c["id"]}" style="{style};--c:{color_of(c)}">'
+                         f'{line}<circle r="{r}"/><text text-anchor="middle">{text}</text>'
+                         f'<title>{html.escape((c.get("code") or "") + " " + (c.get("name") or ""))} - {html.escape(status_of(c))}</title></g>')
+            continue
+        lines = _lines(n["label"], {0: 12, 1: 13, 2: 12, 3: 11}[level])
+        size = {0: 27, 1: 21, 2: 17, 3: 14}[level]
+        start = -(len(lines) - 1) * size * 0.58
+        text = "".join(f'<tspan x="0" dy="{size * 1.15 if i else start + size * 0.35:.1f}">{html.escape(s)}</tspan>' for i, s in enumerate(lines))
+        badge = (f'<text class="mm-count" y="{r - 14}" text-anchor="middle">{n.get("count", 0)}</text>' if level
+                 else f'<text class="mm-count" y="{r - 22}" text-anchor="middle">{n.get("count", 0)} courses</text>')
+        parts.append(f'<g class="mm-node mm-l{level}" data-id="{n["id"]}" data-parent="{n["parent"] or ""}" data-mm-toggle="{n["id"]}" style="{style};--h:{n["hue"]}">{line}<circle r="{r}"/>'
+                     f'<text class="mm-label" text-anchor="middle" style="font-size:{size}px">{text}</text>{badge}<text class="mm-plus" y="{-r + 24}" text-anchor="middle">+</text></g>')
+    return (f'<div class="mm-wrap"><div class="tk-top"><span class="tk-note">Click a bubble to fold its branches, a white bubble to open the course.</span>'
             f'<span class="tk-actions"><button type="button" data-tree-all="open">Expand All</button><button type="button" data-tree-all="close">Collapse All</button></span></div>'
-            f'<div class="tk-trunk">{"".join(parts)}</div></div>')
+            f'<svg class="mm" viewBox="{-ex:.0f} {-ey:.0f} {2 * ex:.0f} {2 * ey:.0f}" role="img" aria-label="{html.escape(root_label)}">{"".join(parts)}</svg></div>')

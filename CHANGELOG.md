@@ -94,10 +94,14 @@
 - **Library: sort by type first.** The usual view is a tile for each type; click one to see its files and sort them by course, date added or title. Sort by course shows a tile for each course,
   Date Added a timeline by day (newest or oldest first), Title the plain grid. The row of type buttons is gone.
 - **The loading screen waits at least 1 second** (it was 2).
+- **Library: Import menu.** Import a Zip lists every pdf and html file in a zip (folders included) on a confirmation page, where the type, title, lecture and course of each can be changed and
+  files unchecked, and nothing is imported until you press Import. Update From Folder (also on every course page as Update Files) reads the folder your files are kept in: new files and files that
+  changed since they were imported are listed for confirmation, an updated file replaces the stored copy, and files already imported are not listed again. The folder is only read, never changed.
+- **The Calendar panel lists courses and activities only.** Tasks are in the Task List.
 - **Library views and timeline.** Files can be shown as Cards, Tiles (a small cover with the details beside it) or a Details table. Date Added is a chain of bullets by day, month or year;
   every group folds up. The sort box and the Newest First button sit in the title row.
-- **Courses: a tree of knowledge.** Courses > All > Tree draws the courses as branches (domain, field, topic) with similar fields on the same branch; branches fold and unfold with an animation,
-  and a click on a course opens it. A course page's Overview starts with what is coming up (homework, exams and tasks).
+- **Courses: a tree of knowledge.** Courses > All > Tree is a mind map: a bubble in the middle, large bubbles for the branches (domain, field, topic) with similar fields on the same branch, and a
+  white bubble for each course. A click on a bubble folds its branches into it (and they slide out again), and a click on a course opens it. A course page's Overview starts with what is coming up (homework, exams and tasks).
 - **Edit dialogs.** Clicking a class, an activity, an event or a study session opens a compact dialog: a title bar in the course color, the date and times in one row, repeat and until, location,
   Free, and Delete, Cancel, Save.
 - **Back and Forward** return to the same place inside a page (the Task List, a Library tile and its sort), in the order the places were visited.

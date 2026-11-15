@@ -692,39 +692,36 @@ div[data-testid="stColumn"]:has(.pl-wrap) + div[data-testid="stColumn"] {{flex: 
 /* Library */
 /* Library grid: one HTML block, cards are clickable through data-lib-act */
 .st-key-lib_inner_box {{width: 150px; max-width: 100%; margin-left: auto;}}
-/* Courses > All > Tree: the tree of knowledge. A branch folds by animating its height from its content to nothing (grid rows 1fr -> 0fr). */
-.tk-tree {{margin: 0.4rem 0 1.5rem;}}
-.tk-top {{display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px;}}
-.tk-root {{display: inline-flex; align-items: center; gap: 10px; font-weight: 800; font-size: 1.15rem; padding: 10px 20px; border-radius: 999px; color: #fff;
-  background: linear-gradient(135deg, #5b6cff, #8a5cf6 55%, #e04f9a); box-shadow: 0 6px 18px #0006;}}
-.tk-root i, .tk-n {{font-style: normal; font-size: 0.78rem; font-weight: 700; background: #00000040; border-radius: 999px; padding: 0 9px; line-height: 1.5;}}
+/* Courses > All > Tree: a mind map. Every bubble sits at --x/--y; a folded one slides into its parent (--px/--py), shrinks and fades. */
+.mm-wrap {{margin: 0.4rem 0 1.5rem; overflow: auto; border: 1px solid var(--border); border-radius: 14px; padding: 12px 14px 4px; background: radial-gradient(circle at 50% 50%, #ffffff0d, transparent 70%);}}
+.tk-top {{display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; position: sticky; left: 0;}}
+.tk-note {{font-size: 0.85rem; opacity: 0.7;}}
 .tk-actions button {{background: transparent; border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 4px 12px; margin-left: 8px; cursor: pointer; font-size: 0.82rem;}}
 .tk-actions button:hover {{border-color: var(--accent); color: var(--accent);}}
-.tk-trunk {{margin-left: 22px; padding-left: 18px; border-left: 8px solid #7c6cf0; border-radius: 0 0 0 10px;}}
-.tk-branch {{position: relative; margin: 10px 0;}}
-.tk-branch::before {{content: ""; position: absolute; left: -18px; top: 19px; width: 18px; height: 5px; background: var(--bc); border-radius: 3px;}}
-.tk-branch[data-level="1"]::before {{height: 7px; top: 18px; left: -20px; width: 20px;}}
-.tk-branch[data-level="3"]::before {{height: 3px; top: 20px;}}
-.tk-head {{display: inline-flex; align-items: center; gap: 10px; cursor: pointer; border: 0; color: #fff; font-weight: 700; font-size: 1rem; padding: 8px 16px; border-radius: 12px;
-  background: color-mix(in srgb, var(--bc) 70%, #0b1220); box-shadow: 0 3px 10px #0005; transition: filter .15s, transform .15s;}}
-.tk-head:hover {{filter: brightness(1.18); transform: translateX(2px);}}
-.tk-branch[data-level="2"] > .tk-head {{font-size: 0.95rem; padding: 6px 14px;}}
-.tk-branch[data-level="3"] > .tk-head {{font-size: 0.88rem; font-weight: 600; padding: 5px 12px; background: color-mix(in srgb, var(--bc) 45%, #0b1220);}}
-.tk-chev {{display: inline-block; transition: transform .3s cubic-bezier(.4, 0, .2, 1); font-size: 0.85rem;}}
-.tk-branch.open > .tk-head .tk-chev {{transform: rotate(90deg);}}
-.tk-body {{display: grid; grid-template-rows: 0fr; opacity: 0; transition: grid-template-rows .38s cubic-bezier(.4, 0, .2, 1), opacity .3s ease;}}
-.tk-branch.open > .tk-body {{grid-template-rows: 1fr; opacity: 1;}}
-.tk-inner {{overflow: hidden; min-height: 0; margin-left: 24px; padding-left: 16px; border-left: 5px solid var(--bc); border-radius: 0 0 0 8px;}}
-.tk-branch[data-level="2"] > .tk-body > .tk-inner {{border-left-width: 4px;}}
-.tk-branch[data-level="3"] > .tk-body > .tk-inner {{border-left-width: 3px;}}
-.tk-leaves {{display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 8px; padding: 8px 0 6px;}}
-.tk-leaf {{cursor: pointer; position: relative; display: flex; flex-direction: column; gap: 1px; padding: 8px 12px 8px 14px; border-radius: 10px; border: 1px solid var(--border); background: var(--card);
-  border-left: 5px solid var(--c); transition: transform .15s ease, box-shadow .15s ease, filter .15s;}}
-.tk-leaf:hover {{transform: translateY(-2px) scale(1.02); box-shadow: 0 8px 18px #0007; filter: brightness(1.12);}}
-.tk-leaf b {{font-size: 0.95rem;}}
-.tk-leaf span {{font-size: 0.82rem; opacity: 0.85; line-height: 1.25;}}
-.tk-leaf i {{font-style: normal; font-size: 0.74rem; opacity: 0.6; margin-top: 2px;}}
-.tk-leaf.sel {{box-shadow: inset 0 0 0 2px var(--accent); background: color-mix(in srgb, var(--c) 22%, var(--card));}}
+svg.mm {{width: 100%; min-width: 1100px; height: auto; display: block; user-select: none;}}
+.mm-node {{transform: translate(var(--x), var(--y)); transition: transform .55s cubic-bezier(.4, 0, .2, 1), opacity .4s ease; cursor: pointer;}}
+.mm-node.mm-hidden {{transform: translate(var(--px), var(--py)) scale(0); opacity: 0; pointer-events: none;}}
+.mm-line {{stroke: #3b8fd4; stroke-width: 5; stroke-linecap: round; opacity: 0.85;}}
+.mm-l0 .mm-line {{display: none;}}
+.mm-l3 .mm-line, .mm-l4 .mm-line {{stroke-width: 3;}}
+.mm-node circle {{transition: filter .2s, stroke-width .2s;}}
+.mm-node:hover circle {{filter: brightness(1.18) drop-shadow(0 6px 10px #0008);}}
+.mm-l0 circle {{fill: #0b9be3; stroke: #8fd3ff; stroke-width: 4;}}
+.mm-l1 circle {{fill: hsl(var(--h), 100%, 32%); stroke: hsl(var(--h), 90%, 60%); stroke-width: 3;}}
+.mm-l2 circle {{fill: hsl(var(--h), 80%, 40%); stroke: hsl(var(--h), 85%, 68%); stroke-width: 3;}}
+.mm-l3 circle {{fill: var(--card); stroke: hsl(var(--h), 80%, 62%); stroke-width: 4;}}
+.mm-l4 circle {{fill: #f4f6fa; stroke: var(--c); stroke-width: 5;}}
+.mm-l4.sel circle {{fill: var(--c); stroke: #fff; stroke-width: 6;}}
+.mm-label, .mm-l0 text, .mm-l1 text, .mm-l2 text {{fill: #fff; font-weight: 700; pointer-events: none;}}
+.mm-l3 text {{fill: var(--text); font-weight: 700; pointer-events: none;}}
+.mm-count {{font-size: 13px !important; font-weight: 600 !important; opacity: 0.75;}}
+.mm-plus {{font-size: 26px !important; opacity: 0; transition: opacity .3s; fill: #fff;}}
+.mm-l3 .mm-plus {{fill: var(--text);}}
+.mm-collapsed .mm-plus {{opacity: 0.9;}}
+.mm-l4 text {{pointer-events: none;}}
+.mm-code {{font-size: 15px; font-weight: 800; fill: #0b1220;}}
+.mm-sub {{font-size: 11px; font-weight: 500; fill: #2a3345;}}
+.mm-l4.sel .mm-code, .mm-l4.sel .mm-sub {{fill: #fff;}}
 /* Library, by course: the tiles of the Courses page */
 .lib-ctiles {{display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 1rem; margin: 0.5rem 0 1.2rem;}}
 .lib-ctile {{position: relative; cursor: pointer; transition: transform .12s ease, filter .12s;}}
@@ -1151,11 +1148,20 @@ if (!win.__calOrderV1) {
     sendOrder('panel|order|' + d.item.dataset.drag + '|' + refs.join(','));
   }, true);
 }
-// Courses > All > Tree: a click on a branch folds or unfolds it (CSS animates it), Expand All and Collapse All do it for every branch, and a click on a course sends its id to the hidden box.
-if (!win.__treeV1) {
-  win.__treeV1 = true;
+// Courses > All > Tree (a mind map): a click on a bubble folds its branches into it (CSS slides them), Expand All and Collapse All do it for every bubble, and a click on a course sends its id
+// to the hidden box.
+if (!win.__treeV2) {
+  win.__treeV2 = true;
+  const refresh = svg => {
+    const nodes = new Map(); svg.querySelectorAll('.mm-node').forEach(n => nodes.set(n.dataset.id, n));
+    nodes.forEach(n => {
+      let p = n.dataset.parent, hide = false;
+      while (p && nodes.has(p)) { const pn = nodes.get(p); if (pn.classList.contains('mm-collapsed')) { hide = true; break; } p = pn.dataset.parent; }
+      n.classList.toggle('mm-hidden', hide);
+    });
+  };
   doc.addEventListener('click', e => {
-    const t = e.target.closest && e.target.closest('[data-tree-toggle], [data-tree-all], [data-tree-course]'); if (!t) return;
+    const t = e.target.closest && e.target.closest('[data-mm-toggle], [data-tree-all], [data-tree-course]'); if (!t) return;
     if (t.dataset.treeCourse) {
       const inp = doc.querySelector('.st-key-tree_sink input'); if (!inp) return;
       const set = Object.getOwnPropertyDescriptor(win.HTMLInputElement.prototype, 'value').set;
@@ -1164,8 +1170,9 @@ if (!win.__treeV1) {
       inp.dispatchEvent(new win.KeyboardEvent('keydown', {key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true}));
       inp.blur(); return;
     }
-    if (t.dataset.treeAll) { doc.querySelectorAll('.tk-branch').forEach(b => b.classList.toggle('open', t.dataset.treeAll === 'open')); return; }
-    const branch = t.closest('.tk-branch'); if (branch) branch.classList.toggle('open');
+    const svg = (t.closest('.mm-wrap') || doc).querySelector('svg.mm'); if (!svg) return;
+    if (t.dataset.treeAll) { svg.querySelectorAll('.mm-node[data-mm-toggle]').forEach(n => n.classList.toggle('mm-collapsed', t.dataset.treeAll === 'close' && n.dataset.parent !== '')); refresh(svg); return; }
+    t.classList.toggle('mm-collapsed'); refresh(svg);
   }, true);
 }
 // Calendar: drag the splitter at the right edge of the left panel to change its width (double-click: back to the usual width), drag the line next to the hours to

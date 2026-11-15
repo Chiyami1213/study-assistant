@@ -71,19 +71,18 @@ def test_panel_lists_dragable_blocks_for_tasks_courses_activities_and_an_event()
     task = T.Task(5, "HW <6>", 1, "Homework", datetime(2026, 9, 10, tzinfo=timezone.utc), 120)
     report = F.CushionReport((F.Cushion(5, task.due, -30, 0, 30, task.due, F.RED),), (), True)
     html = planner_ui.panel_html([task], courses, [{"id": 9, "name": "Gym", "color": "#0f766e"}], report, {5: 90})
-    for part in ('data-drag="event:0"', 'data-drag="task:5"', 'data-drag="course:1"', 'data-drag="activity:9"', "1 h 30 min to plan", "Custom Event", "AE 6765", "Gym"):
+    for part in ('data-drag="event:0"', 'data-drag="course:1"', 'data-drag="activity:9"', "Custom Event", "AE 6765", "Gym"):
         assert part in html
-    assert "HW &lt;6&gt;" in html and "<6>" not in html                       # escaped
+    assert 'data-drag="task:' not in html and "HW" not in html                  # tasks are in the Task List, not in the panel
     assert 'data-drag="course:2"' not in html                                  # a finished course is not offered
-    assert G.LEVEL_COLORS[F.RED] in html                                        # the task's cushion dot
-    assert "No tasks to plan." in planner_ui.panel_html([], courses, [], F.CushionReport((), (), False), {})
+    assert "No active courses." in planner_ui.panel_html([], {}, [], F.CushionReport((), (), False), {})
 
 
 def test_the_panel_is_on_the_page_and_free_time_can_be_hidden(seeded):
     ts.add_task("HW 6", seeded, "Homework", due=due(3), estimate=120)
     at = run()
     html = " ".join(m.value for m in at.markdown)
-    assert 'data-drag="task:' in html and 'data-drag="course:' in html and 'class="wk-free"' in html and not at.exception
+    assert 'data-drag="course:' in html and 'class="wk-free"' in html and not at.exception
     at.toggle(key="cal_free").set_value(False); at.run()
     assert 'class="wk-free"' not in " ".join(m.value for m in at.markdown)
 

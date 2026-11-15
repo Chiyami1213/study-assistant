@@ -109,7 +109,7 @@ def test_double_click_rename_arrives_as_a_panel_action_with_an_encoded_name(seed
 def test_change_color(seeded):
     tid = ts.add_task("HW 1", seeded, "Homework", due=due(3))
     U.recolor_block(f"task:{tid}", "#ff0000")
-    assert settings.get_block_colors()[f"task:{tid}"] == "#ff0000" and "#ff0000" in panel()
+    assert settings.get_block_colors()[f"task:{tid}"] == "#ff0000"
     U.recolor_block(f"task:{tid}", None)
     assert f"task:{tid}" not in settings.get_block_colors()
     U.recolor_block(f"course:{seeded}", "#00ff00")
@@ -215,7 +215,7 @@ def test_the_grid_is_drawn_at_the_chosen_hour_height(seeded):
 def test_the_panel_has_a_splitter_and_a_grip_on_every_block(seeded):
     ts.add_task("HW 1", seeded, "Homework", due=due(3))
     html = panel()
-    assert 'class="pl-split"' in html and html.count('class="pl-handle"') == 2                                     # the task and the course
+    assert 'class="pl-split"' in html and html.count('class="pl-handle"') == 1                                     # the course (tasks are not in the panel)
     settings.set_calendar_panel_width(400)
     assert "--pl-w: 400px" in panel()
 
