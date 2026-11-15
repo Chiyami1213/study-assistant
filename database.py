@@ -245,6 +245,38 @@ CREATE TABLE IF NOT EXISTS planner_awake (
     bed     TEXT NOT NULL
 );
 
+-- Study planner, phase 2: commitments that are not classes (office hours, work, gym, me-time), with weekly meetings like a course has,
+-- and the exceptions of a recurring meeting ("this occurrence only": skipped, or moved / shortened).
+CREATE TABLE IF NOT EXISTS activities (
+    id        INTEGER PRIMARY KEY AUTOINCREMENT,
+    name      TEXT NOT NULL,
+    color     TEXT,                                    -- tile color (NULL = default from palette)
+    location  TEXT,
+    busy      INTEGER NOT NULL DEFAULT 1,              -- 0: shown on the calendar but study may be planned over it
+    in_breaks INTEGER NOT NULL DEFAULT 0,              -- 1: it also happens on the days of a break (work, for example)
+    source    TEXT                                     -- where it came from (NULL = typed in); ready for imports
+);
+CREATE TABLE IF NOT EXISTS activity_meetings (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    activity_id INTEGER NOT NULL REFERENCES activities(id) ON DELETE CASCADE,
+    days        TEXT NOT NULL,                         -- weekday numbers, Monday = 0, such as '0,2,4'
+    start_time  TEXT NOT NULL,                         -- 'HH:MM' on the wall clock of the term's time zone
+    end_time    TEXT NOT NULL,
+    location    TEXT,
+    end_date    TEXT                                   -- last day it happens (NULL = to the end of the term)
+);
+CREATE TABLE IF NOT EXISTS meeting_exceptions (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    owner      TEXT NOT NULL CHECK (owner IN ('course', 'activity')),
+    meeting_id INTEGER NOT NULL,                       -- a row of class_meetings or activity_meetings, by owner
+    day        TEXT NOT NULL,                          -- the date of the occurrence that is different
+    kind       TEXT NOT NULL CHECK (kind IN ('skip', 'override')),
+    start_time TEXT,                                   -- for an override
+    end_time   TEXT,
+    location   TEXT,
+    UNIQUE (owner, meeting_id, day)
+);
+
 -- Notes exported from the Note Reader; the File page lists them under their course.
 CREATE TABLE IF NOT EXISTS exported_notes (
     id             INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -338,6 +370,14 @@ def init_db() -> None:
             conn.execute("ALTER TABLE course_outline ADD COLUMN part TEXT NOT NULL DEFAULT ''")       # the part of a merged course ("MA266"); '' for a plain course
         if "orig_name" not in [r["name"] for r in conn.execute("PRAGMA table_info(books)")]:
             conn.execute("ALTER TABLE books ADD COLUMN orig_name TEXT")           # the file name the file had when it was added
+        if "end_date" not in [r["name"] for r in conn.execute("PRAGMA table_info(class_meetings)")]:
+            conn.execute("ALTER TABLE class_meetings ADD COLUMN end_date TEXT")                     # planner: the last day a weekly meeting happens
+        event_cols = [r["name"] for r in conn.execute("PRAGMA table_info(events)")]
+        for col, ddl in (("all_day", "INTEGER NOT NULL DEFAULT 0"), ("location", "TEXT"), ("commute_before", "INTEGER NOT NULL DEFAULT 0"),
+                         ("commute_after", "INTEGER NOT NULL DEFAULT 0"), ("busy", "INTEGER NOT NULL DEFAULT 1"),
+                         ("start_utc", "TEXT"), ("end_utc", "TEXT"), ("source", "TEXT")):         # planner events: UTC times, commute, busy flag
+            if col not in event_cols:
+                conn.execute(f"ALTER TABLE events ADD COLUMN {col} {ddl}")
         if "done" not in [r["name"] for r in conn.execute("PRAGMA table_info(events)")]:
             conn.execute("ALTER TABLE events ADD COLUMN done INTEGER NOT NULL DEFAULT 0")      # an exam marked complete before its date
         for col in ("notes_used", "hints_used"):

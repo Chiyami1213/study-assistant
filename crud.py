@@ -497,11 +497,11 @@ def list_meetings(course_id=None):
     return _all(sql, (course_id,) if course_id else ())
 
 
-def add_meeting(course_id, days, start_time, end_time, location=None):
-    """days: iterable of weekday numbers (Mon=0 ... Sun=6)."""
+def add_meeting(course_id, days, start_time, end_time, location=None, end_date=None):
+    """days: iterable of weekday numbers (Mon=0 ... Sun=6). end_date: the last day the meeting happens (ISO text, or None for the whole term)."""
     days = ",".join(str(d) for d in sorted(set(days)))
-    return _exec("INSERT INTO class_meetings(course_id,days,start_time,end_time,location) VALUES (?,?,?,?,?)",
-                 (course_id, days, start_time, end_time, location or None))
+    return _exec("INSERT INTO class_meetings(course_id,days,start_time,end_time,location,end_date) VALUES (?,?,?,?,?,?)",
+                 (course_id, days, start_time, end_time, location or None, end_date or None))
 
 
 def delete_meeting(meeting_id):
@@ -520,14 +520,19 @@ def meeting_occurrences(first, last):
     lo, hi = max(first, date.fromisoformat(sem["start"])), min(last, date.fromisoformat(sem["end"]))
     meetings = list_meetings()
     off = holiday_days(lo, hi)
+    exceptions = {(r["meeting_id"], r["day"]): r for r in _all("SELECT * FROM meeting_exceptions WHERE owner='course'")}   # "this occurrence" edits
     out = {}
     day = lo
     while day <= hi:
         for m in ([] if day in off else meetings):
-            if str(day.weekday()) in m["days"].split(","):
+            if str(day.weekday()) in m["days"].split(",") and not (m.get("end_date") and day.isoformat() > m["end_date"]):
+                e = exceptions.get((m["id"], day.isoformat()))
+                if e and e["kind"] == "skip":
+                    continue
+                moved = e and e["kind"] == "override"
                 out.setdefault(day, []).append({"meeting_id": m["id"], "course_id": m["course_id"],
-                                                "start": m["start_time"], "end": m["end_time"],
-                                                "location": m["location"]})
+                                                "start": e["start_time"] if moved else m["start_time"], "end": e["end_time"] if moved else m["end_time"],
+                                                "location": (e["location"] if moved and e["location"] is not None else m["location"])})
         day += timedelta(days=1)
     for items in out.values():
         items.sort(key=lambda o: (o["start"], o["end"]))

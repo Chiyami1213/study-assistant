@@ -117,6 +117,8 @@ Number (or "Midterm 1", "Final" in the title) pair it with the problem file and 
 ## The study planner (`planner/`, in progress: phases 1 to 7)
 - `planner/models.py` and `planner/timeutil.py` are PURE (no database, no Streamlit): the scheduling logic must stay that way. All moments are UTC (`timeutil.utc_iso`), shown in the term's zone.
   `planner/store.py` is the only part that touches the database (`planner_settings`, `planner_awake`), `settings.semester` (term dates) and `holidays` (breaks).
+  `planner/commitments.py` is pure too (series, meetings, exceptions, events, `blocks()`); `planner/commit_store.py` saves them (`activities`, `activity_meetings`, `meeting_exceptions`, the
+  new columns of `events` and `class_meetings`). Mon = 0 for weekdays everywhere. Finished courses are left out of the planner. `crud.meeting_occurrences` (the old Calendar) reads end dates and exceptions too.
 - Tests: `python -m pytest` (`tests/`, a temporary data folder is set up by `tests/conftest.py`; never the real one). Write tests with every phase.
 
 ## The GitHub pages

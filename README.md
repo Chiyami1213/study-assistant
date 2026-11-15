@@ -1,6 +1,6 @@
 # Study Assistant
 
-Version 1.0.2. See the [changelog](CHANGELOG.md) for what changed in each release.
+Version 1.1.0. See the [changelog](CHANGELOG.md) for what changed in each release.
 
 **A personal study desk for university coursework.** Keep a course's textbooks, lecture slides, notes, homework and exams in one library, read them side by
 side, and let the app keep track of deadlines, grades and outlines. It runs entirely on your computer, in its own desktop window; nothing is sent anywhere.
@@ -60,7 +60,7 @@ Questions about installing, antivirus warnings, your files, backups, shortcuts a
 
 ## What's new
 
-**1.0.2**
+**1.1.0**
 - **Study Assistant for macOS** (Apple silicon and Intel): a disk image to drag into Applications; files in `~/Library/Application Support/Study Assistant`.
 - **New setup wizard** for Windows: sharp on high-resolution screens, with a welcome page, the choice to update, uninstall first or keep both when it finds an installed version,
   Desktop and Start menu shortcut options, an antivirus heads-up, and a last page with links to this page and its Help section.
