@@ -53,6 +53,13 @@
   is checked: outside the term, in a break or over another session is never allowed; outside the awake hours, over a class or event, or shorter than the minimum block is refused unless forced. Every change
   returns the **new cushion** (`planner/service.py`); a task's own sessions count as work done, so planning its work does not change its cushion, while it does use up free time for the others. New table
   `study_sessions`; `planner/sessions.py` is pure, `planner/session_store.py` keeps them.
+- **Phase 6 of the study planner: the Calendar screens.** The Calendar page now has **Week, 2 Days, Day and Month** views with Prev, Today and Next buttons (and a sideways swipe over the day names on a
+  touch screen). The time grid shows classes (coloured by course, with changed occurrences marked), activities, events with their **travel time** (hatched) and the **study sessions** (dashed, light; solid when
+  you placed them), each with a dot for its task's cushion. **Drag** a study session or an event to move it (to another time or day), drag its bottom edge to change its length, drag over empty time to add a
+  study session or an event, or click one to open it; a move that only breaks a soft rule (a class, the awake hours) asks first ("Place It Anyway?"), one that breaks a hard rule just says why. **Auto-Plan**
+  fills the free time with sessions. Below the grid, **Tasks** lists what is due with a green, yellow or red **cushion badge** (how much free time is left before the deadline), an **Add Task** form (the
+  estimate defaults to the course's and the category's), **Default Estimates** per course, and buttons to mark done, unplan or delete; a **warning banner** appears when any cushion is negative. The Add Event
+  form can set a place, travel time and whether the event blocks study time. Drawing code is `views/plan_grid.py` (tested), dialogs and the task list are `views/planner_ui.py`.
 
 ## 1.0.1 (2026-11-15)
 

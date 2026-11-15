@@ -208,6 +208,8 @@ class Block:
     color: str = ""
     location: str = ""
     changed: bool = False
+    all_day: bool = False           # an all-day event (the calendar shows it in the all-day strip, not on the time grid)
+    source: str = None              # "legacy" for the older dated events (exams); None for the rest
 
 
 def blocks(config, series, exceptions, events, first, last):
@@ -221,7 +223,7 @@ def blocks(config, series, exceptions, events, first, last):
         s, e = occurrence_interval(o, tz)
         found.append(Block(s, e, "class" if o.kind == COURSE else "activity", o.name, o.busy, o.owner_id, o.meeting_id, o.color, o.location, o.changed))
     for ev in events:
-        found.append(Block(ev.start, ev.end, "event", ev.title, ev.busy, ev.course_id, ev.id, "", ev.location))
+        found.append(Block(ev.start, ev.end, "event", ev.title, ev.busy, ev.course_id, ev.id, "", ev.location, all_day=ev.all_day, source=ev.source))
         if ev.busy and not ev.all_day:                                  # travelling takes time too
             if ev.commute_before:
                 found.append(Block(ev.busy_start, ev.start, "commute", f"Travel to {ev.title}", True, ev.course_id, ev.id))

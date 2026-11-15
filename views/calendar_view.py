@@ -8,13 +8,15 @@ import streamlit as st
 
 import crud
 import settings
+from planner import commit_store, service, session_store, store as planner_store, task_store, timeutil
+from views import plan_grid, planner_ui
 
 MONTH_NAMES = list(calendar.month_name)
 WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
 MAX_CHIPS = 3
 HOUR_PX = 56            # height of one hour in the week grid
 DAY_START_HOUR, DAY_END_HOUR = 6, 24     # the week grid always shows at least this part of the day
-VIEWS = ["Week", "Month"]
+VIEWS = ["Week", "2 Days", "Day", "Month"]
 
 
 def _week_start(day):
@@ -79,31 +81,7 @@ def _color(course):
     return crud.course_color(course) if course else "#6b7280"
 
 
-# ------------------------------------------------------------------ week view
-def _lanes(occurrences):
-    """Give overlapping blocks side-by-side lanes: [(occurrence, lane, lanes_in_cluster)]."""
-    placed, cluster, end_of_cluster = [], [], -1
-    for o in sorted(occurrences, key=lambda o: (_hhmm(o["start"]), _hhmm(o["end"]))):
-        if cluster and _hhmm(o["start"]) >= end_of_cluster:
-            placed += _finish_cluster(cluster)
-            cluster, end_of_cluster = [], -1
-        cluster.append(o)
-        end_of_cluster = max(end_of_cluster, _hhmm(o["end"]))
-    return placed + _finish_cluster(cluster)
-
-
-def _finish_cluster(cluster):
-    lane_ends, assigned = [], []
-    for o in cluster:
-        for i, end in enumerate(lane_ends):
-            if _hhmm(o["start"]) >= end:
-                lane_ends[i] = _hhmm(o["end"]); assigned.append((o, i)); break
-        else:
-            lane_ends.append(_hhmm(o["end"])); assigned.append((o, len(lane_ends) - 1))
-    return [(o, lane, len(lane_ends)) for o, lane in assigned]
-
-
-def _day_items(first, last, skip_timed_exams=False):
+def _day_items(first, last, skip_timed_exams=False, skip_timed=False):
     """All-day items (homework due dates and your own events) as {date: [(label, color)]}, earliest first.
 
     Labels read like "Due 22:00 MATH 101 HW 5" (homework) and "19:00 MATH 101 Midterm 2" (events)."""
@@ -122,6 +100,8 @@ def _day_items(first, last, skip_timed_exams=False):
     for ev in crud.list_events(first.isoformat(), last.isoformat()):
         if skip_timed_exams and _is_timed_exam(ev):
             continue                     # shown as a block on the time grid instead
+        if skip_timed and (ev.get("time") or ev.get("start_utc")):
+            continue                     # the planner draws timed events as blocks, and all-day planner events itself
         add(ev["date"], ev["title"], ev["course_id"], ev.get("time"))
     return {d: [(label, color) for _, label, color in sorted(items)] for d, items in rows.items()}
 
@@ -139,65 +119,55 @@ def _notices(first, last):
     return out
 
 
-def _week_html(week_start, today):
-    days = [week_start + timedelta(days=i) for i in range(7)]
+# ------------------------------------------------------------------ the planner grid (Week, 2 Days, Day)
+def _grid_days(view, anchor):
+    if view == "Week":
+        first = _week_start(anchor)
+        return [first + timedelta(days=i) for i in range(7)]
+    return [anchor + timedelta(days=i) for i in range(2 if view == "2 Days" else 1)]
+
+
+def _planner_grid(days, today, report):
+    """The HTML of the time grid for the given days: classes, activities, events with their travel time, and the study sessions."""
+    tz = planner_store.get_term().zone
+    blocks = commit_store.commitments(days[0], days[-1])
+    sessions = session_store.list_sessions(days[0], days[-1])
+    tasks = {x.id: x for x in task_store.list_tasks()}
     courses = _course_map()
-    occ = crud.meeting_occurrences(days[0], days[-1])
-    allday = _day_items(days[0], days[-1], skip_timed_exams=True)
-    exams = _exam_blocks(days[0], days[-1])
-    by_day = {}
-    for d in days:
-        kept, timed = _merge_in_class(occ.get(d, []), exams.get(d, []))
-        by_day[d] = kept + timed
-    notices = _notices(days[0], days[-1])
-    off = crud.holiday_days(days[0], days[-1])
-    for d, rows in notices.items():
+    colors = {cid: crud.course_color(c) for cid, c in courses.items()}
+    levels = {c.task_id: c.level for c in report.items}
+    items = {d: plan_grid.day_items(d, blocks, sessions, tasks, colors, levels, tz) for d in days}
+    allday = _day_items(days[0], days[-1], skip_timed_exams=True, skip_timed=True)
+    for b in blocks:
+        if b.all_day:
+            first_day = timeutil.local_day(b.start, tz)
+            for d in days:
+                if first_day <= d <= timeutil.local_day(b.end - timedelta(seconds=1), tz):
+                    allday.setdefault(d, []).append((b.label, colors.get(b.owner_id, "#6b7280")))
+    for d, rows in _notices(days[0], days[-1]).items():
         allday[d] = rows + allday.get(d, [])
+    lo, hi = plan_grid.hour_range(items)
+    local_now = timeutil.to_local(datetime.now(timeutil.UTC), tz)
+    return plan_grid.grid_html(days, today, items, allday, set(crud.holiday_days(days[0], days[-1])), lo, hi, crud.darken, local_now.hour * 60 + local_now.minute)
 
-    starts = [_hhmm(o["start"]) for items in by_day.values() for o in items]
-    ends = [_hhmm(o["end"]) for items in by_day.values() for o in items]
-    # The grid always covers the same full day, so every week has the same height; it only grows if a block
-    # falls outside that range.
-    lo = min(DAY_START_HOUR, min(starts) // 60) if starts else DAY_START_HOUR
-    hi = min(24, max(DAY_END_HOUR, -(-max(ends) // 60))) if ends else DAY_END_HOUR
-    height = (hi - lo) * HOUR_PX
 
-    head = '<div class="wk-corner"></div>' + "".join(
-        f'<div class="wk-head{" today" if d == today else ""}"><span>{WEEKDAYS[i]}</span><b>{d.day:02d}</b></div>'
-        for i, d in enumerate(days))
-    strip = '<div class="wk-allday-label">All Day</div>' + "".join(
-        '<div class="wk-allday">' + "".join(
-            f'<div class="wk-pill" style="background:{color}" title="{html.escape(label)}">{html.escape(label)}</div>'
-            for label, color in allday.get(d, [])) + "</div>" for d in days)
+def _span_title(view, days):
+    a, b = days[0], days[-1]
+    if view == "Day":
+        return f"{WEEKDAYS[(a.weekday() + 1) % 7]}, {MONTH_NAMES[a.month][:3]} {a.day}, {a.year}"
+    return (f"{MONTH_NAMES[a.month][:3]} {a.day} – {b.day}" if a.month == b.month else f"{MONTH_NAMES[a.month][:3]} {a.day} – {MONTH_NAMES[b.month][:3]} {b.day}") + f", {b.year}"
 
-    gutter = "".join(f'<div class="wk-hour" style="top:{(h - lo) * HOUR_PX}px">{h:02d}:00</div>'
-                     for h in range(lo, hi))
-    columns = ""
-    for d in days:
-        blocks = ""
-        for o, lane, count in _lanes(by_day[d]):
-            c = courses.get(o["course_id"])
-            color = _color(c)
-            top = (_hhmm(o["start"]) - lo * 60) * HOUR_PX / 60
-            h = max((_hhmm(o["end"]) - _hhmm(o["start"])) * HOUR_PX / 60 - 2, 18)
-            if o.get("exam"):
-                where = f'<div class="wk-loc">{html.escape(o["title"])}</div><div class="wk-exam-tag">Exam</div>'
-            else:
-                where = f'<div class="wk-loc">{html.escape(o["location"])}</div>' if o["location"] else ""
-            blocks += (f'<div class="wk-block{" wk-exam" if o.get("exam") else ""}" style="top:{top:.1f}px;height:{h:.1f}px;left:calc({lane * 100 / count}% + 2px);'
-                       f'width:calc({100 / count}% - 4px);background:linear-gradient(150deg,{color},{crud.darken(color)})">'
-                       f'<div class="wk-time">{o["start"]} - {o["end"]}</div>'
-                       f'<div class="wk-code">{html.escape((c["code"] or c["name"]) if c else "")}</div>{where}</div>')
-        now_line = ""
-        if d == today:
-            minutes = datetime.now().hour * 60 + datetime.now().minute
-            if lo * 60 <= minutes <= hi * 60:
-                now_line = f'<div class="wk-now" style="top:{(minutes - lo * 60) * HOUR_PX / 60:.1f}px"></div>'
-        columns += (f'<div class="wk-col{" today" if d == today else ""}{" holiday" if d in off else ""}" '
-                    f'style="height:{height}px">{blocks}{now_line}</div>')
 
-    return (f'<div class="wk"><div class="wk-row wk-top">{head}</div><div class="wk-row wk-strip">{strip}</div>'
-            f'<div class="wk-row wk-body"><div class="wk-gutter" style="height:{height}px">{gutter}</div>{columns}</div></div>')
+def _step(view):
+    return {"Week": 7, "2 Days": 2, "Day": 1}[view]
+
+
+def _auto_plan():
+    result, report = service.auto_plan()
+    placed = len(result.add)
+    left = len(result.unplaced)
+    st.session_state["cal_toast"] = (f"Planned {placed} study session{'s' if placed != 1 else ''}." if placed else "Nothing to plan: every task is already covered, or has no due date.") + \
+        (f" {left} task{'s' if left != 1 else ''} do not fully fit." if left else "")
 
 
 # ------------------------------------------------------------------ month view
@@ -315,7 +285,7 @@ def _schedule_dialog():
 def render():
     today = date.today()
     st.session_state.setdefault("cal_month", (today.year, today.month))
-    st.session_state.setdefault("cal_week", _week_start(today))
+    st.session_state.setdefault("cal_anchor", today)
     st.session_state.setdefault("cal_view", "Week")
 
     head, btn = st.columns([6, 1.6], vertical_alignment="center")
@@ -323,53 +293,83 @@ def render():
     if btn.button("Edit Schedule", key="edit_schedule_open"):
         _schedule_dialog()
 
-    c0, c1, c2, c3, c4 = st.columns([1.6, 0.9, 0.9, 0.9, 5], vertical_alignment="center")
+    sink = st.text_input("Calendar Actions", key="cal_sink", label_visibility="collapsed")          # a drag or click in the grid writes here (see app.py)
+    if sink and sink != st.session_state.get("_cal_sink_done"):
+        st.session_state["_cal_sink_done"] = sink
+        planner_ui.handle_action(sink)
+
+    c0, c1, c2, c3, c4, c5 = st.columns([2.6, 0.9, 0.9, 0.9, 3.4, 1.4], vertical_alignment="center")
     view = c0.segmented_control("View", VIEWS, key="cal_view", label_visibility="collapsed") or "Week"
-    week = st.session_state["cal_week"]
+    anchor = st.session_state["cal_anchor"]
     if c1.button("‹ Prev", key="cal_prev"):
-        if view == "Week":
-            st.session_state["cal_week"] = week - timedelta(days=7)
-        else:
+        if view == "Month":
             _shift_month(-1)
+        else:
+            st.session_state["cal_anchor"] = anchor - timedelta(days=_step(view))
         st.rerun()
     if c2.button("Today", key="cal_today"):
-        st.session_state["cal_week"] = _week_start(today)
+        st.session_state["cal_anchor"] = today
         st.session_state["cal_month"] = (today.year, today.month)
         st.rerun()
     if c3.button("Next ›", key="cal_next"):
-        if view == "Week":
-            st.session_state["cal_week"] = week + timedelta(days=7)
-        else:
+        if view == "Month":
             _shift_month(1)
+        else:
+            st.session_state["cal_anchor"] = anchor + timedelta(days=_step(view))
         st.rerun()
-    if view == "Week":
-        end = week + timedelta(days=6)
-        span = (f"{MONTH_NAMES[week.month][:3]} {week.day} – {end.day}" if week.month == end.month
-                else f"{MONTH_NAMES[week.month][:3]} {week.day} – {MONTH_NAMES[end.month][:3]} {end.day}")
-        c4.subheader(f"{span}, {end.year}")
-        st.markdown(_week_html(week, today), unsafe_allow_html=True)
-    else:
+    if c5.button("Auto-Plan", key="cal_autoplan", type="primary", icon=":material/auto_awesome:", help="places study sessions for the tasks that have a due date, earliest deadline first"):
+        _auto_plan()
+        st.rerun()
+
+    report = service.cushion_report()
+    tz = planner_store.get_term().zone
+    courses = _course_map()
+    planner_ui.show_pending()
+    if view == "Month":
         year, month = st.session_state["cal_month"]
         c4.subheader(f"{MONTH_NAMES[month]} {year}")
         _month_view(today)
+    else:
+        days = _grid_days(view, anchor)
+        c4.subheader(_span_title(view, days))
+        planner_ui.banner(report, courses, tz)
+        st.markdown(_planner_grid(days, today, report), unsafe_allow_html=True)
+        st.caption("Drag a study session or an event to move it, drag its bottom edge to change its length, or drag over empty time to add one. Click one to open it.")
 
+    st.divider()
+    planner_ui.task_panel(report, courses, tz)
     st.divider()
     left, right = st.columns([2, 3])
     with left:
         st.subheader("Add Event")
-        courses = {0: "None"} | {c["id"]: crud.label(c) for c in crud.list_courses(section=None)}
+        course_choices = {0: "None"} | {c["id"]: crud.label(c) for c in crud.list_courses(section=None)}
         with st.form("add_event", clear_on_submit=True):
             title = st.text_input("Title", placeholder="Midterm Exam")
             when = st.date_input("Date", value=today)
             t1, t2 = st.columns(2)
             at = t1.time_input("Start Time (Optional)", value=None, step=300)
             until = t2.time_input("End Time (Optional)", value=None, step=300)
-            course_id = st.selectbox("Course (Optional)", list(courses), format_func=courses.get)
+            course_id = st.selectbox("Course (Optional)", list(course_choices), format_func=course_choices.get)
+            where = st.text_input("Location (Optional)")
+            b1, b2, b3 = st.columns(3)
+            busy = b1.toggle("Blocks Study Time", True)
+            before = b2.number_input("Travel Before (Minutes)", 0, 240, 0, 5)
+            after = b3.number_input("Travel After (Minutes)", 0, 240, 0, 5)
             if st.form_submit_button("Add") and title.strip():
-                crud.add_event(title.strip(), when.isoformat(), course_id or None,
-                               at.strftime("%H:%M") if at else None, until.strftime("%H:%M") if until else None)
-                st.session_state["cal_month"] = (when.year, when.month)
-                st.session_state["cal_week"] = _week_start(when)
+                try:
+                    if at:
+                        s_utc = timeutil.to_utc(when, at, tz)
+                        e_utc = timeutil.to_utc(when, until, tz) if until and until > at else s_utc + timedelta(hours=1)
+                        commit_store.add_event(title.strip(), s_utc, e_utc, False, where.strip(), int(before), int(after), busy, course_id or None)
+                    else:
+                        start_utc, _ = timeutil.day_bounds_utc(when, tz)
+                        _, end_utc = timeutil.day_bounds_utc(when, tz)
+                        commit_store.add_event(title.strip(), start_utc, end_utc, True, where.strip(), 0, 0, False, course_id or None)
+                except Exception as e:                        # a PlannerError says what is wrong; show it instead of a crash
+                    st.session_state["cal_toast"] = str(e)
+                else:
+                    st.session_state["cal_month"] = (when.year, when.month)
+                    st.session_state["cal_anchor"] = when
                 st.rerun()
     with right:
         year, month = st.session_state["cal_month"]

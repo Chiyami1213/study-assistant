@@ -242,7 +242,7 @@ section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-h
     pointer-events: none;}}
 
 /* Course outline: hidden box that carries a clicked point to the app */
-.st-key-outline_sink, .st-key-lib_sink, .st-key-lib_link_sink {{position: absolute !important; width: 1px; height: 1px; overflow: hidden; opacity: 0; pointer-events: none;}}
+.st-key-outline_sink, .st-key-lib_sink, .st-key-lib_link_sink, .st-key-cal_sink {{position: absolute !important; width: 1px; height: 1px; overflow: hidden; opacity: 0; pointer-events: none;}}
 
 /* Home: term stats */
 .home-stats {{display: flex; gap: 12px; margin: 2px 0 18px;}}
@@ -373,7 +373,7 @@ section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-h
 .st-key-edit_schedule_open [data-testid="stButton"] {{width: 100%; display: flex; justify-content: flex-end;}}
 .st-key-edit_schedule_open button {{min-height: 0; padding: 0.3rem 0.8rem; width: auto !important;}}
 .wk {{border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin: 6px 0 4px;}}
-.wk-row {{display: grid; grid-template-columns: 56px repeat(7, 1fr);}}
+.wk-row {{display: grid; grid-template-columns: 56px repeat(var(--n, 7), 1fr);}}
 .wk-top {{border-bottom: 1px solid var(--border);}}
 .wk-head {{text-align: center; padding: 8px 0 6px; line-height: 1.2;}}
 .wk-head span {{display: block; font-size: 0.85rem; opacity: 0.75;}}
@@ -404,6 +404,25 @@ section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-h
     font-weight: 700; padding: 1px 7px;}}
 .wk-now {{position: absolute; left: 0; right: 0; height: 2px; background: #ef4444; z-index: 2;}}
 .wk-now::before {{content: ""; position: absolute; left: -4px; top: -3px; width: 8px; height: 8px; border-radius: 50%; background: #ef4444;}}
+
+
+/* Planner calendar: study sessions, travel time, dragging */
+.wk-block.wk-session {{border: 2px dashed; color: var(--text); box-shadow: none;}}
+.wk-block.wk-session.wk-manual {{border-style: solid;}}
+.wk-session .wk-time, .wk-session .wk-code, .wk-session .wk-loc {{color: var(--text);}}
+.wk-dot {{display: inline-block; width: 10px; height: 10px; border-radius: 50%; float: right; margin: 3px 0 0 4px;}}
+.wk-block.wk-commute {{border: 1px dashed var(--c); color: var(--text); box-shadow: none; padding: 1px 5px; opacity: 0.85;
+    background: repeating-linear-gradient(45deg, color-mix(in srgb, var(--c) 30%, transparent) 0, color-mix(in srgb, var(--c) 30%, transparent) 6px, transparent 6px, transparent 12px);}}
+.wk-commute .wk-time {{font-size: 0.68rem; opacity: 0.85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}}
+.wk-block.wk-activity {{border-left: 4px solid #ffffff99;}}
+.wk-moved {{position: absolute; right: 4px; top: 3px; font-size: 0.62rem; background: #0007; border-radius: 3px; padding: 0 4px;}}
+.wk-block[data-edit] {{cursor: grab; user-select: none; touch-action: none;}}
+.wk-block.dragging {{opacity: 0.85; z-index: 6; box-shadow: 0 8px 18px #0007; cursor: grabbing;}}
+.wk-resize {{position: absolute; left: 0; right: 0; bottom: 0; height: 9px; cursor: ns-resize;}}
+.wk-resize::after {{content: ""; position: absolute; left: 50%; bottom: 2px; width: 22px; margin-left: -11px; height: 3px; border-radius: 2px; background: currentColor; opacity: 0.45;}}
+.wk-ghost {{position: absolute; left: 2px; right: 2px; background: rgba(76, 141, 255, 0.28); border: 2px solid var(--accent); border-radius: 6px; z-index: 5; pointer-events: none;}}
+.wk-col {{user-select: none;}}
+.cu-pill {{display: inline-block; color: #fff; border-radius: 999px; padding: 2px 11px; font-size: 0.8rem; font-weight: 600; white-space: nowrap;}}
 
 /* Calendar */
 .cal-head {{text-align: center; font-weight: 600; font-size: 0.85rem; opacity: 0.7; padding-bottom: 4px;}}
@@ -731,6 +750,78 @@ if (!win.__olNavV1) {
     inp.dispatchEvent(new win.KeyboardEvent('keydown', {key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true}));
     inp.blur();
   }, true);
+}
+// Planner calendar: drag a study session or an event to move it, drag its bottom edge to change its length, drag over empty time to make a new one,
+// click one to open it, and swipe sideways over the day names to go to the next or the previous period. What happened goes to the hidden box (cal_sink) as
+// 'action|what|day|minutes|stamp' and the page answers it.
+if (!win.__calDragV1) {
+  win.__calDragV1 = true;
+  const sendCal = text => {
+    const inp = doc.querySelector('.st-key-cal_sink input'); if (!inp) return;
+    const set = Object.getOwnPropertyDescriptor(win.HTMLInputElement.prototype, 'value').set;
+    inp.focus(); set.call(inp, text + '|' + Date.now());
+    inp.dispatchEvent(new win.Event('input', {bubbles: true}));
+    inp.dispatchEvent(new win.KeyboardEvent('keydown', {key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true}));
+    inp.blur();
+  };
+  let drag = null;
+  const snapMin = (grid, px) => { const per = +grid.dataset.hourPx / 60, s = +grid.dataset.snap; return Math.round(px / per / s) * s; };
+  doc.addEventListener('pointerdown', e => {
+    const grid = e.target.closest && e.target.closest('.wk'); if (!grid || e.button !== 0) return;
+    const col = e.target.closest('.wk-col'); if (!col) return;
+    const block = e.target.closest('.wk-block');
+    if (block && block.dataset.edit) {
+      drag = {mode: e.target.closest('.wk-resize') ? 'resize' : 'move', block, grid, col, startX: e.clientX, startY: e.clientY, moved: false,
+              start: +block.dataset.start, end: +block.dataset.end, day: col.dataset.day, dMin: 0};
+    } else if (!block && e.target === col) {
+      const lo = +col.dataset.lo;
+      drag = {mode: 'create', grid, col, startY: e.clientY, lo, anchor: snapMin(grid, e.clientY - col.getBoundingClientRect().top) + lo * 60, day: col.dataset.day, moved: false, ghost: null, range: null};
+    } else return;
+    e.preventDefault();
+  }, true);
+  doc.addEventListener('pointermove', e => {
+    if (!drag) return;
+    const dy = e.clientY - drag.startY, dx = e.clientX - (drag.startX || 0);
+    if (!drag.moved && Math.abs(dy) < 4 && Math.abs(dx) < 4) return;
+    drag.moved = true;
+    const per = +drag.grid.dataset.hourPx / 60;
+    if (drag.mode === 'move') {
+      drag.dMin = snapMin(drag.grid, dy);
+      drag.block.classList.add('dragging');
+      drag.block.style.transform = 'translate(' + dx + 'px,' + (drag.dMin * per) + 'px)';
+      drag.target = [...drag.grid.querySelectorAll('.wk-col')].find(c => { const r = c.getBoundingClientRect(); return e.clientX >= r.left && e.clientX < r.right; }) || drag.col;
+    } else if (drag.mode === 'resize') {
+      drag.newEnd = Math.max(drag.start + 15, drag.end + snapMin(drag.grid, dy));
+      drag.block.style.height = ((drag.newEnd - drag.start) * per - 2) + 'px';
+    } else {
+      const y = snapMin(drag.grid, e.clientY - drag.col.getBoundingClientRect().top) + drag.lo * 60;
+      const a = Math.min(drag.anchor, y), b = Math.max(drag.anchor, y);
+      if (!drag.ghost) { drag.ghost = doc.createElement('div'); drag.ghost.className = 'wk-ghost'; drag.col.appendChild(drag.ghost); }
+      drag.ghost.style.top = ((a - drag.lo * 60) * per) + 'px'; drag.ghost.style.height = Math.max((b - a) * per, 2) + 'px';
+      drag.range = [a, b];
+    }
+  }, true);
+  doc.addEventListener('pointerup', e => {
+    const d = drag; drag = null; if (!d) return;
+    if (d.mode === 'create') {
+      if (d.ghost) d.ghost.remove();
+      if (d.moved && d.range && d.range[1] - d.range[0] >= 15) sendCal('create|' + d.day + '|' + d.range[0] + '|' + d.range[1]);
+      return;
+    }
+    if (!d.moved) { sendCal('click|' + d.block.dataset.ref); return; }
+    if (d.mode === 'move') sendCal('move|' + d.block.dataset.ref + '|' + (d.target || d.col).dataset.day + '|' + (d.start + d.dMin));
+    else sendCal('resize|' + d.block.dataset.ref + '|' + d.day + '|' + (d.newEnd || d.end));
+  }, true);
+  let swipe = null;
+  doc.addEventListener('touchstart', e => {
+    const top = e.target.closest && e.target.closest('.wk-top, .wk-strip'); if (!top || !e.touches.length) { swipe = null; return; }
+    swipe = {x: e.touches[0].clientX, y: e.touches[0].clientY};
+  }, {passive: true, capture: true});
+  doc.addEventListener('touchend', e => {
+    if (!swipe || !e.changedTouches.length) return;
+    const dx = e.changedTouches[0].clientX - swipe.x, dy = e.changedTouches[0].clientY - swipe.y; swipe = null;
+    if (Math.abs(dx) > 60 && Math.abs(dy) < 50) { const b = doc.querySelector(dx < 0 ? '.st-key-cal_next button' : '.st-key-cal_prev button'); if (b) b.click(); }
+  }, {passive: true, capture: true});
 }
 // 20-20-20 rule: after every 20 minutes of using the app, ask for a 20-second look at something 20 feet away.
 // Turning that down is allowed, but after 2 refusals in a row there is a warning, and the 3rd prompt (1 hour of
