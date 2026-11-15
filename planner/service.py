@@ -2,7 +2,7 @@
 planner.freetime and planner.sessions (pure). Every change to the sessions returns the new cushion report, so a screen always shows the right numbers."""
 from datetime import datetime, timezone
 
-from . import commit_store, freetime, session_store, sessions as S, store, task_store, timeutil
+from . import commit_store, freetime, session_store, sessions as S, store, task_store, timeutil, track_store
 
 
 def _now(now):
@@ -72,3 +72,29 @@ def unplan_task(task_id, now=None, include_past=False):
     """Remove a task's sessions that have not started. Returns (how many, new CushionReport)."""
     removed = session_store.unplan_task(task_id, _now(now), include_past)
     return removed, cushion_report(now)
+
+
+# ---------- tracking: the study timer and the time logs (each returns the new cushion, because logged time is work done) ----------
+def start_timer(task_id, session_id=None, now=None):
+    track_store.start_timer(task_id, session_id, now)
+
+
+def stop_timer(now=None):
+    """Stop the timer and log the time. Returns (StopResult, CushionReport)."""
+    result = track_store.stop_timer(now)
+    return result, cushion_report(now)
+
+
+def cancel_timer():
+    track_store.cancel_timer()
+
+
+def log_time(task_id, minutes, session_id=None, now=None):
+    """Log time by hand. Returns (log id, CushionReport)."""
+    log_id = track_store.log_time(task_id, minutes, session_id, None, now)
+    return log_id, cushion_report(now)
+
+
+def delete_log(log_id, now=None):
+    track_store.delete_log(log_id)
+    return cushion_report(now)

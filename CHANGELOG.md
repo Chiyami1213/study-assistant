@@ -60,6 +60,19 @@
   fills the free time with sessions. Below the grid, **Tasks** lists what is due with a green, yellow or red **cushion badge** (how much free time is left before the deadline), an **Add Task** form (the
   estimate defaults to the course's and the category's), **Default Estimates** per course, and buttons to mark done, unplan or delete; a **warning banner** appears when any cushion is negative. The Add Event
   form can set a place, travel time and whether the event blocks study time. Drawing code is `views/plan_grid.py` (tested), dialogs and the task list are `views/planner_ui.py`.
+- **Blocks on the left, dragged into the schedule.** Beside the grid is a panel with a **Drag a custom event** block, your **tasks** (coloured by course, with their cushion dot and the time left to plan),
+  your **courses** and your **activities**. Drag a task onto the calendar to place a study session there (as long as what is left to plan, 30 minutes to 2 hours); drag the custom event block to open the
+  new-event form at that time; drag a course or an activity to add a weekly time on that day. **+ Task** and **+ Activity** add new ones. Free time is shaded in the grid with its length written on it
+  (**Show Free Time** switches it off).
+- **Phase 7 of the study planner: tracking.** A **study timer** can be started on a task (the play button in the task list) or on one of its sessions; a bar above the calendar shows what you are
+  studying and the running time, and **Stop and Log** adds the minutes to the task (rounded to the minute, under half a minute is not logged, a timer left running is cut at 12 hours; it survives closing the
+  app). Time can also be logged by hand, and every log can be removed. **Logged time is work done**, so it raises the cushion. A session shows **planned against used** (a bar along its bottom and a line in its
+  dialog: done, partly used, not used), and the task list shows the time used. **Suggested estimates:** when you add a task, the form suggests the typical time of your finished tasks of that category (the
+  median of the time logged, from the same course when it has at least two, rounded to 5 minutes). `planner/tracking.py` is pure, `planner/track_store.py` keeps the timer and the logs (new tables
+  `time_logs` and `study_timer`).
+- **Settings: a bar to jump to a section.** The top of Settings has a link for each section (Appearance, Eye Rest, Study Planner, Backup, Keyboard Shortcuts, Help, Report an Issue, Danger Zone, About); it
+  stays in view while you scroll and the heading it jumps to is lined up under it.
+- **The time zone list shows UTC offsets.** Each zone reads like `America/New_York (UTC-05:00, EST)` (the offset in force today), the list runs from west to east, and typing `utc-5` finds a group.
 
 ## 1.0.1 (2026-11-15)
 

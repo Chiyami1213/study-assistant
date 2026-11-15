@@ -6,6 +6,25 @@ import streamlit as st
 
 import settings
 
+SECTIONS = ["Appearance", "Eye Rest", "Study Planner", "Backup", "Keyboard Shortcuts", "Help", "Report an Issue", "Danger Zone", "About"]
+
+
+def _slug(name):
+    return name.lower().replace(" ", "-")
+
+
+def _section(name):
+    """A section heading the top bar can jump to."""
+    st.header(name, anchor=_slug(name))
+
+
+def _jump_bar():
+    """The bar at the top of the page: one link for each section."""
+    links = "".join(f'<a href="#{_slug(n)}" data-jump="{_slug(n)}">{n}</a>' for n in SECTIONS)
+    with st.container(key="settings_nav"):
+        st.markdown(f'<nav class="set-nav" aria-label="Sections of this page">{links}</nav>', unsafe_allow_html=True)
+
+
 OPTIONS = {
     "light": (":material/light_mode:", "Light"),
     "dark": (":material/dark_mode:", "Dark"),
@@ -15,8 +34,9 @@ OPTIONS = {
 
 def render():
     st.title("Settings")
+    _jump_bar()
 
-    st.header("Appearance")
+    _section("Appearance")
     current = settings.get_appearance()
     with st.container(key="appearance"):
         for col, (key, (icon, label)) in zip(st.columns(3), OPTIONS.items()):
@@ -31,7 +51,7 @@ def render():
         settings.set_menu_hidden(not hidden)
         st.rerun()
 
-    st.header("Eye Rest")
+    _section("Eye Rest")
     st.caption("A reminder to look away from the screen after every 20 minutes of studying.")
     eye = settings.get_eye_rest()
     with st.container(key="eye_rest_settings"):
@@ -52,7 +72,7 @@ def render():
 
     _planner_section()
     _backup_section()
-    st.header("Keyboard Shortcuts")
+    _section("Keyboard Shortcuts")
     st.caption("Type a key, such as d, or a combination, such as ctrl+z. Esc is the Escape key. A shortcut works when you are not typing in a box. "
                "These keys are fixed: F2 saves a screenshot of the app window, F5 refreshes the page (Ctrl + F5 loads it again), F11 turns full screen on and off, and while the menu bar is shown a letter opens a page (h Home, a Calendar, l Library, n Note Reader, c Courses, s Settings).")
     _keys_section("Homework and Exam Reader", "reader", [
@@ -68,7 +88,7 @@ def render():
     _help_section()
     _report_section()
     _danger_zone()
-    st.header("About")
+    _section("About")
     import helpinfo
     from version import VERSION
     st.caption(f"Study Assistant version {VERSION} · [Project page on GitHub]({helpinfo.REPO_URL})")
@@ -93,7 +113,7 @@ def _browse(key, add):
 def _backup_section():
     """Where the Library is backed up, the folders the original files live in, Back Up Now and the two ways to restore; then Export and Import."""
     import libbackup
-    st.header("Backup")
+    _section("Backup")
     st.caption("Keeps a copy of every Library file, what each one is, the database and the settings in a folder you choose, so the Library can be "
                "brought back quickly if it is ever lost. The folders where you keep the original files are remembered too: files that are missing "
                "can be found again there by their size and content. Nothing in your own folders is ever changed or deleted.")
@@ -248,7 +268,7 @@ def _export_progress():
 
 def _danger_zone():
     import libbackup
-    st.header("Danger Zone")
+    _section("Danger Zone")
     with st.container(key="danger_zone", border=True):
         st.markdown("**Clear All Library**")
         st.caption("Removes every file from the Library: the records and the stored copies. A backup is made first, and nothing is removed if that "
@@ -309,7 +329,7 @@ def _keys_section(title, group, rows):
 def _help_section():
     """Answers to common questions (installing, antivirus warnings, where the files are, backups, connection problems, shortcuts, uninstalling)."""
     import helpinfo
-    st.header("Help")
+    _section("Help")
     st.caption(f"Answers to common questions. More help is on the [project page]({helpinfo.HELP_URL}).")
     files = helpinfo.where_files()
     for question, answer in helpinfo.FAQ:
@@ -342,7 +362,7 @@ def _open_issue(url):
 def _report_section():
     """Report a problem or an idea: a pre-filled GitHub issue opens in the browser; the user reads it and submits it there."""
     import helpinfo
-    st.header("Report an Issue")
+    _section("Report an Issue")
     st.caption("Found a problem, or have an idea? This opens a ready-made report on GitHub in your browser. You read it and press Submit there; "
                "the app sends nothing by itself. A free GitHub account is needed, and reports are public, so leave out anything personal.")
     kind = st.selectbox("What Kind of Report?", list(helpinfo.KINDS), key="report_kind")
@@ -395,7 +415,7 @@ def _planner_section():
     import zoneinfo
     from planner import store
     from planner.models import MIN_BLOCK_RANGE, WEEKDAYS
-    st.header("Study Planner")
+    _section("Study Planner")
     st.caption("The planner places study time only between your wake and bed times, and never in a break. "
                "The term dates and breaks are set in Calendar > Edit Schedule.")
     cfg = store.load_config()
@@ -403,11 +423,13 @@ def _planner_section():
     st.caption(f"Term: {term.start:%b %d, %Y} to {term.classes_end:%b %d, %Y}, exams until {term.exams_end:%b %d, %Y}"
                + ("" if store.term_configured() else " (the app's default dates until you save yours)")
                + (f" · Breaks: {', '.join(b.name for b in term.breaks)}" if term.breaks else " · No breaks"))
-    zones = sorted(zoneinfo.available_timezones())
+    from planner import timeutil
+    zones = timeutil.zones_by_offset(zoneinfo.available_timezones())
+    labels = {z: timeutil.zone_label(z) for z in zones}                      # 'America/New_York (UTC-05:00, EST)'
     with st.container(key="planner_setup"):
         c1, c2 = st.columns(2)
-        c1.selectbox("Time Zone", zones, index=zones.index(term.tz) if term.tz in zones else 0, key="planner_tz",
-                          help="all planned times are kept in utc and shown in this time zone")
+        c1.selectbox("Time Zone", zones, index=zones.index(term.tz) if term.tz in zones else 0, key="planner_tz", format_func=labels.get,
+                          help="all planned times are kept in utc and shown in this time zone; type a place or an offset such as utc-5 to search")
         c2.number_input("Minimum Study Block (Minutes)", MIN_BLOCK_RANGE[0], MIN_BLOCK_RANGE[1], cfg.min_block_minutes, 5, key="planner_block",
                                 help="free time shorter than this is not used for planning")
         st.markdown("**Awake Times**")

@@ -27,6 +27,7 @@ class Item:
     ref: str = ""             # "session:12" or "event:4": what a drag or a click acts on; "" when it can not be edited
     level: str = ""           # the cushion level of a session's task
     changed: bool = False
+    progress: float = 0.0     # how much of a session was used (0 to 1)
 
 
 def fmt_minutes(minutes):
@@ -60,7 +61,7 @@ def _clip(day, start, end, tz):
     return minute(s), minute(e)
 
 
-def day_items(day, blocks, sessions, tasks, course_colors, levels, tz):
+def day_items(day, blocks, sessions, tasks, course_colors, levels, tz, progress=None):
     """The items of one local day. `tasks`: {task id: Task}; `course_colors`: {course id: color}; `levels`: {task id: cushion level}."""
     items = []
     exam_starts = {(b.owner_id, _clip(day, b.start, b.end, tz)[0]) for b in blocks
@@ -89,9 +90,19 @@ def day_items(day, blocks, sessions, tasks, course_colors, levels, tz):
             continue
         task = tasks.get(s.task_id)
         color = course_colors.get(task.course_id, NEUTRAL) if task else NEUTRAL
-        items.append(Item("session", task.title if task else "Study", span[0], span[1], color, "Study", f"session:{s.id}", levels.get(s.task_id, ""), s.source == "manual"))
+        items.append(Item("session", task.title if task else "Study", span[0], span[1], color, "Study", f"session:{s.id}", levels.get(s.task_id, ""), s.source == "manual", (progress or {}).get(s.id, 0.0)))
     items.sort(key=lambda i: (i.start, i.end, i.kind, i.title))
     return items
+
+
+def free_items(day, intervals, tz):
+    """Free-time areas of one local day as items (kind "free", the length as its title), from the free intervals (UTC pairs)."""
+    out = []
+    for s, e in intervals:
+        span = _clip(day, s, e, tz)
+        if span and span[1] - span[0] >= 15:
+            out.append(Item("free", fmt_minutes(span[1] - span[0]), span[0], span[1], "#7c6aff"))
+    return out
 
 
 def lanes(items):
@@ -122,7 +133,7 @@ def _finish(cluster):
 
 def hour_range(items_by_day):
     """The first and last hour the grid shows: the usual day, widened when something falls outside it."""
-    starts = [i.start for items in items_by_day.values() for i in items]
+    starts = [i.start for items in items_by_day.values() for i in items if i.kind != "free"]
     ends = [i.end for items in items_by_day.values() for i in items]
     lo = min(DAY_START_HOUR, min(starts) // 60) if starts else DAY_START_HOUR
     hi = min(24, max(DAY_END_HOUR, -(-max(ends) // 60))) if ends else DAY_END_HOUR
@@ -141,8 +152,9 @@ def block_html(it, lane, count, lo, darken):
     if it.kind == "session":
         dot = f'<span class="wk-dot" style="background:{LEVEL_COLORS.get(it.level, NEUTRAL)}" title="cushion: {it.level or "none"}"></span>' if it.level else ""
         style = f"top:{top:.1f}px;height:{height:.1f}px;{width}border-color:{it.color};background:{it.color}2e"
+        used = f'<div class="wk-used" style="width:{min(100, round(it.progress * 100))}%" title="{round(it.progress * 100)}% of this session used"></div>' if it.progress > 0 else ""
         return (f'<div class="wk-block wk-session{" wk-manual" if it.changed else ""}" style="{style}"{attrs}>{dot}<div class="wk-time">{time_text}</div>'
-                f'<div class="wk-code">{html.escape(it.title)}</div>{sub}{handle}</div>')
+                f'<div class="wk-code">{html.escape(it.title)}</div>{sub}{used}{handle}</div>')
     if it.kind == "commute":
         style = f"top:{top:.1f}px;height:{height:.1f}px;{width}--c:{it.color}"
         return f'<div class="wk-block wk-commute" style="{style}"><div class="wk-time">{html.escape(it.title)}</div></div>'
@@ -154,7 +166,13 @@ def block_html(it, lane, count, lo, darken):
             f'<div class="wk-code">{html.escape(it.title)}</div>{sub}{changed}{handle}</div>')
 
 
-def grid_html(days, today, items_by_day, allday_by_day, off_days, lo, hi, darken, now_minutes=None):
+def free_html(it, lo):
+    top = (it.start - lo * 60) * HOUR_PX / 60
+    height = (it.end - it.start) * HOUR_PX / 60
+    return f'<div class="wk-free" style="top:{top:.1f}px;height:{height:.1f}px"><span>{html.escape(it.title)}</span></div>'
+
+
+def grid_html(days, today, items_by_day, allday_by_day, off_days, lo, hi, darken, now_minutes=None, free_by_day=None):
     """The HTML of the grid for the given local days (7, 2 or 1 of them)."""
     n = len(days)
     height = (hi - lo) * HOUR_PX
@@ -167,7 +185,8 @@ def grid_html(days, today, items_by_day, allday_by_day, off_days, lo, hi, darken
     gutter = "".join(f'<div class="wk-hour" style="top:{(h - lo) * HOUR_PX}px">{h:02d}:00</div>' for h in range(lo, hi))
     columns = ""
     for d in days:
-        blocks = "".join(block_html(it, lane, count, lo, darken) for it, lane, count in lanes(items_by_day.get(d, [])))
+        free = "".join(free_html(it, lo) for it in (free_by_day or {}).get(d, []))
+        blocks = free + "".join(block_html(it, lane, count, lo, darken) for it, lane, count in lanes(items_by_day.get(d, [])))
         now_line = ""
         if d == today and now_minutes is not None and lo * 60 <= now_minutes <= hi * 60:
             now_line = f'<div class="wk-now" style="top:{(now_minutes - lo * 60) * HOUR_PX / 60:.1f}px"></div>'

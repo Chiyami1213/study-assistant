@@ -21,7 +21,7 @@ def fresh_data():
     import settings
     database.init_db()
     with database.get_conn() as conn:
-        for table in ("planner_settings", "planner_awake", "holidays", "meeting_exceptions", "activity_meetings", "activities", "events", "study_sessions", "tasks", "task_defaults", "class_meetings", "courses"):
+        for table in ("planner_settings", "planner_awake", "holidays", "meeting_exceptions", "activity_meetings", "activities", "events", "study_timer", "time_logs", "study_sessions", "tasks", "task_defaults", "class_meetings", "courses"):
             conn.execute(f"DELETE FROM {table}")
         conn.commit()
     for f in (settings.SETTINGS_FILE, settings.SETTINGS_BACKUP):

@@ -8,7 +8,7 @@ import streamlit as st
 
 import crud
 import settings
-from planner import commit_store, service, session_store, store as planner_store, task_store, timeutil
+from planner import commit_store, service, session_store, store as planner_store, task_store, timeutil, track_store
 from views import plan_grid, planner_ui
 
 MONTH_NAMES = list(calendar.month_name)
@@ -127,7 +127,7 @@ def _grid_days(view, anchor):
     return [anchor + timedelta(days=i) for i in range(2 if view == "2 Days" else 1)]
 
 
-def _planner_grid(days, today, report):
+def _planner_grid(days, today, report, show_free=True):
     """The HTML of the time grid for the given days: classes, activities, events with their travel time, and the study sessions."""
     tz = planner_store.get_term().zone
     blocks = commit_store.commitments(days[0], days[-1])
@@ -136,7 +136,12 @@ def _planner_grid(days, today, report):
     courses = _course_map()
     colors = {cid: crud.course_color(c) for cid, c in courses.items()}
     levels = {c.task_id: c.level for c in report.items}
-    items = {d: plan_grid.day_items(d, blocks, sessions, tasks, colors, levels, tz) for d in days}
+    used = {}
+    for log in track_store.list_logs():
+        if log.session_id is not None:
+            used[log.session_id] = used.get(log.session_id, 0) + log.minutes
+    progress = {s.id: min(1.0, used.get(s.id, 0) / s.minutes) for s in sessions if s.minutes and used.get(s.id)}
+    items = {d: plan_grid.day_items(d, blocks, sessions, tasks, colors, levels, tz, progress) for d in days}
     allday = _day_items(days[0], days[-1], skip_timed_exams=True, skip_timed=True)
     for b in blocks:
         if b.all_day:
@@ -148,7 +153,26 @@ def _planner_grid(days, today, report):
         allday[d] = rows + allday.get(d, [])
     lo, hi = plan_grid.hour_range(items)
     local_now = timeutil.to_local(datetime.now(timeutil.UTC), tz)
-    return plan_grid.grid_html(days, today, items, allday, set(crud.holiday_days(days[0], days[-1])), lo, hi, crud.darken, local_now.hour * 60 + local_now.minute)
+    free = {}
+    if show_free:
+        pieces = service.free_time(days[0], days[-1], datetime.now(timeutil.UTC))
+        free = {d: plan_grid.free_items(d, pieces, tz) for d in days}
+    return plan_grid.grid_html(days, today, items, allday, set(crud.holiday_days(days[0], days[-1])), lo, hi, crud.darken, local_now.hour * 60 + local_now.minute, free)
+
+
+def _panel(report, courses):
+    """The draggable blocks on the left of the grid, and the buttons to add a task or an activity."""
+    open_tasks = task_store.list_tasks(include_done=False)
+    sessions = session_store.list_sessions()
+    now = datetime.now(timeutil.UTC)
+    left = {t.id: max(0, t.remaining_minutes - sum(s.minutes for s in sessions if s.task_id == t.id and s.end > now)) for t in open_tasks}
+    ordered = sorted(open_tasks, key=lambda t: (t.due is None, t.due or now, t.id))
+    a, b = st.columns(2)
+    if a.button("+ Task", key="pl_add_task", width="stretch"):
+        planner_ui.add_task_dialog()
+    if b.button("+ Activity", key="pl_add_activity", width="stretch"):
+        planner_ui.activity_dialog()
+    st.markdown(planner_ui.panel_html(ordered, courses, commit_store.list_activities(), report, left), unsafe_allow_html=True)
 
 
 def _span_title(view, days):
@@ -325,6 +349,7 @@ def render():
     tz = planner_store.get_term().zone
     courses = _course_map()
     planner_ui.show_pending()
+    planner_ui.timer_bar()
     if view == "Month":
         year, month = st.session_state["cal_month"]
         c4.subheader(f"{MONTH_NAMES[month]} {year}")
@@ -333,8 +358,13 @@ def render():
         days = _grid_days(view, anchor)
         c4.subheader(_span_title(view, days))
         planner_ui.banner(report, courses, tz)
-        st.markdown(_planner_grid(days, today, report), unsafe_allow_html=True)
-        st.caption("Drag a study session or an event to move it, drag its bottom edge to change its length, or drag over empty time to add one. Click one to open it.")
+        side, main = st.columns([1.15, 4.2], gap="medium")
+        with side:
+            _panel(report, courses)
+        with main:
+            show_free = st.toggle("Show Free Time", True, key="cal_free", help="shades the time that is free for study and writes how long each stretch is")
+            st.markdown(_planner_grid(days, today, report, show_free), unsafe_allow_html=True)
+            st.caption("Drag a block from the left into the schedule, drag a session or an event to move it, drag its bottom edge to change its length, or drag over empty time to add one. Click one to open it.")
 
     st.divider()
     planner_ui.task_panel(report, courses, tz)

@@ -311,6 +311,24 @@ CREATE TABLE IF NOT EXISTS study_sessions (
 );
 CREATE INDEX IF NOT EXISTS idx_sessions_start ON study_sessions(start_utc);
 
+-- Study planner, phase 7: time worked on tasks (from the study timer or typed in) and the one study timer that may be running.
+CREATE TABLE IF NOT EXISTS time_logs (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id     INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+    session_id  INTEGER REFERENCES study_sessions(id) ON DELETE SET NULL,
+    start_utc   TEXT NOT NULL,
+    minutes     INTEGER NOT NULL CHECK (minutes > 0),
+    source      TEXT NOT NULL DEFAULT 'timer' CHECK (source IN ('timer', 'manual')),
+    created_utc TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_time_logs_task ON time_logs(task_id);
+CREATE TABLE IF NOT EXISTS study_timer (
+    id          INTEGER PRIMARY KEY CHECK (id = 1),
+    task_id     INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+    session_id  INTEGER REFERENCES study_sessions(id) ON DELETE SET NULL,
+    started_utc TEXT NOT NULL
+);
+
 -- Notes exported from the Note Reader; the File page lists them under their course.
 CREATE TABLE IF NOT EXISTS exported_notes (
     id             INTEGER PRIMARY KEY AUTOINCREMENT,

@@ -368,6 +368,36 @@ section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-h
 .st-key-up_list button {{min-height: 2rem; padding: 0 0.6rem; border: 1px solid var(--border); border-radius: 999px;}}
 .st-key-up_list button:hover {{border-color: #2f9e5f; color: #2f9e5f;}}
 
+
+/* Settings: the bar that jumps to a section */
+.st-key-settings_nav {{padding: 6px 0 8px; border-bottom: 1px solid var(--border);}}
+div:has(> .st-key-settings_nav) {{position: sticky; top: 2.75rem; z-index: 60; background: var(--bg);}}   /* the wrapper sticks: a sticky box stays inside its parent, so the parent must be the whole page */
+.set-nav {{display: flex; flex-wrap: wrap; gap: 6px;}}
+.set-nav a {{color: var(--text); text-decoration: none; font-size: 0.85rem; padding: 3px 12px; border: 1px solid var(--border); border-radius: 999px; white-space: nowrap;}}
+.set-nav a:hover {{border-color: var(--accent); color: var(--accent);}}
+.set-nav a.on {{background: var(--accent); border-color: var(--accent); color: #fff;}}
+h2[id], h3[id] {{scroll-margin-top: 7rem;}}
+
+
+/* Planner calendar: the panel of draggable blocks, free time, drop targets */
+.pl-panel {{display: flex; flex-direction: column; gap: 6px; max-height: 70vh; overflow-y: auto; padding-right: 4px;}}
+.pl-title {{font-size: 0.78rem; opacity: 0.65;}}
+.pl-head {{font-size: 0.8rem; font-weight: 700; opacity: 0.8; margin-top: 8px;}}
+.pl-item {{border: 1px solid var(--border); border-left: 5px solid var(--accent); border-radius: 8px; padding: 6px 10px; font-size: 0.85rem; cursor: grab; user-select: none; touch-action: none; line-height: 1.25;}}
+.pl-item b {{display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}}
+.pl-item span {{display: block; font-size: 0.72rem; opacity: 0.75;}}
+.pl-item .wk-dot {{margin-top: 4px;}}
+.pl-item.pl-event {{background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 600; text-align: center;}}
+.pl-item:hover {{filter: brightness(1.12);}}
+.pl-empty {{font-size: 0.8rem; opacity: 0.6;}}
+.pl-ghost {{position: fixed; z-index: 99999; pointer-events: none; opacity: 0.92; box-shadow: 0 8px 20px #0008; max-width: 220px;}}
+.wk-col.drop-hover {{outline: 2px solid var(--accent); outline-offset: -2px;}}
+.wk-used {{position: absolute; left: 0; bottom: 0; height: 4px; background: #2f9e5f; border-radius: 0 2px 2px 0; opacity: 0.9;}}
+.st-key-timer_bar {{border-color: var(--accent) !important;}}
+.wk-free {{position: absolute; left: 0; right: 0; background: rgba(124, 106, 255, 0.12); display: flex; align-items: center; justify-content: center; pointer-events: none; z-index: 0;}}
+.wk-free span {{color: #8f86ff; font-size: 0.8rem; font-weight: 600;}}
+.wk-block {{z-index: 1;}}
+
 /* Calendar: week view */
 .st-key-edit_schedule_open {{width: 100% !important;}}
 .st-key-edit_schedule_open [data-testid="stButton"] {{width: 100%; display: flex; justify-content: flex-end;}}
@@ -822,6 +852,58 @@ if (!win.__calDragV1) {
     const dx = e.changedTouches[0].clientX - swipe.x, dy = e.changedTouches[0].clientY - swipe.y; swipe = null;
     if (Math.abs(dx) > 60 && Math.abs(dy) < 50) { const b = doc.querySelector(dx < 0 ? '.st-key-cal_next button' : '.st-key-cal_prev button'); if (b) b.click(); }
   }, {passive: true, capture: true});
+}
+// Settings: the bar at the top jumps to a section (the page scrolls inside the app, so the link scrolls that heading into view itself).
+if (!win.__setNavV1) {
+  win.__setNavV1 = true;
+  doc.addEventListener('click', e => {
+    const a = e.target.closest && e.target.closest('.set-nav a[data-jump]'); if (!a) return;
+    e.preventDefault();
+    const h = doc.getElementById(a.dataset.jump); if (!h) return;
+    h.scrollIntoView({behavior: 'smooth', block: 'start'});
+    doc.querySelectorAll('.set-nav a').forEach(x => x.classList.toggle('on', x === a));
+  }, true);
+}
+// Planner calendar: drag a block from the left panel onto the grid. The block follows the pointer; where it is let go the day and the time (to 15 minutes) go to the hidden box.
+if (!win.__calPanelV1) {
+  win.__calPanelV1 = true;
+  let pd = null;
+  const sendDrop = text => {
+    const inp = doc.querySelector('.st-key-cal_sink input'); if (!inp) return;
+    const set = Object.getOwnPropertyDescriptor(win.HTMLInputElement.prototype, 'value').set;
+    inp.focus(); set.call(inp, text + '|' + Date.now());
+    inp.dispatchEvent(new win.Event('input', {bubbles: true}));
+    inp.dispatchEvent(new win.KeyboardEvent('keydown', {key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true}));
+    inp.blur();
+  };
+  const colAt = (x, y) => { for (const el of doc.elementsFromPoint(x, y)) { const c = el.closest && el.closest('.wk-col'); if (c) return c; } return null; };
+  doc.addEventListener('pointerdown', e => {
+    const item = e.target.closest && e.target.closest('.pl-item[data-drag]'); if (!item || e.button !== 0) return;
+    pd = {item, what: item.dataset.drag, x: e.clientX, y: e.clientY, ghost: null, col: null};
+    e.preventDefault();
+  }, true);
+  doc.addEventListener('pointermove', e => {
+    if (!pd) return;
+    if (!pd.ghost) {
+      if (Math.abs(e.clientX - pd.x) < 5 && Math.abs(e.clientY - pd.y) < 5) return;
+      pd.ghost = pd.item.cloneNode(true); pd.ghost.classList.add('pl-ghost'); pd.ghost.removeAttribute('data-drag'); doc.body.appendChild(pd.ghost);
+    }
+    pd.ghost.style.left = (e.clientX + 12) + 'px'; pd.ghost.style.top = (e.clientY + 8) + 'px';
+    const c = colAt(e.clientX, e.clientY);
+    if (pd.col && pd.col !== c) pd.col.classList.remove('drop-hover');
+    if (c) c.classList.add('drop-hover');
+    pd.col = c;
+  }, true);
+  doc.addEventListener('pointerup', e => {
+    const d = pd; pd = null; if (!d) return;
+    if (d.ghost) d.ghost.remove();
+    doc.querySelectorAll('.wk-col.drop-hover').forEach(c => c.classList.remove('drop-hover'));
+    if (!d.ghost) return;
+    const c = colAt(e.clientX, e.clientY); if (!c) return;
+    const grid = c.closest('.wk'), per = +grid.dataset.hourPx / 60, snap = +grid.dataset.snap;
+    const minutes = Math.max(0, Math.min(1425, Math.round((e.clientY - c.getBoundingClientRect().top) / per / snap) * snap + (+c.dataset.lo) * 60));
+    sendDrop('drop|' + d.what + '|' + c.dataset.day + '|' + minutes);
+  }, true);
 }
 // 20-20-20 rule: after every 20 minutes of using the app, ask for a 20-second look at something 20 feet away.
 // Turning that down is allowed, but after 2 refusals in a row there is a warning, and the 3rd prompt (1 hour of

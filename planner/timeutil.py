@@ -25,6 +25,29 @@ def to_utc(day, at, tz):
     return local.astimezone(UTC)
 
 
+def utc_offset_text(name, at=None):
+    """The UTC offset of a zone at a moment (now when omitted) as text: 'UTC-05:00', 'UTC+05:30', 'UTC+00:00'."""
+    moment = at or datetime.now(UTC)
+    offset = moment.astimezone(zone(name)).utcoffset() or timedelta(0)
+    minutes = int(offset.total_seconds() // 60)
+    sign = "-" if minutes < 0 else "+"
+    h, m = divmod(abs(minutes), 60)
+    return f"UTC{sign}{h:02d}:{m:02d}"
+
+
+def zone_label(name, at=None):
+    """How a time zone is shown in a list: 'America/New_York (UTC-05:00, EST)'. The offset and the short name are those in force at `at` (now when omitted)."""
+    moment = at or datetime.now(UTC)
+    abbr = moment.astimezone(zone(name)).tzname() or ""
+    return f"{name} ({utc_offset_text(name, moment)}" + (f", {abbr}" if abbr and not abbr.lstrip("+-").isdigit() else "") + ")"
+
+
+def zones_by_offset(names, at=None):
+    """Zone names ordered from the west to the east by their UTC offset now, then by name (so a list reads like a map and 'UTC-5' finds a group)."""
+    moment = at or datetime.now(UTC)
+    return sorted(names, key=lambda n: (moment.astimezone(zone(n)).utcoffset() or timedelta(0), n))
+
+
 def to_local(moment, tz):
     """A UTC datetime as a datetime in the zone `tz`."""
     z = tz if isinstance(tz, ZoneInfo) else zone(tz)
