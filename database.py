@@ -233,6 +233,18 @@ CREATE TABLE IF NOT EXISTS quiz_attempts (
     hints_used INTEGER NOT NULL DEFAULT 0  -- questions where Hint was used
 );
 
+-- Study planner setup (planner/store.py). The term dates are in settings.json (semester) and the breaks are the rows of `holidays`.
+CREATE TABLE IF NOT EXISTS planner_settings (
+    id                INTEGER PRIMARY KEY CHECK (id = 1),
+    tz                TEXT NOT NULL,                       -- IANA time zone of the term, such as America/New_York
+    min_block_minutes INTEGER NOT NULL DEFAULT 30          -- the shortest study block that is worth planning
+);
+CREATE TABLE IF NOT EXISTS planner_awake (
+    weekday INTEGER PRIMARY KEY CHECK (weekday BETWEEN 0 AND 6),     -- 0 = Monday
+    wake    TEXT NOT NULL,                                 -- 'HH:MM' on the wall clock of the term's zone
+    bed     TEXT NOT NULL
+);
+
 -- Notes exported from the Note Reader; the File page lists them under their course.
 CREATE TABLE IF NOT EXISTS exported_notes (
     id             INTEGER PRIMARY KEY AUTOINCREMENT,

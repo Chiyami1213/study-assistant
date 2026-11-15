@@ -114,6 +114,11 @@ Number (or "Midterm 1", "Final" in the title) pair it with the problem file and 
 - Merging is done with a script that first copies `study.db` (and the dropped courses' photos) to `Backups\Before Merge <time>`, tags the titles, moves every table row of the dropped
   courses to the kept course and deletes the empty courses; test it on a scratch copy first.
 
+## The study planner (`planner/`, in progress: phases 1 to 7)
+- `planner/models.py` and `planner/timeutil.py` are PURE (no database, no Streamlit): the scheduling logic must stay that way. All moments are UTC (`timeutil.utc_iso`), shown in the term's zone.
+  `planner/store.py` is the only part that touches the database (`planner_settings`, `planner_awake`), `settings.semester` (term dates) and `holidays` (breaks).
+- Tests: `python -m pytest` (`tests/`, a temporary data folder is set up by `tests/conftest.py`; never the real one). Write tests with every phase.
+
 ## The GitHub pages
 - `README.md` is the overview with a tab row; the other tabs are `docs/INSTALL.md`, `docs/FILES.md`, `docs/SHORTCUTS.md`, `docs/HELP.md` and the root `CHANGELOG.md`. Every page repeats the same
   tab row (the current tab in bold). When a tab is added or renamed, change the row in all of them. Use absolute GitHub URLs for the Releases and Issues links (relative ones break inside

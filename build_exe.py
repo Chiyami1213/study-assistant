@@ -33,7 +33,7 @@ def main():
     version_file = buildinfo.write_version_file(ROOT / "build" / "version_info.txt", "Study Assistant", "StudyAssistant")
     cmd = [sys.executable, "-m", "PyInstaller", "--noconfirm", "--clean", "--onedir", "--windowed", "--noupx",
            "--name", "StudyAssistant", "--icon", str(icon), "--version-file", str(version_file),
-           "--collect-all", "streamlit", "--copy-metadata", "streamlit",
+           "--collect-all", "streamlit", "--copy-metadata", "streamlit", "--collect-data", "tzdata",
            "--collect-all", "webview", "--collect-all", "pymupdf", "--collect-all", "pillow_heif",
            "--collect-submodules", "pypdf", "--collect-submodules", "PIL"]
     for m in STDLIB + LIBS:

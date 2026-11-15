@@ -4,6 +4,13 @@
 
 ---
 
+## Unreleased: study planner (planned as 1.1.0)
+
+- **Phase 1 of the study planner: setup and data model.** A new pure, tested `planner` package (`models.py`, `timeutil.py`) holds the term (first day, last day of classes, last day of exams,
+  time zone, named breaks), the wake and bed time of each weekday and the minimum study block (30 minutes by default); an invalid setup cannot be built. Times are stored in UTC and shown in the term's
+  zone (daylight-saving days included). `planner/store.py` keeps it in the database (new tables `planner_settings` and `planner_awake`), the term dates in the settings the Calendar already uses and the
+  breaks as the existing holidays. **Settings > Study Planner** sets the time zone, the awake times and the minimum block. Run the tests with `python -m pytest`.
+
 ## 1.0.2 (not released yet)
 
 - **Study Assistant for macOS.** A `.dmg` for Apple silicon and one for Intel Macs: open it, drag Study Assistant into Applications, and approve it once (right-click > Open). The
@@ -24,7 +31,8 @@
 - **Loading screen with a progress bar.** The start-up screen keeps its look and adds a bar from 0% to 100% that takes at least two seconds (and waits near the end if the server is slow).
 - **Help and Report an Issue in Settings.** Help answers the common questions (installing, antivirus warnings, where files are, backups, connection problems, shortcuts, uninstalling). Report an
   Issue opens a ready-made GitHub issue in the browser (kind, summary, details, optional steps and technical details; an optional log excerpt with your name and folders replaced); the
-  app sends nothing by itself and keeps no e-mail address. The README has the same Help section, and issue templates are added.
+  app sends nothing by itself and keeps no e-mail address. **Screenshots can be attached:** pick pictures (or the newest ones F2 saved); on Open on GitHub the app copies them into one folder, opens it,
+  and you drop them into the report's text box (GitHub takes pictures that way). The README has the same Help section, and issue templates are added.
 
 ## 1.0.1 (2026-11-15)
 

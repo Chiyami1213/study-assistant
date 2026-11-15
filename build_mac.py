@@ -55,7 +55,7 @@ def build_app():
     make_icon(icon)
     cmd = [sys.executable, "-m", "PyInstaller", "--noconfirm", "--clean", "--onedir", "--windowed", "--name", APP_NAME, "--icon", str(icon),
            "--osx-bundle-identifier", BUNDLE_ID,
-           "--collect-all", "streamlit", "--copy-metadata", "streamlit", "--collect-all", "webview", "--collect-all", "pymupdf",
+           "--collect-all", "streamlit", "--copy-metadata", "streamlit", "--collect-data", "tzdata", "--hidden-import", "zoneinfo", "--collect-all", "webview", "--collect-all", "pymupdf",
            "--collect-all", "pillow_heif", "--collect-submodules", "pypdf", "--collect-submodules", "PIL"]
     for m in STDLIB + LIBS + MAC_LIBS:
         cmd += ["--hidden-import", m]

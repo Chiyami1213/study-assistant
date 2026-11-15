@@ -50,6 +50,7 @@ def render():
             settings.set_eye_rest(**new)
             st.rerun()
 
+    _planner_section()
     _backup_section()
     st.header("Keyboard Shortcuts")
     st.caption("Type a key, such as d, or a combination, such as ctrl+z. Esc is the Escape key. A shortcut works when you are not typing in a box. "
@@ -318,12 +319,24 @@ def _help_section():
 
 
 def _open_issue(url):
+    """Callback of Open on GitHub: collect the chosen screenshots into one folder and open it, then open the issue page in the browser."""
     import webbrowser
+    import helpinfo
+    s = st.session_state
+    uploads = [(f.name, f.getvalue()) for f in (s.get("report_uploads") or [])]
+    saved = [Path(p) for p in (s.get("report_saved") or [])]
+    folder, names, problems = helpinfo.prepare_attachments(uploads, saved) if (uploads or saved) else (None, [], [])
     try:
         webbrowser.open(url)
-        st.toast("The report is open in your browser. Read it and press Submit new issue there.", icon=":material/open_in_new:")
+        message = "The report is open in your browser. Read it and press Submit new issue there."
     except Exception:
-        st.toast("The browser could not be opened. Copy the report below and post it on the project page.", icon=":material/error:")
+        message = "The browser could not be opened. Copy the report from the preview and post it on the project page."
+    if folder:
+        helpinfo.reveal(folder)
+        message += f" The {len(names)} screenshot{'s are' if len(names) != 1 else ' is'} in the folder that opened: drag {'them' if len(names) != 1 else 'it'} into the description box."
+    if problems:
+        message += " " + " ".join(problems)
+    st.toast(message, icon=":material/open_in_new:")
 
 
 def _report_section():
@@ -336,13 +349,22 @@ def _report_section():
     summary = st.text_input("Short Summary", key="report_summary", placeholder="One line, such as: the quiz page stays empty")
     details = st.text_area("Details", key="report_details", height=130, placeholder="What happened, and what did you expect?")
     steps = st.text_area("Steps to Reproduce (Optional)", key="report_steps", height=90, placeholder="1. Open Courses  2. Open a course  3. ...")
+    st.file_uploader("Attach Screenshots (Optional)", type=helpinfo.IMAGE_TYPES, accept_multiple_files=True, key="report_uploads",
+                     help="pictures of the problem. github takes them when you drop them into the report's text box; the app puts them in one folder for you")
+    recent = helpinfo.recent_screenshots()
+    if recent:
+        st.multiselect("Or Pick Screenshots You Saved With F2", [str(p) for p in recent], key="report_saved", format_func=lambda p: Path(p).stem.replace("Study Assistant ", ""),
+                       help="the newest pictures F2 saved in the screenshots folder")
+    n_pictures = len(st.session_state.get("report_uploads") or []) + len(st.session_state.get("report_saved") or [])
+    if n_pictures:
+        st.caption("A screenshot shows everything that was on the screen. Look at each one before you send it: reports are public.")
     c1, c2 = st.columns(2)
     system = c1.checkbox("Include Technical Details", True, key="report_system", help="the app version and the kind of computer. no names, folders or files of yours")
     log = c2.checkbox("Include the End of the App's Log", False, key="report_log",
                       help="the last lines of the log the installed app keeps, with your name and folders replaced. you can read exactly what is included in the preview")
     if log and not helpinfo.log_tail():
         st.caption("There is no log yet (only the installed app keeps one).")
-    title, body = helpinfo.build_report(kind, summary or "(no summary)", details, steps, system, log)
+    title, body = helpinfo.build_report(kind, summary or "(no summary)", details, steps, system, log, n_pictures)
     with st.expander("Preview of the Report"):
         st.markdown(f"**{title}**")
         st.code(body, language="markdown")
@@ -351,3 +373,51 @@ def _report_section():
               on_click=_open_issue, args=(helpinfo.issue_url(kind, title, body),),
               help="opens the report in your browser; it is only sent when you press submit there" if ready else "fill in the summary and the details first")
     st.caption(f"Your browser does not open? Copy the report from the preview and post it at {helpinfo.ISSUES_URL}.")
+
+
+def _planner_save():
+    """Callback of the Save button: read the boxes, validate everything first, then save it (nothing is saved when anything is wrong)."""
+    from planner import store
+    from planner.models import AwakeTimes, DayWindow, PlannerError
+    s = st.session_state
+    try:
+        awake = AwakeTimes(tuple(DayWindow(s[f"planner_wake_{i}"], s[f"planner_bed_{i}"]) for i in range(7)))
+        store.set_timezone(s["planner_tz"])
+        store.set_min_block(int(s["planner_block"]))
+        store.set_awake(awake)
+        s["planner_msg"] = ("ok", "Planner setup saved.")
+    except PlannerError as e:
+        s["planner_msg"] = ("error", str(e))
+
+
+def _planner_section():
+    """Study planner setup: time zone, awake hours for each weekday and the shortest study block. The term dates and breaks are the Calendar's."""
+    import zoneinfo
+    from planner import store
+    from planner.models import MIN_BLOCK_RANGE, WEEKDAYS
+    st.header("Study Planner")
+    st.caption("The planner places study time only between your wake and bed times, and never in a break. "
+               "The term dates and breaks are set in Calendar > Edit Schedule.")
+    cfg = store.load_config()
+    term = cfg.term
+    st.caption(f"Term: {term.start:%b %d, %Y} to {term.classes_end:%b %d, %Y}, exams until {term.exams_end:%b %d, %Y}"
+               + ("" if store.term_configured() else " (the app's default dates until you save yours)")
+               + (f" · Breaks: {', '.join(b.name for b in term.breaks)}" if term.breaks else " · No breaks"))
+    zones = sorted(zoneinfo.available_timezones())
+    with st.container(key="planner_setup"):
+        c1, c2 = st.columns(2)
+        c1.selectbox("Time Zone", zones, index=zones.index(term.tz) if term.tz in zones else 0, key="planner_tz",
+                          help="all planned times are kept in utc and shown in this time zone")
+        c2.number_input("Minimum Study Block (Minutes)", MIN_BLOCK_RANGE[0], MIN_BLOCK_RANGE[1], cfg.min_block_minutes, 5, key="planner_block",
+                                help="free time shorter than this is not used for planning")
+        st.markdown("**Awake Times**")
+        for i, name in enumerate(WEEKDAYS):
+            w = cfg.awake.for_weekday(i)
+            d, wk, bd = st.columns([2, 2, 2], vertical_alignment="center")
+            d.markdown(name)
+            wk.time_input(f"{name} Wake", w.wake, key=f"planner_wake_{i}", step=300, label_visibility="collapsed", help=f"{name.lower()}: when you wake up")
+            bd.time_input(f"{name} Bed", w.bed, key=f"planner_bed_{i}", step=300, label_visibility="collapsed", help=f"{name.lower()}: when you go to bed")
+        st.button("Save Planner Setup", key="planner_save", type="primary", on_click=_planner_save)
+    msg = st.session_state.pop("planner_msg", None)
+    if msg:
+        (st.success if msg[0] == "ok" else st.error)(msg[1])

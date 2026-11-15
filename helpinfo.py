@@ -6,7 +6,10 @@ version and the kind of computer only, and the log excerpt (off by default) has 
 import os
 import platform
 import re
+import shutil
+import subprocess
 import sys
+import time
 import urllib.parse
 from pathlib import Path
 
@@ -56,13 +59,15 @@ def log_tail(lines=40):
         return ""
 
 
-def build_report(kind, summary, details, steps="", include_system=True, include_log=False):
-    """(title, body) of the report as Markdown."""
+def build_report(kind, summary, details, steps="", include_system=True, include_log=False, screenshots=0):
+    """(title, body) of the report as Markdown. `screenshots`: how many pictures the user will drag into the issue (GitHub takes them in the text box)."""
     label, prefix = KINDS.get(kind, ("bug", "Bug: "))
     title = (prefix + summary.strip())[:140]
     parts = [f"**What happened / what I would like**\n{details.strip() or '(not filled in)'}"]
     if steps.strip():
         parts.append(f"**Steps to reproduce**\n{steps.strip()}")
+    if screenshots:
+        parts.append(f"**Screenshots**\n(Drag the {screenshots} picture{'s' if screenshots != 1 else ''} from the folder that opened into this box.)")
     if include_system:
         parts.append("**Technical details**\n" + diagnostics())
     if include_log and log_tail():
@@ -105,3 +110,74 @@ FAQ = [
      "**Windows:** Settings > Apps > Installed apps > Study Assistant > Uninstall. It asks whether to keep your files (the default) or remove everything. "
      "**macOS:** drag *Study Assistant* from Applications to the Bin. Your files stay in the data folder until you delete it."),
 ]
+
+
+# ---------- screenshots: GitHub takes a picture when it is dropped into the issue's text box, so the app collects the pictures in one folder and opens it
+IMAGE_TYPES = ["png", "jpg", "jpeg", "gif", "webp"]
+MAX_IMAGE_MB = 10                                             # GitHub's limit for one picture
+KEEP_DAYS = 7                                                 # the copies in the report folder are removed after this many days
+
+
+def attach_dir():
+    from database import DATA_DIR
+    return DATA_DIR / "report_attachments"
+
+
+def recent_screenshots(limit=12):
+    """The newest pictures saved with F2 (Study Assistant <date> <time>.png), newest first."""
+    from database import DATA_DIR
+    folder = DATA_DIR / "screenshots"
+    try:
+        files = sorted((p for p in folder.glob("*.png") if p.is_file()), key=lambda p: p.stat().st_mtime, reverse=True)
+    except OSError:
+        return []
+    return files[:limit]
+
+
+def prepare_attachments(uploads, paths):
+    """Copy the chosen pictures ([(name, bytes)] uploaded, and [Path] of saved ones) into a new folder inside the report folder, named screenshot-1.png ...
+    Returns (folder, [names], [problems]); folder is None when nothing could be copied. Old folders (older than KEEP_DAYS) are removed first."""
+    base = attach_dir()
+    cutoff = time.time() - KEEP_DAYS * 86400
+    if base.is_dir():
+        for old in base.iterdir():                              # only folders this function made
+            try:
+                if old.is_dir() and not old.is_symlink() and old.name.startswith("report-") and old.stat().st_mtime < cutoff:
+                    shutil.rmtree(old, ignore_errors=True)
+            except OSError:
+                pass
+    items, problems = [], []
+    for name, data in uploads:
+        items.append((Path(name).suffix.lower() or ".png", data, name))
+    for p in paths:
+        try:
+            items.append((p.suffix.lower() or ".png", p.read_bytes(), p.name))
+        except OSError:
+            problems.append(f"{p.name} could not be read.")
+    if not items:
+        return None, [], problems
+    folder = base / time.strftime("report-%Y%m%d-%H%M%S")
+    folder.mkdir(parents=True, exist_ok=True)
+    names = []
+    for ext, data, original in items:
+        if len(data) > MAX_IMAGE_MB * 1024 * 1024:
+            problems.append(f"{original} is larger than {MAX_IMAGE_MB} MB, which GitHub does not accept.")
+            continue
+        name = f"screenshot-{len(names) + 1}{ext if ext.lstrip('.') in IMAGE_TYPES else '.png'}"
+        (folder / name).write_bytes(data)
+        names.append(name)
+    return (folder if names else None), names, problems
+
+
+def reveal(folder):
+    """Open a folder in the computer's file manager (Explorer, Finder). Returns True when it was asked to open."""
+    try:
+        if sys.platform == "win32":
+            os.startfile(str(folder))                         # a folder this app just made
+        elif sys.platform == "darwin":
+            subprocess.run(["open", str(folder)], check=True, timeout=20)
+        else:
+            subprocess.run(["xdg-open", str(folder)], check=True, timeout=20)
+        return True
+    except (OSError, subprocess.SubprocessError):
+        return False
