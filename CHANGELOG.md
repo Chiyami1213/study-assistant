@@ -1,5 +1,9 @@
 # Changelog
 
+<p align="center"><a href="README.md">Overview</a> &nbsp;|&nbsp; <a href="docs/INSTALL.md">Install</a> &nbsp;|&nbsp; <a href="docs/FILES.md">Your Files</a> &nbsp;|&nbsp; <a href="docs/SHORTCUTS.md">Shortcuts</a> &nbsp;|&nbsp; <a href="docs/HELP.md">Help</a> &nbsp;|&nbsp; <b>Changelog</b></p>
+
+---
+
 ## 1.0.2 (not released yet)
 
 - **Study Assistant for macOS.** A `.dmg` for Apple silicon and one for Intel Macs: open it, drag Study Assistant into Applications, and approve it once (right-click > Open). The
@@ -14,6 +18,8 @@
 - **Shortcut options.** A Desktop shortcut and / or a Start menu entry, as chosen; the uninstaller removes both.
 - **Antivirus heads-up and fewer false alarms.** The installer says up front that an antivirus or SmartScreen may warn and that Study Assistant contains no virus. The exes now carry
   version information (product, publisher, version) and are not compressed with UPX, and every release publishes its SHA-256 checksum.
+- **The GitHub page has tabs.** The README is now a short overview with a row of tabs (Overview, Install, Your Files, Shortcuts, Help, Changelog); each tab is its own page in `docs/`, and every page
+  repeats the tab row. The installer and the app link to the Help tab.
 - **The last page of the installer** links to the GitHub project page, to the new Help section and to the issue page.
 - **Loading screen with a progress bar.** The start-up screen keeps its look and adds a bar from 0% to 100% that takes at least two seconds (and waits near the end if the server is slow).
 - **Help and Report an Issue in Settings.** Help answers the common questions (installing, antivirus warnings, where files are, backups, connection problems, shortcuts, uninstalling). Report an

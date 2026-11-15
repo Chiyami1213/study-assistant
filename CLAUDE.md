@@ -114,6 +114,11 @@ Number (or "Midterm 1", "Final" in the title) pair it with the problem file and 
 - Merging is done with a script that first copies `study.db` (and the dropped courses' photos) to `Backups\Before Merge <time>`, tags the titles, moves every table row of the dropped
   courses to the kept course and deletes the empty courses; test it on a scratch copy first.
 
+## The GitHub pages
+- `README.md` is the overview with a tab row; the other tabs are `docs/INSTALL.md`, `docs/FILES.md`, `docs/SHORTCUTS.md`, `docs/HELP.md` and the root `CHANGELOG.md`. Every page repeats the same
+  tab row (the current tab in bold). When a tab is added or renamed, change the row in all of them. Use absolute GitHub URLs for the Releases and Issues links (relative ones break inside
+  `docs/`). `helpinfo.HELP_URL` and the installer link to `docs/HELP.md`.
+
 ## Conventions
 - Interface text uses APA title case; hover tooltips are all lower case.
 - Exams, homework and the course outlines live in the database (use the app or `crud.py`).

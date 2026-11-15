@@ -103,7 +103,7 @@ full source code is public: https://github.com/Chiyami1213/study-assistant
          Open Applications, right-click (or Control-click) "Study Assistant", choose Open, then Open again. You only do this once.
          If the message still blocks it, open System Settings > Privacy & Security and choose "Open Anyway" next to Study Assistant.
 
-Help and problem reports: https://github.com/Chiyami1213/study-assistant#help
+Help and problem reports: https://github.com/Chiyami1213/study-assistant/blob/main/docs/HELP.md
 """
 
 

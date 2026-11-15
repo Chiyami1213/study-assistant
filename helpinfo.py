@@ -13,7 +13,7 @@ from pathlib import Path
 from version import VERSION
 
 REPO_URL = "https://github.com/Chiyami1213/study-assistant"
-HELP_URL = REPO_URL + "#help"
+HELP_URL = REPO_URL + "/blob/main/docs/HELP.md"
 ISSUES_URL = REPO_URL + "/issues"
 KINDS = {                                   # label shown -> (GitHub label, title prefix)
     "Something Is Not Working": ("bug", "Bug: "),
