@@ -300,6 +300,17 @@ CREATE TABLE IF NOT EXISTS task_defaults (
     PRIMARY KEY (course_id, category)
 );
 
+-- Study planner, phase 5: the blocks of time set aside for a task (placed by the auto-planner or by hand).
+CREATE TABLE IF NOT EXISTS study_sessions (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id     INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+    start_utc   TEXT NOT NULL,
+    end_utc     TEXT NOT NULL,
+    source      TEXT NOT NULL DEFAULT 'manual' CHECK (source IN ('auto', 'manual')),
+    created_utc TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_sessions_start ON study_sessions(start_utc);
+
 -- Notes exported from the Note Reader; the File page lists them under their course.
 CREATE TABLE IF NOT EXISTS exported_notes (
     id             INTEGER PRIMARY KEY AUTOINCREMENT,

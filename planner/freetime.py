@@ -200,11 +200,27 @@ def slacks(jobs, free, now):
     return out
 
 
-def cushions(tasks, free, now, tz):
+def planned_minutes(sessions, task_id, lo, hi):
+    """Minutes of the sessions of one task (anything with task_id, start and end) that lie inside [lo, hi): the work already placed before its deadline."""
+    total = 0.0
+    for s in sessions:
+        if getattr(s, "task_id", None) == task_id:
+            a, b = max(s.start, lo), min(s.end, hi)
+            if b > a:
+                total += (b - a).total_seconds()
+    return int(total // 60)
+
+
+def cushions(tasks, free, now, tz, planned=()):
     """The Cushion of every unfinished task with a due date, earliest deadline first (ties by id). `free`: a FreeTime (or a list of intervals) that covers
-    the time up to the last deadline; time outside what it holds counts as not free."""
+    the time up to the last deadline; time outside what it holds counts as not free. `planned`: study sessions already placed. The free time must already leave
+    their time out; a session that belongs to a task (it has a task_id) also counts as work done, so it lowers the work that task still needs before its deadline."""
     work = sorted((t for t in tasks if not t.is_done and t.due is not None), key=lambda t: (t.due, t.id))
-    jobs = [Job(t.id, _release(t, now, tz), max(t.due, now), t.remaining_minutes) for t in work]       # a deadline that has passed is now
+    planned = list(planned)
+    jobs = []
+    for t in work:
+        release, deadline = _release(t, now, tz), max(t.due, now)                       # a deadline that has passed is now
+        jobs.append(Job(t.id, release, deadline, max(0, t.remaining_minutes - planned_minutes(planned, t.id, release, deadline))))
     found = slacks(jobs, free, now)
     return [Cushion(t.id, t.due, found[t.id][0], found[t.id][1], found[t.id][2], found[t.id][3], level_of(found[t.id][0])) for t in work]
 
@@ -227,5 +243,5 @@ def report(config, tasks, blocks, planned, now):
     first = timeutil.local_day(now, tz)
     last = min(max(timeutil.local_day(t.due, tz) for t in dated), config.term.exams_end)
     free = FreeTime(free_intervals(config, blocks, planned, first, max(first, last), now))
-    items = tuple(cushions(tasks, free, now, tz))
+    items = tuple(cushions(tasks, free, now, tz, planned))
     return CushionReport(items, timeline(items, tz), any(c.negative for c in items))

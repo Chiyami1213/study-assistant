@@ -46,6 +46,13 @@
   before its deadline after the work that is due by then (earliest deadline first); a task with a start-ahead date cannot use the time before it, so the engine reports the tightest window, which is the exact slack.
   A **negative cushion** means the schedule is impossible (red; under 2 hours is yellow, else green); a deadline that has passed counts as due now. It also gives the **cushion timeline** (the tightest
   cushion of each deadline day) and `planner/service.py` reads it all from the saved setup. Checked against an independent earliest-deadline-first simulation on random cases (about 100) and by hand.
+- **Phase 5 of the study planner: study sessions (logic; the screens come in phase 6).** The **auto-planner** fills the free time earliest deadline first, from each task's start-ahead date to its deadline, in
+  sessions of at least the minimum block (a task is split across sessions when it has to be, never into a piece shorter than the minimum; a task that needs less than the minimum gets one short session); the
+  same input always gives the same plan. Re-planning replaces only the automatic sessions that have not started: **manual sessions and sessions already begun stay** and count as planned time; an overdue task is
+  placed as soon as there is room and reported; what does not fit is reported per task. **Manual sessions** can be created, moved, resized, deleted, and all of a task's sessions can be unplanned. Every placement
+  is checked: outside the term, in a break or over another session is never allowed; outside the awake hours, over a class or event, or shorter than the minimum block is refused unless forced. Every change
+  returns the **new cushion** (`planner/service.py`); a task's own sessions count as work done, so planning its work does not change its cushion, while it does use up free time for the others. New table
+  `study_sessions`; `planner/sessions.py` is pure, `planner/session_store.py` keeps them.
 
 ## 1.0.1 (2026-11-15)
 
