@@ -15,7 +15,10 @@ def exe_path():
 
 
 def build():
-    cmd = [sys.executable, "-m", "PyInstaller", "--noconfirm", "--clean", "--onefile", "--windowed", "--name", NAME,
+    import buildinfo
+    version_file = buildinfo.write_version_file(ROOT / "build" / "installer" / "version_info.txt", "Study Assistant Setup", "Install Study Assistant")
+    cmd = [sys.executable, "-m", "PyInstaller", "--noconfirm", "--clean", "--onefile", "--windowed", "--noupx", "--name", NAME,
+           "--version-file", str(version_file), *(["--icon", str(ROOT / "build" / "app.ico")] if (ROOT / "build" / "app.ico").exists() else []),
            "--distpath", str(OUT), "--workpath", str(ROOT / "build" / "installer"), "--specpath", str(ROOT / "build" / "installer"),
            str(ROOT / "installer.py")]
     subprocess.run(cmd, check=True, cwd=ROOT)

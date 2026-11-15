@@ -52,7 +52,27 @@ def _start_folder(start):
         return ""
 
 
+def _mac(kind, start, title, filter=""):
+    """The folder or file chosen in the macOS dialog (osascript), or None when it was cancelled."""
+    start = _start_folder(start)
+    esc = lambda s: str(s).replace("\\", "\\\\").replace('"', '\\"')
+    where = f' default location POSIX file "{esc(start)}"' if start else ""
+    kinds = ""
+    if kind == "file":
+        exts = [e.strip().lstrip("*.") for e in filter.replace("|", ";").split(";") if e.strip().startswith("*.") and e.strip() != "*.*"]
+        if exts:
+            kinds = " of type {" + ", ".join(f'"{esc(e)}"' for e in exts) + "}"
+    script = f'POSIX path of (choose {"folder" if kind == "folder" else "file"} with prompt "{esc(title)}"{kinds}{where})'
+    try:
+        r = subprocess.run(["osascript", "-e", script], capture_output=True, text=True, timeout=600)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return (r.stdout.strip() or None) if r.returncode == 0 else None
+
+
 def _run(script, start, title, filter=""):
+    if sys.platform == "darwin":
+        return _mac("file" if script is _FILE_SCRIPT else "folder", start, title, filter)
     if sys.platform != "win32":
         return None
     env = dict(os.environ, SA_PICK_START=_start_folder(start), SA_PICK_TITLE=title, SA_PICK_FILTER=filter)

@@ -29,8 +29,10 @@ def main():
     icon = ROOT / "build" / "app.ico"
     icon.parent.mkdir(exist_ok=True)
     make_icon(icon)
-    cmd = [sys.executable, "-m", "PyInstaller", "--noconfirm", "--clean", "--onedir", "--windowed",
-           "--name", "StudyAssistant", "--icon", str(icon),
+    import buildinfo
+    version_file = buildinfo.write_version_file(ROOT / "build" / "version_info.txt", "Study Assistant", "StudyAssistant")
+    cmd = [sys.executable, "-m", "PyInstaller", "--noconfirm", "--clean", "--onedir", "--windowed", "--noupx",
+           "--name", "StudyAssistant", "--icon", str(icon), "--version-file", str(version_file),
            "--collect-all", "streamlit", "--copy-metadata", "streamlit",
            "--collect-all", "webview", "--collect-all", "pymupdf", "--collect-all", "pillow_heif",
            "--collect-submodules", "pypdf", "--collect-submodules", "PIL"]

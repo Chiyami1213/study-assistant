@@ -5,11 +5,11 @@ Personal Streamlit + SQLite study app (`python run.py`). Code is in `app.py`, `v
 ## Where things live
 - The PROJECT folder (`Documents\study-assistant`) holds only what is pushed to GitHub: the code and docs. (`static/`, `build/`, `dist/` are
   git-ignored caches and build output.)
-- The user's own files live in the DATA folder `database.DATA_DIR` = `%APPDATA%\Study Assistant` (the env variable
+- The user's own files live in the DATA folder `database.DATA_DIR` = `%APPDATA%\Study Assistant` on Windows and `~/Library/Application Support/Study Assistant` on a Mac (`database.default_data_dir()`; the env variable
   `STUDY_ASSISTANT_DATA` overrides it; an old `project\data` is still used only if it holds `study.db` and the roaming folder does not exist): `study.db`,
   `settings.json`, `quizzes/`, `pdfs/`, `covers/`, `course_photos/`, `grading/`, `syllabus/`, `annotations/`, `equation_sheets/`, `quiz_progress/` (quizzes saved for later), `screenshots/` (F2), `logs/` (the exe's server log), `webview/`, `Backups/`.
   Never edit files in it by hand. In code use `database.DATA_DIR`, `data_path(rel)` and `stored_path(path)`; never build paths from `BASE_DIR / "data"`.
-  Book paths in the database are relative to the data folder (`pdfs\book_x.pdf`; older rows may start with `data\`).
+  Book paths in the database are relative to the data folder (`pdfs\book_x.pdf`; older rows may start with `data\`); `data_path()` reads both kinds of slash, so a Windows database works on a Mac.
 
 ## Protect the data folder (it was deleted once by a test setup; the originals of many imports were lost)
 - NEVER link, junction, symlink or mount the data folder (or anything inside it) into another folder, and never run a recursive delete
@@ -74,13 +74,25 @@ Number (or "Midterm 1", "Final" in the title) pair it with the problem file and 
   `dist/release/StudyAssistant-<version>-Windows-Installer.zip`: a CLEAN install (installer + `payload/program`, no personal files). It is uploaded as the asset of the
   GitHub release; people extract it and run `Install Study Assistant.exe`. A clean copy can also be made by copying the project folder alone and running `python run.py`
   (after `pip install -r requirements.txt`).
-- The installer COPIES `payload/program` to `Documents\study-assistant` (and `payload/data` to `AppData\Roaming\Study Assistant` when a zip has one); a folder that is
-  already there is renamed to `... (old date time)`, never overwritten or deleted. It also registers the program for the current user (HKCU
+- The installer (a tkinter wizard, `Wizard` in `installer.py`, drawn at the real screen resolution; pages: welcome, existing version, shortcuts, ready, installing, finish) COPIES
+  `payload/program` to `Documents\study-assistant` (and `payload/data` to `AppData\Roaming\Study Assistant` when a zip has one). It finds an installed version (`find_existing`: the marker
+  file, or an installed-apps entry) and offers Update (the old program folder is set aside and only deleted after the new copy is in), Uninstall first, or Keep both (own folder,
+  registry key `StudyAssistant-<version>`, shortcut name; with a warning that both share the data folder and port 8765). A folder without the marker (a dev copy) is only renamed to
+  `... (old date time)`, never deleted. The data folder is never replaced or deleted by an install. Desktop and Start menu shortcuts are options (`make_shortcuts`; tests use
+  `SA_INSTALL_SHORTCUT_DIR`). `--silent --existing update|uninstall|both [--no-desktop-shortcut] [--no-start-menu]` for tests. It also registers the program for the current user (HKCU
   `...\Uninstall\StudyAssistant`, no admin) so it appears in Settings > Apps / Control Panel, and copies itself into the program folder as
   `Uninstall Study Assistant.exe` (`--uninstall`, marker `.study-assistant-install.json`). The uninstaller removes the program folder, the Desktop shortcut and that
   registry entry and by default KEEPS the data folder; its window has a "remove everything, including my files" choice (asks again, `--remove-files` for tests) that
   deletes the data folder too. It never enters a link or junction, and refuses a folder without the marker or with a `.git`. Never run it on the development copy. Test
   only with `SA_INSTALL_PROGRAM_DIR` / `SA_INSTALL_DATA_DIR` and `SA_INSTALL_REG_KEY` (a test key name, removed afterwards).
+- macOS: `build_mac.py` (PyInstaller `.app`, program code copied into `Contents/Resources/project`, ad hoc `codesign`, `.dmg` with an Applications link) can only run on a Mac; the
+  GitHub workflow `.github/workflows/build-macos.yml` builds Apple-Silicon and Intel images, smoke-tests the built app (`--server` mode answers `/_stcore/health`) and attaches the
+  `.dmg` to a published release. Platform-specific code: `database.default_data_dir`, `screenshot.py` (`screencapture`), `folderpick.py` (`osascript`), `launcher.find_project`.
+  Nothing Mac-specific has been run on a real Mac by Claude: the workflow is the test.
+- To lower antivirus false alarms: the exes carry version information (`buildinfo.py`), are built `--noupx`, `build_release.py` writes `SHA256SUMS.txt`, and the installer tells the
+  user about SmartScreen / antivirus warnings. Real fix: code signing (e.g. SignPath Foundation for open source).
+- The loading screen is `launcher.SPLASH` (bar 0 to 100%, at least `MIN_SPLASH` = 2 seconds). Help and Report an Issue (`helpinfo.py`, Settings) open a pre-filled GitHub issue; the
+  app never sends anything or stores an e-mail address.
 - The release number is `version.py` (`VERSION`, shown in Settings > About, the installer and the installed-apps entry).
 - Do not store anything else elsewhere (user profile, registry). The only other extras are the Desktop shortcut and the optional backup folder.
 - `build_release.py` skips `static`, `build`, `data`, ... only directly under the project folder; deeper folders of the same name (the built app's

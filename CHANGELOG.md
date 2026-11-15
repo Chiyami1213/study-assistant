@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.0.2 (not released yet)
+
+- **Study Assistant for macOS.** A `.dmg` for Apple silicon and one for Intel Macs: open it, drag Study Assistant into Applications, and approve it once (right-click > Open). The
+  files live in `~/Library/Application Support/Study Assistant`; an export from Windows imports on a Mac and the other way round (stored paths are read with either kind of slash).
+  F2 screenshots use macOS `screencapture`, the folder and file pickers use macOS dialogs, and the Mac app is built and checked by GitHub (`.github/workflows/build-macos.yml`,
+  `build_mac.py`) because a Mac app cannot be built on Windows.
+- **A new setup wizard (Windows).** Drawn at the screen's real resolution (no blurry text), with a picture panel and Back / Next / Cancel like the usual installers: welcome page,
+  existing-version page, shortcuts, ready to install, progress bar with percentage, and a finish page.
+- **The installer finds an installed version.** It says which version is installed and offers **Update (overwrite)** (the old program is only removed after the new one is in place), **Uninstall
+  the older version first** (shortcuts and the installed-apps entry go too), or **Keep both** (its own folder, shortcut and Settings > Apps entry, with a warning that the two share one
+  data folder and one address). A newer installed version is warned about, and a folder that was not made by the installer is only renamed, never deleted. Your files are never replaced.
+- **Shortcut options.** A Desktop shortcut and / or a Start menu entry, as chosen; the uninstaller removes both.
+- **Antivirus heads-up and fewer false alarms.** The installer says up front that an antivirus or SmartScreen may warn and that Study Assistant contains no virus. The exes now carry
+  version information (product, publisher, version) and are not compressed with UPX, and every release publishes its SHA-256 checksum.
+- **The last page of the installer** links to the GitHub project page, to the new Help section and to the issue page.
+- **Loading screen with a progress bar.** The start-up screen keeps its look and adds a bar from 0% to 100% that takes at least two seconds (and waits near the end if the server is slow).
+- **Help and Report an Issue in Settings.** Help answers the common questions (installing, antivirus warnings, where files are, backups, connection problems, shortcuts, uninstalling). Report an
+  Issue opens a ready-made GitHub issue in the browser (kind, summary, details, optional steps and technical details; an optional log excerpt with your name and folders replaced); the
+  app sends nothing by itself and keeps no e-mail address. The README has the same Help section, and issue templates are added.
+
 ## 1.0.1 (2026-11-15)
 
 - **Streamlit's own top-right icons are hidden.** The Deploy button, the three-dot menu and the "Running..." text no longer show in the app window or in a browser

@@ -1,6 +1,6 @@
 # Study Assistant
 
-Version 1.0.0. See the [changelog](#changelog) below for what changed in each release.
+Version 1.0.2. See the [changelog](#changelog) below for what changed in each release.
 
 **A personal study desk for university coursework.** Keep a course's textbooks, lecture slides, notes, homework and exams in one library, read them side by
 side, and let the app keep track of deadlines, grades and outlines. It runs entirely on your computer, in its own desktop window; nothing is sent anywhere.
@@ -59,21 +59,39 @@ side, and let the app keep track of deadlines, grades and outlines. It runs enti
 
 Settings > Keyboard Shortcuts lists the keys that can be changed.
 
-## Download and install (Windows)
+## Download and install
 
-Download `StudyAssistant-1.0.0-Windows-Installer.zip` from the [Releases](../../releases) page, extract the whole zip, and run `Install Study Assistant.exe` from the
-extracted folder (keep the `payload` folder next to it). It installs the app for your user only (no administrator needed), puts a shortcut on the desktop and
-lists Study Assistant under Settings > Apps, where it can be uninstalled (your files are kept unless you choose to remove them). Windows 10 or 11 is needed.
+Get the download for your computer from the [Releases](../../releases) page. Study Assistant is installed for your user only (no administrator needed), and your files are kept
+apart from the program, so updating or reinstalling never touches them.
+
+### Windows 10 and 11
+
+Download `StudyAssistant-<version>-Windows-Installer.zip`, extract the whole zip, and run `Install Study Assistant.exe` from the extracted folder (keep the `payload` folder next
+to it). The setup wizard guides you:
+- **If Study Assistant is already installed**, it tells you which version and offers to **update (overwrite)** it, to **uninstall the older version first**, or to **keep both**
+  (it warns that both share one data folder and one address, so only one should be open at a time).
+- **Shortcuts:** you choose a Desktop shortcut and / or a Start menu entry. Study Assistant is also listed under Settings > Apps, where it can be uninstalled (your files are
+  kept unless you choose to remove them).
+- The last page links to this page and its [Help](#help) section.
+
+### macOS (Apple silicon and Intel)
+
+Download `StudyAssistant-<version>-macOS-Apple-Silicon.dmg` (M1 and newer) or `StudyAssistant-<version>-macOS-Intel.dmg`, open it, and drag **Study Assistant** onto the
+**Applications** folder. If it is already there, choose **Replace** (your files are kept) or **Keep Both**. The first time, right-click (or Control-click) the app in Applications,
+choose **Open**, then **Open** again; if macOS still blocks it, use System Settings > Privacy & Security > **Open Anyway**. The Mac app is built by GitHub from this repository
+(see `.github/workflows/build-macos.yml`).
+
+> **Your antivirus, Windows SmartScreen or macOS may warn about the app, or block it.** It is a false alarm: **Study Assistant does not contain a virus**, and the whole source code
+> is here to read. Programs that are new and not code-signed are often flagged until many people have run them. If it blocks the file, choose "More info > Run anyway"
+> (Windows SmartScreen) or "Open Anyway" (macOS), or allow the file in your security software. Only download it from the [Releases](../../releases) page, and check the file against
+> the SHA-256 checksum published next to it (`SHA256SUMS.txt`): in PowerShell `Get-FileHash <file>`, on a Mac `shasum -a 256 <file>`.
+
 The app starts empty; add your own courses and files.
-
-> **Your antivirus or firewall may warn about the installer or the app, and may even call it malware.** This is a false alarm: the program is packaged with PyInstaller
-> and is not code-signed, which security software often distrusts. If it blocks the file, choose "More info > Run anyway" (Windows SmartScreen), or allow / restore the file in
-> your security software, and ignore the warning. Only download it from this page, and the whole source code is here to read.
 
 ## Where your files go
 
-Everything you add (database, settings, imported PDFs and notes, covers, photos, drawings) is kept in `%APPDATA%\Study Assistant`, created empty on first run.
-Imports are always copies; your original files are never changed or deleted.
+Everything you add (database, settings, imported PDFs and notes, covers, photos, drawings) is kept in `%APPDATA%\Study Assistant` on Windows and in
+`~/Library/Application Support/Study Assistant` on a Mac, created empty on first run. Imports are always copies; your original files are never changed or deleted.
 
 ## Backup and moving to another computer
 
@@ -81,9 +99,40 @@ Settings > Backup keeps a copy of your library in a folder you choose and can br
 imported files, to keep as a backup or to take to another computer: install Study Assistant there, open Settings > Backup > Import and choose the zip. Nothing is
 deleted: a file that is already there and differs is copied aside first.
 
+## Help
+
+**How do I install or update it?** See [Download and install](#download-and-install). The Windows setup wizard detects an installed version and offers to update it, to uninstall it
+first, or to keep both. On a Mac, drag the app over the old one and choose Replace.
+
+**Windows or my antivirus warns about the app.** It is a false alarm (see the note under Download and install): choose *More info > Run anyway*, or allow the file. On a Mac,
+right-click the app and choose *Open*.
+
+**Where are my files?** `%APPDATA%\Study Assistant` on Windows, `~/Library/Application Support/Study Assistant` on a Mac. Updating or reinstalling never touches them.
+
+**How do I back up, or move to another computer?** Settings > Backup keeps a copy of your Library; *Export My Files* makes one zip, and *Import* on the other computer brings it
+back (a Windows export can be imported on a Mac and the other way round).
+
+**The window says "Connection error" or stops responding.** Close it and open Study Assistant again; your files are safe. The installed app keeps a log in the `logs` folder of the
+data folder: include its last lines when you report the problem.
+
+**The function keys do nothing on my Mac laptop.** Hold the **fn** key with F2, F5 and F11, or turn on "Use F1, F2, etc. keys as standard function keys" in System Settings.
+Screenshots (F2) ask for the Screen Recording permission the first time.
+
+**How do I uninstall it?** Windows: Settings > Apps > Installed apps > Study Assistant > Uninstall (it asks whether to keep your files). Mac: drag the app from Applications to the Bin.
+
+**Something is not working, or I have an idea.** Open **Settings > Report an Issue** in the app: it opens a ready-made report on GitHub (you read it and press Submit; the app sends
+nothing by itself). Or [open an issue](../../issues/new/choose) here. A free GitHub account is needed, and issues are public, so leave out anything personal.
+
 ## Changelog
 
 The full history is in [CHANGELOG.md](CHANGELOG.md).
+
+**1.0.2** (not released yet)
+- **Study Assistant for macOS** (Apple silicon and Intel): a disk image to drag into Applications; files in `~/Library/Application Support/Study Assistant`.
+- **New setup wizard** for Windows: sharp on high-resolution screens, with a welcome page, the choice to update, uninstall first or keep both when it finds an installed version,
+  Desktop and Start menu shortcut options, an antivirus heads-up, and a last page with links to this page and its Help section.
+- **Loading screen with a progress bar** from 0% to 100% that shows for at least two seconds.
+- **Help and Report an Issue** in Settings; the report opens a ready-made GitHub issue.
 
 **1.0.1** (2026-11-15)
 - F2 saves a screenshot of the app window; F5 refreshes the page; F11 turns full screen on and off.

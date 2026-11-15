@@ -6,6 +6,18 @@ from pathlib import Path
 BASE_DIR = Path(__file__).parent                      # the program: code only (everything that is on GitHub); personal files are in DATA_DIR
 
 
+def default_data_dir():
+    r"""The usual place of the user's files: %APPDATA%\Study Assistant on Windows, ~/Library/Application Support/Study Assistant on a Mac,
+    ~/.local/share/Study Assistant elsewhere (running from source on Linux)."""
+    import os
+    import sys
+    if sys.platform == "darwin":
+        return Path.home() / "Library" / "Application Support" / "Study Assistant"
+    if sys.platform == "win32" or os.environ.get("APPDATA"):
+        return Path(os.environ.get("APPDATA") or (Path.home() / "AppData" / "Roaming")) / "Study Assistant"
+    return Path(os.environ.get("XDG_DATA_HOME") or (Path.home() / ".local" / "share")) / "Study Assistant"
+
+
 def _data_root():
     r"""Where the user's own files live: the database, settings, imported files, covers, photos, grades, drawings, backups.
     STUDY_ASSISTANT_DATA overrides it (for tests); otherwise %APPDATA%\Study Assistant. A copy that has not been migrated yet
@@ -14,7 +26,7 @@ def _data_root():
     env = os.environ.get("STUDY_ASSISTANT_DATA")
     if env:
         return Path(env)
-    roaming = Path(os.environ.get("APPDATA") or (Path.home() / "AppData" / "Roaming")) / "Study Assistant"
+    roaming = default_data_dir()
     if roaming.exists():
         return roaming
     legacy = BASE_DIR / "data"
@@ -28,10 +40,11 @@ PDF_DIR = DATA_DIR / "pdfs"
 
 def data_path(rel):
     r"""The real file of a path stored in the database: 'pdfs\book_x.pdf' (or the older 'data\pdfs\book_x.pdf') inside DATA_DIR."""
-    p = str(rel or "").replace("/", "\\")
+    p = str(rel or "").replace("/", "\\")                    # the database may come from a Windows computer (backslashes) or a Mac (slashes)
     if re.match(r"^[A-Za-z]:\\", p) or p.startswith("\\\\"):
         return Path(p)
-    return DATA_DIR / (p[5:] if p.lower().startswith("data\\") else p)
+    p = p[5:] if p.lower().startswith("data\\") else p
+    return DATA_DIR.joinpath(*[part for part in p.split("\\") if part])
 
 
 def stored_path(path):

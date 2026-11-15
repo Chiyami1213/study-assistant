@@ -1,4 +1,5 @@
 """Settings."""
+import sys
 from pathlib import Path
 
 import streamlit as st
@@ -63,10 +64,13 @@ def render():
     _keys_section("Note Reader", "notes", [
         ("find", "Find in the Page", "opens the find bar of the note under the pointer"),
         ("leave_full", "Leave Full Screen", "returns from the full screen note to the windows")])
+    _help_section()
+    _report_section()
     _danger_zone()
     st.header("About")
+    import helpinfo
     from version import VERSION
-    st.caption(f"Study Assistant version {VERSION}")
+    st.caption(f"Study Assistant version {VERSION} · [Project page on GitHub]({helpinfo.REPO_URL})")
 
 
 def _browse(key, add):
@@ -102,7 +106,7 @@ def _backup_section():
                   help="choose the folder in a window")
     row = st.columns([6, 1.3], vertical_alignment="bottom")
     sources = row[0].text_area("Folders With Your Original Files", key="backup_sources", height=110,
-                               help="one folder per line, such as your onedrive school documents folder. they are only read", placeholder="C:\\Users\\you\\OneDrive\\School Documents")
+                               help="one folder per line, such as your onedrive school documents folder. they are only read", placeholder="/Users/you/Documents/School" if sys.platform == "darwin" else "C:\\Users\\you\\OneDrive\\School Documents")
     row[1].button("Add Folder", icon=":material/create_new_folder:", key="backup_sources_browse", width="stretch", on_click=_browse, args=("backup_sources", True),
                   help="choose a folder in a window and add it to the list")
     wanted = [s.strip() for s in sources.splitlines() if s.strip()]
@@ -299,3 +303,51 @@ def _keys_section(title, group, rows):
             for action, *_ in rows:
                 st.session_state.pop(f"key_{group}_{action}", None)
             st.rerun()
+
+
+def _help_section():
+    """Answers to common questions (installing, antivirus warnings, where the files are, backups, connection problems, shortcuts, uninstalling)."""
+    import helpinfo
+    st.header("Help")
+    st.caption(f"Answers to common questions. More help is on the [project page]({helpinfo.HELP_URL}).")
+    files = helpinfo.where_files()
+    for question, answer in helpinfo.FAQ:
+        with st.expander(question):
+            st.markdown(answer.replace("{files}", files))
+    st.caption("Did not find your answer? Report it below.")
+
+
+def _open_issue(url):
+    import webbrowser
+    try:
+        webbrowser.open(url)
+        st.toast("The report is open in your browser. Read it and press Submit new issue there.", icon=":material/open_in_new:")
+    except Exception:
+        st.toast("The browser could not be opened. Copy the report below and post it on the project page.", icon=":material/error:")
+
+
+def _report_section():
+    """Report a problem or an idea: a pre-filled GitHub issue opens in the browser; the user reads it and submits it there."""
+    import helpinfo
+    st.header("Report an Issue")
+    st.caption("Found a problem, or have an idea? This opens a ready-made report on GitHub in your browser. You read it and press Submit there; "
+               "the app sends nothing by itself. A free GitHub account is needed, and reports are public, so leave out anything personal.")
+    kind = st.selectbox("What Kind of Report?", list(helpinfo.KINDS), key="report_kind")
+    summary = st.text_input("Short Summary", key="report_summary", placeholder="One line, such as: the quiz page stays empty")
+    details = st.text_area("Details", key="report_details", height=130, placeholder="What happened, and what did you expect?")
+    steps = st.text_area("Steps to Reproduce (Optional)", key="report_steps", height=90, placeholder="1. Open Courses  2. Open a course  3. ...")
+    c1, c2 = st.columns(2)
+    system = c1.checkbox("Include Technical Details", True, key="report_system", help="the app version and the kind of computer. no names, folders or files of yours")
+    log = c2.checkbox("Include the End of the App's Log", False, key="report_log",
+                      help="the last lines of the log the installed app keeps, with your name and folders replaced. you can read exactly what is included in the preview")
+    if log and not helpinfo.log_tail():
+        st.caption("There is no log yet (only the installed app keeps one).")
+    title, body = helpinfo.build_report(kind, summary or "(no summary)", details, steps, system, log)
+    with st.expander("Preview of the Report"):
+        st.markdown(f"**{title}**")
+        st.code(body, language="markdown")
+    ready = bool(summary.strip() and details.strip())
+    st.button("Open on GitHub", key="report_open", type="primary", icon=":material/open_in_new:", disabled=not ready,
+              on_click=_open_issue, args=(helpinfo.issue_url(kind, title, body),),
+              help="opens the report in your browser; it is only sent when you press submit there" if ready else "fill in the summary and the details first")
+    st.caption(f"Your browser does not open? Copy the report from the preview and post it at {helpinfo.ISSUES_URL}.")

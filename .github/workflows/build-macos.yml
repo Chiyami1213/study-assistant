@@ -1,0 +1,111 @@
+name: Build macOS app
+
+# Builds Study Assistant for macOS (Apple silicon and Intel) on GitHub's Mac computers, checks that the built app starts, and
+# attaches the .dmg to the GitHub release when a release is published. It can also be started by hand (Actions > Build macOS app > Run workflow).
+on:
+  workflow_dispatch:
+  release:
+    types: [published]
+  push:                         # also checks the Mac build whenever the files that decide it change
+    branches: [main]
+    paths: ["build_mac.py", "launcher.py", "database.py", "screenshot.py", "folderpick.py", "requirements.txt", ".github/workflows/build-macos.yml"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest        # Apple silicon
+            arch: Apple-Silicon
+          - os: macos-15-intel      # Intel
+            arch: Intel
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pyinstaller
+
+      - name: Check the program runs from source (headless)
+        env:
+          STUDY_ASSISTANT_DATA: ${{ runner.temp }}/sa-data-source
+        run: |
+          python - <<'EOF'
+          import importlib, sys
+          for name in ("crud", "database", "settings", "helpinfo", "screenshot", "folderpick", "courseoutline", "quizzes"):
+              importlib.import_module(name)
+          import database
+          print("data folder on this Mac:", database.DATA_DIR)
+          assert "Library/Application Support/Study Assistant" in str(database.DATA_DIR) or "sa-data-source" in str(database.DATA_DIR)
+          assert str(database.data_path("pdfs\\book_x.pdf")).endswith("pdfs/book_x.pdf"), database.data_path("pdfs\\book_x.pdf")
+          from streamlit.testing.v1 import AppTest
+          for page in ("Home", "Calendar", "Library", "Courses", "Settings"):
+              at = AppTest.from_file("app.py", default_timeout=90)
+              at.session_state["page"] = page
+              at.run()
+              assert not at.exception, (page, [e.value for e in at.exception])
+              print(page, "ok")
+          EOF
+
+      - name: Build the app and the disk image
+        run: python build_mac.py
+
+      - name: Check that the built app starts and answers
+        env:
+          STUDY_ASSISTANT_DATA: ${{ runner.temp }}/sa-data-app
+          STUDY_ASSISTANT_PORT: "8765"
+        run: |
+          APP="dist/Study Assistant.app"
+          "$APP/Contents/MacOS/Study Assistant" --server 8765 > "$RUNNER_TEMP/server.log" 2>&1 &
+          PID=$!
+          ok=0
+          for i in $(seq 1 90); do
+            if curl -fsS http://127.0.0.1:8765/_stcore/health > /dev/null 2>&1; then ok=1; break; fi
+            sleep 1
+          done
+          kill $PID 2>/dev/null || true
+          if [ "$ok" != "1" ]; then echo "the built app did not answer"; tail -50 "$RUNNER_TEMP/server.log"; exit 1; fi
+          echo "the built app answered after $i seconds"
+
+      - name: Check that the window program (pywebview) starts
+        env:
+          STUDY_ASSISTANT_DATA: ${{ runner.temp }}/sa-data-window
+          STUDY_ASSISTANT_PORT: "8766"
+        run: |
+          APP="dist/Study Assistant.app"
+          "$APP/Contents/MacOS/Study Assistant" > "$RUNNER_TEMP/window.log" 2>&1 &
+          PID=$!
+          ok=0
+          for i in $(seq 1 90); do
+            if curl -fsS http://127.0.0.1:8766/_stcore/health > /dev/null 2>&1; then ok=1; break; fi
+            sleep 1
+          done
+          kill $PID 2>/dev/null || true
+          pkill -f "Study Assistant" 2>/dev/null || true
+          if [ "$ok" != "1" ]; then echo "the app window did not start its server"; tail -50 "$RUNNER_TEMP/window.log"; exit 1; fi
+          echo "the app window started (server answered after $i seconds)"
+        continue-on-error: true       # a Mac runner may have no screen for a window; the server check above is the one that must pass
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: StudyAssistant-macOS-${{ matrix.arch }}
+          path: |
+            dist/release/*.dmg
+            dist/release/SHA256SUMS-macOS-*.txt
+
+      - name: Attach to the GitHub release
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ github.event.release.tag_name }}" dist/release/*.dmg dist/release/SHA256SUMS-macOS-*.txt --clobber

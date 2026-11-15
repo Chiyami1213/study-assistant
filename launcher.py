@@ -5,7 +5,7 @@
 
 The app's code and data are always read from the project folder, so edits made in VS Code show up here and
 everything saved in the app lands in <project>/data. The app is a Streamlit server (started as a hidden
-child process of this program) shown inside a native WebView2 window.
+child process of this program) shown inside a native window (WebView2 on Windows, WKWebView on a Mac).
 """
 import os
 import socket
@@ -25,6 +25,9 @@ def find_project():
     if os.environ.get("STUDY_ASSISTANT_HOME"):
         return Path(os.environ["STUDY_ASSISTANT_HOME"])
     here = Path(sys.executable).parent if getattr(sys, "frozen", False) else Path(__file__).parent
+    bundled = here.parent / "Resources" / "project"                  # the Mac app: the program's code is inside the app bundle (see build_mac.py)
+    if (bundled / "app.py").exists():
+        return bundled
     pointer = here / "project_path.txt"
     if pointer.exists():
         p = Path(pointer.read_text(encoding="utf-8").strip())
@@ -104,7 +107,26 @@ def run_server(port, parent_pid=None):
 SPLASH = """<html><body style="margin:0;background:#0e1117;color:#c9d1d9;font-family:Segoe UI,sans-serif;
 display:flex;align-items:center;justify-content:center;height:100vh"><div style="text-align:center">
 <div style="font-size:26px;font-weight:600;margin-bottom:10px">Study Assistant</div>
-<div style="opacity:.6">Starting...</div></div></body></html>"""
+<div style="opacity:.6">Starting...</div>
+<div style="width:280px;height:6px;border-radius:3px;background:#262b36;margin:22px auto 8px;overflow:hidden">
+<div id="bar" style="width:0%;height:100%;background:#ff4b4b;border-radius:3px;transition:width .18s ease-out"></div></div>
+<div id="pct" style="font-size:13px;opacity:.7">0%</div></div>
+<script>function setProgress(p){p=Math.max(0,Math.min(100,Math.round(p)));
+document.getElementById('bar').style.width=p+'%';document.getElementById('pct').textContent=p+'%';}</script>
+</body></html>"""
+MIN_SPLASH = 2.0           # seconds: the loading screen shows at least this long, even when the server is ready at once
+
+
+def splash_progress(elapsed, healthy):
+    """What the loading bar shows (0 to 100): it fills evenly over MIN_SPLASH seconds; while the server is still starting it waits near the end
+    and creeps up, and it reaches 100 only when the server answers."""
+    even = min(100.0, 100.0 * elapsed / MIN_SPLASH)
+    if healthy:
+        return even
+    if elapsed <= MIN_SPLASH * 0.9:
+        return min(even, 90.0)
+    import math
+    return min(99.0, 90.0 + 9.0 * (1 - math.exp(-(elapsed - MIN_SPLASH * 0.9) / 8.0)))
 
 
 class Api:
@@ -164,18 +186,44 @@ def main():
     window = webview.create_window(TITLE, html=SPLASH, width=1440, height=900, min_size=(900, 600),
                                    background_color="#0e1117", js_api=Api())
 
+    def healthy_now():
+        try:
+            with urllib.request.urlopen(url + "/_stcore/health", timeout=1) as r:
+                return r.status == 200
+        except Exception:
+            return False
+
     def wait_healthy(seconds=60):
         for _ in range(int(seconds * 10)):
-            try:
-                with urllib.request.urlopen(url + "/_stcore/health", timeout=1) as r:
-                    if r.status == 200:
-                        return True
-            except Exception:
-                time.sleep(0.1)
+            if healthy_now():
+                return True
+            time.sleep(0.1)
         return False
 
     def wait_then_load():
-        wait_healthy()
+        """The loading screen: a bar from 0% to 100% that takes at least MIN_SPLASH seconds, then the app's page."""
+        try:
+            window.events.loaded.wait(10)                     # the splash page has to be there before its bar can move
+        except Exception:
+            pass
+        start, last_check, healthy = time.time(), 0.0, False
+        while time.time() - start < 90:
+            elapsed = time.time() - start
+            if not healthy and elapsed - last_check >= 0.25:
+                healthy, last_check = healthy_now(), elapsed
+            pct = splash_progress(elapsed, healthy)
+            try:
+                window.evaluate_js(f"setProgress({pct:.0f})")
+            except Exception:
+                pass
+            if healthy and elapsed >= MIN_SPLASH:
+                break
+            time.sleep(0.04)
+        try:
+            window.evaluate_js("setProgress(100)")
+        except Exception:
+            pass
+        time.sleep(0.25)                                       # let the full bar show before the page replaces it
         window.load_url(url)
 
     def keep_server_alive():

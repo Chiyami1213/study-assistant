@@ -20,7 +20,7 @@ INSTALLER = ROOT / "dist" / "installer" / "Install Study Assistant.exe"
 OUT = ROOT / "dist" / "release"
 SKIP_TOP = {".git", "__pycache__", "build", "static", "data", ".venv", "venv", "node_modules", ".claude", ".pytest_cache", ".idea"}   # only directly under the project
 SKIP_REL = {"dist/installer", "dist/release", "exports", "docs", "dist/StudyAssistant/project_path.txt"}
-SKIP_FILES = {"CLAUDE.md", ".gitignore", "build_exe.py", "build_installer.py", "build_release.py"}      # developer files: people do not need them
+SKIP_FILES = {"CLAUDE.md", ".gitignore", "build_exe.py", "build_installer.py", "build_release.py", "buildinfo.py"}      # developer files: people do not need them
 SKIP_SUFFIX = {".pyc", ".spec", ".tmp", ".part"}
 STORE = {".pdf", ".jpg", ".jpeg", ".png", ".webp", ".zip", ".gif"}
 
@@ -55,7 +55,10 @@ def readme():
                         "3. The installer copies the program to Documents\\study-assistant, puts a shortcut on the Desktop and lists Study Assistant under",
                         "   Settings > Apps, where it can be uninstalled. The app starts empty and makes its own data folder (AppData\\Roaming\\Study Assistant).",
                         "   A folder that is already there is never overwritten: it is renamed to \"... (old date)\" first.", "",
-                        "To bring your files from another device: Settings > Backup > Import in the app, with a zip made by Export My Files.", ""])
+                        "To bring your files from another device: Settings > Backup > Import in the app, with a zip made by Export My Files.", "",
+                        "Antivirus or Windows SmartScreen may block or warn about the installer. It is a false alarm: Study Assistant contains no virus and its full source code",
+                        "is public at https://github.com/Chiyami1213/study-assistant . Choose More info > Run anyway, or allow it in your antivirus. You can check this download",
+                        "against the SHA-256 checksum on the GitHub release page (SHA256SUMS.txt).", ""])
 
 
 def make_zip():
@@ -86,6 +89,13 @@ def make_zip():
     if final.exists():
         final.unlink()                              # the previous build of this same version (a file this tool made)
     part.rename(final)
+    import hashlib
+    h = hashlib.sha256()
+    with open(final, "rb") as f:
+        for block in iter(lambda: f.read(1 << 20), b""):
+            h.update(block)
+    (OUT / "SHA256SUMS.txt").write_text(f"{h.hexdigest()}  {final.name}
+", encoding="utf-8")      # lets people check the download before they run it
     return final, len(files)
 
 
