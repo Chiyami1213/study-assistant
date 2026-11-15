@@ -23,7 +23,8 @@ BUNDLE_ID = "com.studyassistant.app"
 STDLIB = ["base64", "calendar", "colorsys", "csv", "datetime", "difflib", "hashlib", "html", "importlib", "io", "json",
           "math", "pathlib", "re", "shutil", "sqlite3", "subprocess", "tempfile", "textwrap", "urllib.parse",
           "urllib.request", "uuid", "warnings", "zipfile", "zoneinfo", "collections", "itertools", "functools",
-          "dataclasses", "random", "statistics", "time", "string", "mimetypes", "unicodedata", "xml.etree.ElementTree"]
+          "dataclasses", "random", "statistics", "time", "string", "mimetypes", "unicodedata", "xml.etree.ElementTree",
+          "bisect", "ctypes", "platform", "socket", "threading", "webbrowser", "zlib"]            # everything the program imports at run time (it is not bundled by analysis)
 LIBS = ["pymupdf", "fitz", "pypdf", "PIL", "pillow_heif", "pagerender", "psutil"]
 MAC_LIBS = ["objc", "AppKit", "Foundation", "WebKit", "Quartz", "Security", "UniformTypeIdentifiers"]      # pywebview's Cocoa side (and the F2 screenshot)
 # What the program needs at run time: its code. Developer files (the build scripts, the Windows installer) stay out.
