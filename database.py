@@ -277,6 +277,29 @@ CREATE TABLE IF NOT EXISTS meeting_exceptions (
     UNIQUE (owner, meeting_id, day)
 );
 
+-- Study planner, phase 3: tasks (work with a due date and a time estimate) and the default estimate of each category per course.
+CREATE TABLE IF NOT EXISTS tasks (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    title            TEXT NOT NULL,
+    course_id        INTEGER REFERENCES courses(id) ON DELETE SET NULL,
+    category         TEXT NOT NULL DEFAULT 'Homework' CHECK (category IN ('Homework','Exam','Quiz','Reading','Project','Other')),
+    due_utc          TEXT,                                  -- '2026-11-20T04:59:00Z' or NULL (no due date)
+    estimate_minutes INTEGER NOT NULL,
+    start_ahead_days INTEGER,                               -- NULL: no limit; n: start working n days before the due date
+    state            TEXT NOT NULL DEFAULT 'todo' CHECK (state IN ('todo','done')),
+    logged_minutes   INTEGER NOT NULL DEFAULT 0,
+    source           TEXT,                                  -- where it came from (NULL = typed in); ready for imports
+    created_utc      TEXT NOT NULL,
+    completed_utc    TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_tasks_due ON tasks(state, due_utc);
+CREATE TABLE IF NOT EXISTS task_defaults (
+    course_id        INTEGER NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+    category         TEXT NOT NULL CHECK (category IN ('Homework','Exam','Quiz','Reading','Project','Other')),
+    estimate_minutes INTEGER NOT NULL,
+    PRIMARY KEY (course_id, category)
+);
+
 -- Notes exported from the Note Reader; the File page lists them under their course.
 CREATE TABLE IF NOT EXISTS exported_notes (
     id             INTEGER PRIMARY KEY AUTOINCREMENT,

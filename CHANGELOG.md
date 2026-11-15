@@ -36,6 +36,11 @@
   and after (counted as busy) and a busy flag; the older dated events (exams) are read as before. `planner/commitments.py` (pure) turns it all into the sorted busy blocks of a date range,
   `planner/commit_store.py` keeps it in the database (new tables `activities`, `activity_meetings`, `meeting_exceptions`; new columns on `events` and `class_meetings`; an older database is
   upgraded without losing a row), and the Calendar already honours the new end dates and exceptions.
+- **Phase 3 of the study planner: tasks (data and logic; the screens come in phase 6).** A task has a title, an optional course, a category (Homework, Exam, Quiz, Reading, Project, Other),
+  an optional due moment (UTC), an estimate in minutes, optional start-ahead days (start that many days before the due date), a state (todo or done) and the minutes logged. A new task
+  inherits the **course's default estimate for its category** (else a built-in one: homework 2 h, exam 10 h, quiz 45 min, reading 1 h, project 10 h, other 1 h) unless an estimate is given;
+  changing a default later does not change tasks that exist. The lists are plain functions: **to-do** (by due date), **overdue**, **start soon** (start date within three days, nothing logged yet),
+  **no due date** and **completed**. `planner/tasks.py` is pure, `planner/task_store.py` keeps it in the new tables `tasks` and `task_defaults`; a deleted course leaves its tasks (without a course).
 
 ## 1.0.1 (2026-11-15)
 
