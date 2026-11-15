@@ -94,8 +94,7 @@ def make_zip():
     with open(final, "rb") as f:
         for block in iter(lambda: f.read(1 << 20), b""):
             h.update(block)
-    (OUT / "SHA256SUMS.txt").write_text(f"{h.hexdigest()}  {final.name}
-", encoding="utf-8")      # lets people check the download before they run it
+    (OUT / "SHA256SUMS.txt").write_text(f"{h.hexdigest()}  {final.name}\n", encoding="utf-8")      # lets people check the download before they run it
     return final, len(files)
 
 
