@@ -508,6 +508,34 @@ class Wizard:
     def px(self, n):
         return int(round(n * self.S))
 
+    def checkbox(self, parent, text, variable, bold=False, size=10):
+        """A check box that is easy to see on any screen: a square about 24 pixels at the screen's real resolution (the one of Tk is a few pixels), a dark outline, a blue fill with a white tick
+        when it is on. A click on the square or on the words changes it."""
+        tk = self.tk
+        box = max(24, self.px(24))
+        row = tk.Frame(parent, bg="white", cursor="hand2")
+        canvas = tk.Canvas(row, width=box, height=box, bg="white", highlightthickness=0, cursor="hand2")
+        canvas.pack(side="left", padx=(0, self.px(10)))
+        label = tk.Label(row, text=text, font=self.font(size, bold), bg="white", anchor="w", cursor="hand2")
+        label.pack(side="left", fill="x")
+
+        def draw(*_):
+            canvas.delete("all")
+            on = bool(variable.get())
+            canvas.create_rectangle(2, 2, box - 2, box - 2, outline="#1f2937" if on else "#4b5563", width=max(2, self.px(2)), fill="#2563eb" if on else "white")
+            if on:
+                w = max(3, self.px(3))
+                canvas.create_line(box * 0.24, box * 0.52, box * 0.43, box * 0.72, box * 0.78, box * 0.28, fill="white", width=w, capstyle="round", joinstyle="round")
+
+        def toggle(_event=None):
+            variable.set(not variable.get())
+
+        for widget in (canvas, label, row):
+            widget.bind("<Button-1>", toggle)
+        variable.trace_add("write", draw)
+        draw()
+        return row
+
     def font(self, size, bold=False):
         return (FONT, size, "bold") if bold else (FONT, size)
 
@@ -754,9 +782,8 @@ def build_install_wizard():
         wiz.label(f, "Choose where Study Assistant gets a shortcut, so you can open it with one click.", size=10, pady=(0, 6))
         for key, text, detail in (("desktop", "Create a Desktop shortcut", "An icon on your Desktop."),
                                   ("start", "Add Study Assistant to the Start menu", "Found by typing its name after pressing the Windows key.")):
-            tk.Checkbutton(f, text=text, variable=wiz.vars[key], font=wiz.font(10, True), bg="white", activebackground="white", selectcolor="white",
-                           anchor="w", cursor="hand2").pack(fill="x", pady=(wiz.px(12), 0))
-            wiz.label(f, detail, size=9, color="#555").pack_configure(padx=(wiz.px(26), 0))
+            wiz.checkbox(f, text, wiz.vars[key], bold=True).pack(fill="x", pady=(wiz.px(12), 0))
+            wiz.label(f, detail, size=9, color="#555").pack_configure(padx=(wiz.px(36), 0))
         wiz.label(f, "Study Assistant is also listed in Settings > Apps, where it can be uninstalled.", size=9, color="#555", pady=(24, 0))
 
     def ready(wiz, f):
@@ -804,8 +831,7 @@ def build_install_wizard():
             wiz.vars["exe"] = exe
             wiz.vars["open"] = tk.BooleanVar(value=exe.exists() and not os.environ.get("SA_INSTALL_PROGRAM_DIR"))
             if exe.exists():
-                tk.Checkbutton(f, text="Open Study Assistant now", variable=wiz.vars["open"], font=wiz.font(10), bg="white", activebackground="white",
-                               selectcolor="white", anchor="w").pack(fill="x")
+                wiz.checkbox(f, "Open Study Assistant now", wiz.vars["open"]).pack(fill="x")
         else:
             wiz.label(f, "Setup did not finish.", size=10, bold=True, color="#b00020", pady=(0, 6))
             wiz.label(f, state["error"] or "Something went wrong.", size=10, pady=(0, 6))

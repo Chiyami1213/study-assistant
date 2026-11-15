@@ -169,7 +169,7 @@ def block_html(it, lane, count, lo, darken, hour_px=HOUR_PX):
     color = it.color
     style = f"top:{top:.1f}px;height:{height:.1f}px;{width}background:linear-gradient(150deg,{color},{darken(color)})"
     cls = {"activity": " wk-activity", "event": " wk-event"}.get(it.kind, "") + (" wk-openable" if it.open_ref else "")
-    changed = '<span class="wk-moved" title="this occurrence was changed">moved</span>' if it.changed else ""
+    changed = ""                                                                  # (a changed occurrence is not labeled)
     return (f'<div class="wk-block{cls}" style="{style}"{attrs}><div class="wk-time">{time_text}</div>'
             f'<div class="wk-code">{html.escape(it.title)}</div>{sub}{changed}{handle}</div>')
 

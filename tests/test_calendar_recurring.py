@@ -74,7 +74,7 @@ def test_a_changed_occurrence_is_marked_on_the_grid(seeded):
     tz = timeutil.zone(NY)
     items = G.day_items(TUE, cs.commitments(TUE, TUE), [], {}, {cid: "#336699"}, {}, tz)
     cls = next(i for i in items if i.kind == "class")
-    assert (cls.start, cls.end, cls.changed) == (660, 720, True) and "moved" in G.block_html(cls, 0, 1, 6, lambda c: c)
+    assert (cls.start, cls.end, cls.changed) == (660, 720, True) and "wk-moved" not in G.block_html(cls, 0, 1, 6, lambda c: c)
 
 
 # ---------- this day only ----------
@@ -267,3 +267,45 @@ def test_the_bin_of_a_tile_asks_before_it_deletes(seeded):
     assert 'class="wk-del"' in " ".join(m.value for m in at.markdown) and 'class="wk-pin"' in " ".join(m.value for m in at.markdown)
     at.text_input(key="cal_sink").set_value(f"delete|event:{eid}|2"); at.run()
     assert not at.exception and at.button(key=f"cd_yes_event_{eid}") is not None and cs.list_events(TUE, TUE)
+
+
+# ---------------------------------------------------------------- Changing a repeating event after a drag
+def test_changing_the_time_for_this_event_this_weekday_following_or_all(seeded):
+    cid = _new_course()
+    mid = _series(cid, {1, 3})
+    day = TUE + timedelta(days=14)
+
+    def starts(d):
+        return sorted(timeutil.to_local(b.start, store.get_term().zone).strftime("%H:%M") for b in cs.commitments(d, d) if b.kind == "class" and b.owner_id == cid)
+
+    assert "that day only" in cs.change_occurrences("course", mid, day, "this", time(13), time(14))
+    assert starts(day) and starts(day + timedelta(days=7)) != starts(day)                                     # only that Tuesday moved
+    msg = cs.change_occurrences("course", mid, day, "weekday", time(15), time(16))
+    assert "events" in msg and starts(day + timedelta(days=7)) == starts(day)                                  # the Tuesdays from here on
+    thu = day + timedelta(days=2)
+    assert starts(thu) != starts(day) and starts(day - timedelta(days=7)) != starts(day)                       # the Thursday and the earlier Tuesday are as before
+    cs.change_occurrences("course", mid, day, "following", time(17), time(18))
+    assert starts(thu) == starts(day) and starts(day - timedelta(days=7)) != starts(day)                       # now the Thursdays from here on too
+    cs.change_occurrences("course", mid, day, "all", time(8), time(9))
+    assert cs.get_meeting("course", mid)["start_time"] == "08:00"
+
+
+def test_a_skipped_day_stays_skipped_when_following_days_change(seeded):
+    cid = _new_course()
+    mid = _series(cid, {1})
+    skipped = TUE + timedelta(days=7)
+    cs.skip_occurrence("course", mid, skipped)
+    cs.change_occurrences("course", mid, TUE, "following", time(11), time(12))
+    assert not any(b.kind == "class" and b.owner_id == cid for b in cs.commitments(skipped, skipped))
+
+
+def test_dragging_a_class_asks_what_to_change_and_changes_nothing_until_answered(seeded):
+    cid, mid, *_ = seeded
+    at = run(cal_anchor=TUE)
+    at.text_input(key="cal_sink").set_value(f"move|occ:course:{mid}:{TUE.isoformat()}|{TUE.isoformat()}|720|1"); at.run()
+    assert not at.exception and any(str(getattr(b, "key", "")).startswith("oc_this_") for b in at.button)
+    assert cs.exception_on("course", mid, TUE) is None                                                          # nothing changed yet
+    at = run(cal_anchor=TUE)
+    at.text_input(key="cal_sink").set_value(f"move|occ:course:{mid}:{TUE.isoformat()}|{(TUE + timedelta(days=1)).isoformat()}|720|2"); at.run()
+    assert not at.exception and not any(str(getattr(b, "key", "")).startswith("oc_this_") for b in at.button)       # another day: only a message
+    assert 'class="wk-moved"' not in " ".join(m.value for m in at.markdown)

@@ -414,6 +414,9 @@ body.pl-dragging, body.pl-dragging * {{cursor: grabbing !important; user-select:
 .st-key-cal_banner .st-key-cal_banner_x button {{min-height: 32px; width: 32px; padding: 0; border-radius: 50%; opacity: 0.75;}}
 .st-key-cal_banner .st-key-cal_banner_x button:hover {{opacity: 1; background: #ffffff1f;}}
 .st-key-cal_banner [data-testid="stAlert"] {{padding-right: 52px;}}
+.st-key-cal_banner .st-key-cal_banner_never {{position: absolute; right: 52px; top: 50%; transform: translateY(-50%); width: auto; z-index: 3;}}
+.st-key-cal_banner .st-key-cal_banner_never button {{min-height: 30px; padding: 0 10px; font-size: 0.82rem; opacity: 0.8; text-decoration: underline;}}
+.st-key-cal_banner [data-testid="stAlert"] {{padding-right: 190px;}}
 /* Calendar: the two buttons at the right edge line up; the Task List header row */
 .st-key-cal_autoplan, .st-key-edit_schedule_open {{display: flex; justify-content: flex-end; width: 100% !important;}}
 .tl-head {{font-size: 0.78rem; font-weight: 700; opacity: 0.65; text-transform: none;}}
@@ -426,6 +429,10 @@ body.pl-dragging, body.pl-dragging * {{cursor: grabbing !important; user-select:
 body.nav-switching [data-stale="true"] {{display: none !important;}}
 /* Import From Syllabus: the line under a course's tick box sits close to it */
 .stElementContainer[class*="st-key-si_pick_"] + .stElementContainer {{margin-top: -0.85rem; margin-bottom: 0.2rem;}}
+/* Light (faster) mode, for slow devices: no animations, no transitions, no shadows, no blur. */
+html.lite *, html.lite *::before, html.lite *::after {{transition: none !important; animation: none !important; scroll-behavior: auto !important;
+  box-shadow: none !important; text-shadow: none !important; filter: none !important; backdrop-filter: none !important; will-change: auto !important;}}
+html.lite .mm-node:hover circle {{filter: none !important;}}
 /* Calendar: the width of the left panel, its splitter, the zoom bar of the time scale */
 div[data-testid="stColumn"]:has(.pl-wrap) {{flex: 0 0 var(--pl-w, 260px) !important; width: var(--pl-w, 260px) !important; min-width: 0 !important; overflow: visible;
   transition: flex-basis .3s cubic-bezier(.4, 0, .2, 1), width .3s cubic-bezier(.4, 0, .2, 1), margin .3s cubic-bezier(.4, 0, .2, 1), opacity .22s ease;}}
@@ -706,37 +713,37 @@ div[data-testid="stColumn"]:has(.pl-wrap) + div[data-testid="stColumn"] {{flex: 
 /* Library */
 /* Library grid: one HTML block, cards are clickable through data-lib-act */
 .st-key-lib_inner_box {{width: 150px; max-width: 100%; margin-left: auto;}}
-/* Courses > All > Tree: a tree from left to right. Every pill sits at --x/--y (the script moves them when a branch folds; the transition slides them). No fill: the page shows through. */
+/* Courses > All > Tree: a map of circles. Every bubble sits at --x/--y; a folded one slides into its parent (--px/--py), shrinks and fades. No fill for the bubbles of topics and courses. */
 .mm-wrap {{position: relative; margin: 0.4rem 0 0.5rem; overflow: hidden; border: 0; padding: 4px 0 0;}}
 .tk-top {{display: flex; align-items: center; gap: 10px; margin-bottom: 8px;}}
 .tk-note {{font-size: 0.85rem; opacity: 0.7;}}
 .tk-btn {{cursor: pointer; border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 5px 16px; font-size: 0.85rem; user-select: none; background: var(--input); transition: border-color .15s, color .15s;}}
 .tk-btn:hover {{border-color: var(--accent); color: var(--accent);}}
 svg.mm {{width: 100%; height: calc(100vh - 330px); min-height: 520px; display: block; user-select: none;}}   /* the whole map fits the window; wheel and + / - zoom it */
-.mm-node {{transform: translate(var(--x), var(--y)); transition: transform .5s cubic-bezier(.4, 0, .2, 1), opacity .35s ease; cursor: pointer;}}
-.mm-node.mm-hidden {{opacity: 0; pointer-events: none; transform: translate(var(--x), var(--y)) scale(0.4);}}
-.mm-line {{fill: none; stroke: var(--c, #3b8fd4); stroke-width: 3; stroke-linecap: round; opacity: 0.8; transition: d .5s cubic-bezier(.4, 0, .2, 1), opacity .35s ease;}}
-.mm-line.mm-e1 {{stroke-width: 5;}}
-.mm-line.mm-e2 {{stroke-width: 4;}}
-.mm-line.mm-hidden {{opacity: 0;}}
-.mm-node rect {{fill: transparent; stroke-width: 2.5; transition: fill .2s, stroke .2s;}}
-.mm-node:hover rect {{fill: #ffffff14;}}
-.mm-l0 rect {{stroke: #46b4f5; stroke-width: 3.5; fill: #0b9be333;}}
-.mm-l1 rect {{stroke: hsl(var(--h), 90%, 62%); fill: hsl(var(--h), 90%, 40%, 0.55); stroke-width: 3;}}
-.mm-l2 rect {{stroke: hsl(var(--h), 85%, 64%); fill: hsl(var(--h), 80%, 45%, 0.28);}}
-.mm-l3 rect {{stroke: hsl(var(--h), 75%, 62%);}}
-.mm-l4 rect {{stroke: var(--c);}}
-.mm-l4.sel rect {{fill: color-mix(in srgb, var(--c) 40%, transparent);}}
-.mm-l4.mm-study rect {{stroke-dasharray: 7 4;}}
-.mm-node text {{fill: var(--text); font-weight: 700; pointer-events: none;}}
-.mm-l4 text {{font-size: 15px;}}
-.mm-code {{font-weight: 800;}}
-.mm-sub {{font-weight: 400; opacity: 0.8; font-size: 14px;}}
-.mm-tag {{font-size: 11px; font-weight: 700; fill: #e0a82e; letter-spacing: 0.3px;}}
-.mm-count {{font-size: 12px; font-weight: 600; opacity: 0.65;}}
-.mm-chev {{font-size: 13px; opacity: 0.7; transition: transform .3s; transform-box: fill-box; transform-origin: center; pointer-events: none;}}
-.mm-node:not(.mm-collapsed) > .mm-chev {{transform: rotate(90deg);}}
-.mm-l4 .mm-chev {{display: none;}}
+.mm-node {{transform: translate(var(--x), var(--y)); transition: transform .55s cubic-bezier(.4, 0, .2, 1), opacity .4s ease; cursor: pointer;}}
+.mm-node.mm-hidden {{transform: translate(var(--px), var(--py)) scale(0); opacity: 0; pointer-events: none;}}
+.mm-line {{stroke: #3b8fd4; stroke-width: 5; stroke-linecap: round; opacity: 0.85;}}
+.mm-l0 .mm-line {{display: none;}}
+.mm-l3 .mm-line, .mm-l4 .mm-line {{stroke-width: 3;}}
+.mm-node circle {{transition: filter .2s, fill .2s;}}
+.mm-node:hover circle {{filter: brightness(1.18) drop-shadow(0 6px 10px #0008);}}
+.mm-l0 circle {{fill: #0b9be3; stroke: #8fd3ff; stroke-width: 4;}}
+.mm-l1 circle {{fill: hsl(var(--h), 100%, 32%); stroke: hsl(var(--h), 90%, 60%); stroke-width: 3;}}
+.mm-l2 circle {{fill: hsl(var(--h), 80%, 40%); stroke: hsl(var(--h), 85%, 68%); stroke-width: 3;}}
+.mm-l3 circle {{fill: var(--bg, #0e1117); stroke: hsl(var(--h), 80%, 62%); stroke-width: 4;}}
+.mm-l4 circle {{fill: var(--bg, #0e1117); stroke: var(--c); stroke-width: 5;}}
+.mm-l4.mm-photo circle {{fill: transparent;}}
+.mm-l4.mm-photo text {{paint-order: stroke; stroke: #0e1117cc; stroke-width: 3.5px; stroke-linejoin: round;}}
+.mm-l4.sel circle {{fill: color-mix(in srgb, var(--c) 30%, var(--bg, #0e1117)); stroke-width: 6;}}
+.mm-l4.sel.mm-photo circle {{fill: color-mix(in srgb, var(--c) 18%, transparent);}}
+.mm-l4.mm-study circle {{stroke-dasharray: 9 5;}}
+.mm-label, .mm-l0 text, .mm-l1 text, .mm-l2 text {{fill: #fff; font-weight: 700; pointer-events: none;}}
+.mm-l3 text, .mm-l4 text {{fill: var(--text); font-weight: 700; pointer-events: none;}}
+.mm-count {{font-size: 13px !important; font-weight: 600 !important; opacity: 0.75;}}
+.mm-plus {{font-size: 26px !important; opacity: 0; transition: opacity .3s;}}
+.mm-collapsed .mm-plus {{opacity: 0.9;}}
+.mm-code {{font-size: 15px; font-weight: 800;}}
+.mm-sub {{font-size: 11px; font-weight: 500; opacity: 0.85;}}
 .tk-zoom {{margin-left: auto; display: inline-flex; gap: 4px; margin-right: 8px;}}
 .tk-zoom button {{min-width: 34px; background: var(--input); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 4px 10px; cursor: pointer; font-size: 0.95rem; line-height: 1.2;}}
 .tk-zoom button:hover {{border-color: var(--accent); color: var(--accent);}}
@@ -908,6 +915,26 @@ if (!window.parent.__navBackHooked) {
 components.html("""
 <script>
 const win = window.parent, doc = win.document;
+// Speed: on a slow device the animations, shadows and blur are turned off ("lite"). Settings can force it (light) or forbid it (full); automatic decides from the hardware and from how fast the screen
+// draws (the result is remembered, so the next start is light from the first moment).
+(() => {
+  const mode = __PERF__, root = doc.documentElement;
+  let remembered = null; try { remembered = win.localStorage.getItem('sa_lite'); } catch (e) {}
+  const weak = (win.navigator.hardwareConcurrency || 8) <= 4 || (win.navigator.deviceMemory || 8) <= 4 || win.matchMedia('(prefers-reduced-motion: reduce)').matches || remembered === '1';
+  const apply = lite => root.classList.toggle('lite', lite);
+  apply(mode === 'light' || (mode === 'auto' && weak));
+  if (mode !== 'auto' || win.__perfProbe) return;
+  win.__perfProbe = true;
+  win.setTimeout(() => {                                             // a short measurement of the frame time, once the page has settled
+    let frames = 0, t0 = 0, last = 0;
+    const step = now => { if (!t0) t0 = now; frames += 1; last = now; if (frames < 45) win.requestAnimationFrame(step); else {
+      const mean = (last - t0) / (frames - 1), slow = mean > 24;
+      try { win.localStorage.setItem('sa_lite', slow ? '1' : '0'); } catch (e) {}
+      if (slow) apply(true); else if (remembered !== '1') apply(false);
+    } };
+    win.requestAnimationFrame(step);
+  }, 4000);
+})();
 if (!win.__navDragV2) {
   win.__navDragV2 = true;
   let dragged = null;
@@ -1017,20 +1044,24 @@ if (!win.__calDragV1) {
     const dy = e.clientY - drag.startY, dx = e.clientX - (drag.startX || 0);
     if (!drag.moved && Math.abs(dy) < 4 && Math.abs(dx) < 4) return;
     drag.moved = true;
+    const showTime = (a, b) => { const tm = drag.block.querySelector('.wk-time'); const hm = m => String(Math.floor(m / 60) % 24).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0'); if (tm) tm.textContent = hm(a) + ' - ' + hm(b); };
     if (drag.mode === 'open') return;                       // a class or an activity is opened by a click, not moved by a drag
     const per = +drag.grid.dataset.hourPx / 60;
     if (drag.mode === 'move') {
       drag.dMin = snapMin(drag.grid, dy);
+      showTime(drag.start + drag.dMin, drag.end + drag.dMin);
       drag.block.classList.add('dragging');
       drag.block.style.transform = 'translate(' + dx + 'px,' + (drag.dMin * per) + 'px)';
       drag.target = [...drag.grid.querySelectorAll('.wk-col')].find(c => { const r = c.getBoundingClientRect(); return e.clientX >= r.left && e.clientX < r.right; }) || drag.col;
     } else if (drag.mode === 'resizetop') {
       drag.newStart = Math.min(drag.end - 15, drag.start + snapMin(drag.grid, dy));
       const lo = +drag.col.dataset.lo;
+      showTime(drag.newStart, drag.end);
       drag.block.style.top = ((drag.newStart - lo * 60) * per) + 'px';
       drag.block.style.height = ((drag.end - drag.newStart) * per - 2) + 'px';
     } else if (drag.mode === 'resize') {
       drag.newEnd = Math.max(drag.start + 15, drag.end + snapMin(drag.grid, dy));
+      showTime(drag.start, drag.newEnd);
       drag.block.style.height = ((drag.newEnd - drag.start) * per - 2) + 'px';
     } else {
       const y = snapMin(drag.grid, e.clientY - drag.col.getBoundingClientRect().top) + drag.lo * 60;
@@ -1200,45 +1231,17 @@ if (!win.__tlAllV2) {
     b.textContent = open ? 'Collapse All' : 'Expand All';
   }, true);
 }
-// Courses > All > Tree: a click on a bubble folds or unfolds that bubble only. The pills are laid out again (the visible leaves are the rows, a branch is in the middle of its rows, the others slide
-// into their parent) and the view fits what is visible. One button folds every branch into its domain, or unfolds all. A click on a course sends its id to the hidden box.
-if (!win.__treeV3) {
-  win.__treeV3 = true;
-  const pack = svg => {
-    const PITCH = +svg.dataset.pitch || 58, GAP = +svg.dataset.gap || 120;
-    const nodes = new Map();
-    svg.querySelectorAll('.mm-node').forEach(g => nodes.set(g.dataset.id, {g, id: g.dataset.id, parent: g.dataset.parent, level: +g.dataset.level, w: +g.dataset.w, h: +g.dataset.h, kids: [], collapsed: g.classList.contains('mm-collapsed')}));
-    nodes.forEach(n => { if (n.parent && nodes.has(n.parent)) nodes.get(n.parent).kids.push(n); });
-    const left = {0: 0}, widest = {};
-    nodes.forEach(n => { widest[n.level] = Math.max(widest[n.level] || 0, n.w); });
-    for (let l = 1; l <= 4; l++) left[l] = left[l - 1] + (widest[l - 1] || 0) + GAP;
-    let row = 0; const root = [...nodes.values()].find(n => !n.parent);
-    const place = n => {
-      n.shown = true; n.x = left[n.level];
-      const ks = n.collapsed ? [] : n.kids;
-      if (!ks.length) { n.y = row * PITCH; row += 1; return; }
-      ks.forEach(place); n.y = (ks[0].y + ks[ks.length - 1].y) / 2;
-    };
-    place(root);
-    const hide = (n, at) => { n.kids.forEach(k => { if (!k.shown) { k.x = at.x; k.y = at.y; hide(k, at); } }); };
-    nodes.forEach(n => { if (n.shown) hide(n, n); });
-    let box = [1e9, 1e9, -1e9, -1e9];
+// Courses > All > Tree: a click on a bubble folds or unfolds that bubble only: its branches slide into it (or back out) and the view stays exactly as it is. One button folds every branch into its
+// domain, or unfolds all. A click on a course sends its id to the hidden box.
+if (!win.__treeV4) {
+  win.__treeV4 = true;
+  const refresh = svg => {
+    const nodes = new Map(); svg.querySelectorAll('.mm-node').forEach(n => nodes.set(n.dataset.id, n));
     nodes.forEach(n => {
-      n.g.style.setProperty('--x', n.x + 'px'); n.g.style.setProperty('--y', n.y + 'px'); n.g.classList.toggle('mm-hidden', !n.shown);
-      if (n.shown) { box = [Math.min(box[0], n.x), Math.min(box[1], n.y - n.h / 2), Math.max(box[2], n.x + n.w), Math.max(box[3], n.y + n.h / 2)]; }
+      let p = n.dataset.parent, hide = false;
+      while (p && nodes.has(p)) { const pn = nodes.get(p); if (pn.classList.contains('mm-collapsed')) { hide = true; break; } p = pn.dataset.parent; }
+      n.classList.toggle('mm-hidden', hide);
     });
-    svg.querySelectorAll('.mm-line').forEach(p => {
-      const n = nodes.get(p.dataset.for), par = n && nodes.get(n.parent); if (!n || !par) return;
-      const x1 = par.x + par.w, y1 = par.y, x2 = n.x, y2 = n.y, mid = (x1 + x2) / 2;
-      p.style.d = "path('M " + x1 + ' ' + y1 + ' C ' + mid + ' ' + y1 + ', ' + mid + ' ' + y2 + ', ' + x2 + ' ' + y2 + "')"; p.classList.toggle('mm-hidden', !n.shown);
-    });
-    const target = [box[0] - 20, box[1] - 16, box[2] - box[0] + 40, box[3] - box[1] + 32];
-    svg.__home = target; fit(svg, target);
-  };
-  const fit = (svg, b) => {
-    const v = svg.viewBox.baseVal, from = [v.x, v.y, v.width, v.height], t0 = win.performance.now();
-    const step = now => { const k = Math.min(1, (now - t0) / 380), e = 1 - Math.pow(1 - k, 3); svg.setAttribute('viewBox', from.map((x, i) => x + (b[i] - x) * e).join(' ')); if (k < 1) win.requestAnimationFrame(step); };
-    win.requestAnimationFrame(step);
   };
   doc.addEventListener('click', e => {
     const t = e.target.closest && e.target.closest('[data-mm-toggle], [data-tree-course], [data-mm-all]'); if (!t) return;
@@ -1253,10 +1256,10 @@ if (!win.__treeV3) {
     const svg = (t.closest('.mm-wrap') || doc).querySelector('svg.mm'); if (!svg) return;
     if (t.dataset.mmAll) {
       const close = t.dataset.mmAll === 'close';
-      svg.querySelectorAll('.mm-node[data-mm-toggle]').forEach(n => n.classList.toggle('mm-collapsed', close && n.dataset.level === '1'));
+      svg.querySelectorAll('.mm-node[data-mm-toggle]').forEach(n => n.classList.toggle('mm-collapsed', close && n.dataset.parent !== ''));
       t.dataset.mmAll = close ? 'open' : 'close'; t.textContent = close ? 'Expand All' : 'Collapse All';
     } else t.classList.toggle('mm-collapsed');
-    pack(svg);
+    refresh(svg);
   }, true);
 }
 // Courses > All > Tree: zoom with the + and - buttons or the mouse wheel, move the map by dragging an empty place, Fit shows all of it again. The map is an SVG: zooming changes its viewBox.
@@ -2113,7 +2116,7 @@ if (!win.__libNavV1) {
     inp.blur();
   }, true);
 }
-</script>""".replace("__EYE_CFG__", json.dumps(settings.get_eye_rest())).replace("__KEYS__", json.dumps(settings.get_keys())), height=0)
+</script>""".replace("__PERF__", json.dumps(settings.get_performance())).replace("__EYE_CFG__", json.dumps(settings.get_eye_rest())).replace("__KEYS__", json.dumps(settings.get_keys())), height=0)
 
 if st.query_params.get("detached"):          # a Note Reader window dragged out into its own window
     lab_view.render_detached(st.query_params["detached"])

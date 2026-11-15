@@ -107,6 +107,17 @@
 - **Course page.** The Overview is in a fixed order of foldable sections (a row of numbers, Coming Up, Grades, Syllabus, How Well You Know the Material). Add Syllabus reads a syllabus pdf (grading, letter
   grades, instructor, outline) and Edit Syllabus changes any of it. The Resources tab starts with Links and every section folds. Edit Outline can be written lecture by lecture or chapter by chapter in a
   table (number and title), as free text, or pasted from somewhere else.
+- **Tidy Up (Library > Import).** Finds files that are in the Library twice (same content) and lets you remove the extra ones (the book that stays takes over their courses), and suggests titles in the
+  Library's own form (HW 5 Solution, Midterm 1, a note's topic with its lecture number); both after a confirmation, and the database is copied to Backups first.
+- **Merge Courses (Courses page).** Make two or more courses one (MA 266 / MA 303): choose the course that stays and a tag for each part; files, homework and exams are tagged, everything of the other
+  courses moves over, the others are deleted, and a copy of the database and settings is kept in Backups\Before Merge.
+- **Import From Syllabus** can also write the homework and the exams on the course pages (on by default); what a page has already is not added twice.
+- **Holidays and breaks** are managed in Manage Terms (those of the chosen term); removing a holiday or a class time asks first. The "work does not fit" warning has Don't Show Again (and a switch
+  in Settings > Study Planner).
+- **Speed on slower devices.** Settings > Speed and Effects: Light turns off animations, shadows and blur; Automatic does it by itself when the screen draws slowly (and remembers it); long Library lists
+  are drawn 120 files at a time. The Windows setup wizard's check boxes are larger and easier to see.
+- **Changing a repeating class.** After a class or an activity is dragged, the app asks: this event, this and the following events on that weekday, this and all following events, or all events; the
+  new time shows while dragging, and there is no "moved" label.
 - **Imported files are named the Library's way** by default (HW 5, HW 5 Solution, Midterm 1 Practice, a note's topic with its number in the lecture field, Syllabus), and the confirmation page lists
   homework and exam documents first. The loading screen shows the app icon.
 - **Library views and timeline.** Files can be shown as Cards, Tiles (a small cover with the details beside it) or a Details table. Date Added is a chain of bullets by day, month or year;

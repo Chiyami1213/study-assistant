@@ -152,6 +152,32 @@ DEFAULT_KEYS = {
 }
 
 
+def get_fit_warning():
+    """True (the usual) when the Calendar warns that work does not fit before its deadline; False after the student chose Don't Show Again."""
+    return bool(_load().get("fit_warning", True))
+
+
+def set_fit_warning(show):
+    data = _load()
+    data["fit_warning"] = bool(show)
+    _save(data)
+
+
+PERFORMANCE_MODES = ("auto", "light", "full")
+
+
+def get_performance():
+    """"auto" (the usual: the app turns the effects off by itself on a slow device), "light" (always off) or "full" (always on)."""
+    mode = _load().get("performance", "auto")
+    return mode if mode in PERFORMANCE_MODES else "auto"
+
+
+def set_performance(mode):
+    data = _load()
+    data["performance"] = mode if mode in PERFORMANCE_MODES else "auto"
+    _save(data)
+
+
 def get_menu_hidden():
     """True when the menu bar (the rail on the left) is hidden: it then shows only while the pointer rests at the left edge."""
     return bool(_load().get("menu_hidden", False))

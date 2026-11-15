@@ -45,6 +45,15 @@ def render():
                 settings.set_appearance(key)
                 st.rerun()
 
+    modes = {"auto": "Automatic", "light": "Light (Faster)", "full": "Full Effects"}
+    chosen = st.segmented_control("Speed and Effects", list(modes), default=settings.get_performance(), format_func=modes.get, key="performance_mode",
+                                  help="Light turns off the animations, shadows and blur, which makes the app feel faster on an older or small device. Automatic turns them off by itself when the "
+                                       "screen draws slowly.") or settings.get_performance()
+    if chosen != settings.get_performance():
+        settings.set_performance(chosen)
+        st.rerun()
+    st.caption("Light is for devices that feel slow, such as a tablet. Automatic switches to it when the screen draws slowly.")
+
     hidden = settings.get_menu_hidden()
     if st.toggle("Hide the Menu Bar", hidden, help="hides the menu bar on the left so the page uses the whole window; pointing at the left edge shows it, and the menu bar key brings it back"
                  ) != hidden:
@@ -423,6 +432,8 @@ def _planner_section():
     st.caption(f"Term: {term.start:%b %d, %Y} to {term.classes_end:%b %d, %Y}, exams until {term.exams_end:%b %d, %Y}"
                + ("" if store.term_configured() else " (the app's default dates until you save yours)")
                + (f" · Breaks: {', '.join(b.name for b in term.breaks)}" if term.breaks else " · No breaks"))
+    st.toggle("Warn When Work Does Not Fit", settings.get_fit_warning(), key="planner_fit_warning", on_change=lambda: settings.set_fit_warning(st.session_state["planner_fit_warning"]),
+              help="the warning above the Calendar when a task cannot be finished before its deadline; its Don't Show Again button turns it off")
     from planner import timeutil
     zones = timeutil.zones_by_offset(zoneinfo.available_timezones())
     labels = {z: timeutil.zone_label(z) for z in zones}                      # 'America/New_York (UTC-05:00, EST)'

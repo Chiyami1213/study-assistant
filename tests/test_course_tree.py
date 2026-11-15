@@ -60,27 +60,27 @@ def test_every_part_of_a_merged_course_is_written_out():
     assert "MA 266 / MA 303" in html
 
 
-def test_rows_columns_and_branches_line_up_and_nothing_overlaps():
+def test_the_bubbles_do_not_overlap_however_many_courses_there_are():
+    import math
     names = ["Viscous Fluid Flow", "Electric Propulsion", "Quantum Mechanics", "Orbital Mechanics", "Structural Analysis", "Control Systems", "Linear Algebra", "Algorithms"]
     courses = [course(i, f"{['AE', 'PHYS', 'MA', 'CS'][i % 4]} {100 + i}", names[i % len(names)]) for i in range(1, 61)]
-    nodes, (x0, y0, x1, y1) = K.layout(courses)
-    by_id = {n["id"]: n for n in nodes}
-    assert sum(n["level"] == 4 for n in nodes) == 60
-    for level in range(5):
-        column = sorted((n for n in nodes if n["level"] == level), key=lambda n: n["y"])
-        assert len({n["x"] for n in column}) == 1                                                  # one column for each level
-        assert all(b["y"] - a["y"] >= (a["h"] + b["h"]) / 2 for a, b in zip(column, column[1:]))   # no two pills overlap
-    xs = [next(n["x"] for n in nodes if n["level"] == l) for l in range(5)]
-    assert xs == sorted(xs) and all(by_id[k]["x"] > n["x"] + n["w"] for n in nodes for k in n["kids"])         # a branch grows to the right of its parent
-    assert all(by_id[n["kids"][0]]["y"] <= n["y"] <= by_id[n["kids"][-1]]["y"] for n in nodes if n["kids"])  # in the middle of its rows
-    assert x0 < 0 < x1 and y0 < 0 < y1
+    nodes, (ex, ey) = K.layout(courses)
+    assert sum(n["level"] == 4 for n in nodes) == 60 and ex > 800
+    by_level = {}
+    for n in nodes:
+        by_level.setdefault(n["level"], []).append(n)
+    for level, items in by_level.items():
+        for i, a in enumerate(items):
+            for b in items[i + 1:]:
+                assert math.hypot(a["x"] - b["x"], a["y"] - b["y"]) >= a["r"] + b["r"] - 1, (level, a["label"], b["label"])
+    assert all(n["px"] == 0 and n["py"] == 0 for n in nodes if n["level"] == 1)                                  # a branch folds into the center
 
 
-def test_text_is_large_enough_to_read_and_the_pills_are_wide_enough_for_it():
-    assert min(K.SIZE.values()) >= 15 and K.HEIGHT[4] >= 30
-    nodes, _ = K.layout([course(1, "AE 6765", "Kinetics & Thermodynamics of Gases")])
-    leaf = next(n for n in nodes if n["level"] == 4)
-    assert leaf["w"] >= K._width("AE 6765", K.SIZE[4]) + K._width("Kinetics & Thermodynamics of Gases", K.SIZE[4] - 1, False)
+def test_branch_bubbles_are_larger_than_course_bubbles_and_the_map_is_spread_out():
+    assert K.RADII[1] > K.RADII[2] > K.RADII[3] > K.RADII[4] and K.RADII[0] > K.RADII[1]
+    nodes, _ = K.layout([course(1, "AE 6009", "Viscous Fluid Flow"), course(2, "PHYS 6105", "Quantum Mechanics I")])
+    ring = {n["level"]: (n["x"] ** 2 + n["y"] ** 2) ** 0.5 for n in nodes if n["level"] >= 1}
+    assert ring[1] > K.RADII[0] + K.RADII[1] + 60 and ring[4] - ring[3] > K.RADII[3] + K.RADII[4]                  # room between the rings
 
 
 def test_the_all_tab_offers_a_tree_view_and_a_click_on_a_leaf_opens_the_course():
@@ -99,3 +99,12 @@ def test_the_all_tab_offers_a_tree_view_and_a_click_on_a_leaf_opens_the_course()
     at2.session_state["courses_filter"] = "Active"
     at2.run()
     assert not any('class="mm-wrap"' in m.value for m in at2.markdown)                                                        # the other tabs keep the tiles
+
+
+def test_a_course_photo_is_the_background_of_its_bubble_and_the_map_is_wider_than_tall():
+    courses = [course(1, "AE 6009", "Viscous Fluid Flow"), course(2, "PHYS 6105", "Quantum Mechanics I")]
+    with_photo = K.tree_html(courses, lambda c: "Active", lambda c: "#336699", photo_of=lambda c: "data:image/jpeg;base64,AAAA" if c["id"] == 1 else None)
+    assert with_photo.count("<image ") == 1 and "clip-path=" in with_photo and with_photo.count("mm-photo") == 1
+    assert "<image " not in K.tree_html(courses, lambda c: "Active", lambda c: "#336699")
+    nodes, (ex, ey) = K.layout(courses)
+    assert ex > ey * 1.5                                                                                            # it fills a wide window instead of gathering in the middle

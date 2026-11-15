@@ -970,8 +970,66 @@ def _view_mode():
     return st.session_state.get("_lib", {}).get("view", "Cards")
 
 
+@st.dialog("Tidy Up the Library", width="large")
+def _tidy_dialog():
+    """Two kinds of tidying, both after a confirmation: files that are in the Library twice (same content) and titles that can be written in the Library's own form (HW 5 Solution, Midterm 1)."""
+    import library_tidy as T
+    import pandas as pd
+    groups = T.find_duplicates()
+    changes = T.suggest_renames()
+    tab_dup, tab_ren = st.tabs([f"Duplicates ({sum(len(g) - 1 for g in groups)})", f"Titles ({len(changes)})"])
+    with tab_dup:
+        if not groups:
+            st.success("No file is in the Library twice.", icon=":material/check_circle:")
+        else:
+            st.caption("Files with exactly the same content. Unchecked files stay; a checked one is removed, and the book that stays takes over its courses. The database is copied to Backups first.")
+            courses = {c["id"]: crud.label(c) for c in crud.list_courses(section=None)}
+            rows = [{"Remove": i > 0, "Title": b["title"], "Type": b["kind"], "Courses": ", ".join(courses.get(c, "") for c in b["course_ids"]), "Added": (b.get("added_at") or "")[:10], "Group": g + 1}
+                    for g, grp in enumerate(groups) for i, b in enumerate(grp)]
+            got = st.data_editor(pd.DataFrame(rows), key="tidy_dups", hide_index=True, width="stretch", num_rows="fixed",
+                                 column_config={"Remove": st.column_config.CheckboxColumn("Remove"), "Title": st.column_config.TextColumn("Title", disabled=True), "Type": st.column_config.TextColumn("Type", disabled=True),
+                                                "Courses": st.column_config.TextColumn("Courses", disabled=True), "Added": st.column_config.TextColumn("Added", disabled=True),
+                                                "Group": st.column_config.NumberColumn("Group", disabled=True)}).to_dict("records")
+            chosen, k = [], 0
+            for grp in groups:
+                flags = [bool(r["Remove"]) for r in got[k:k + len(grp)]]
+                k += len(grp)
+                kept = [b for b, f in zip(grp, flags) if not f]
+                gone = [b for b, f in zip(grp, flags) if f]
+                if kept and gone:
+                    chosen.append(kept[:1] + gone)
+            if st.button(f"Remove {sum(len(c) - 1 for c in chosen)} Duplicates", key="tidy_remove", type="primary", disabled=not chosen):
+                n = T.remove_duplicates(chosen)
+                st.session_state["lib_toast"] = f"Removed {n} duplicate{'s' if n != 1 else ''}."
+                st.rerun()
+    with tab_ren:
+        if not changes:
+            st.success("Every title is already in the Library's form.", icon=":material/check_circle:")
+        else:
+            st.caption("The Library's forms: HW 5, HW 5 Solution, Midterm 1 Practice, a note's topic with its lecture number apart. Change a title here or uncheck it to leave it as it is.")
+            frame = pd.DataFrame([{"Apply": True, "Type": c["kind"], "Now": c["old"], "New": c["new"], "Lecture": c["new_lecture"]} for c in changes])
+            got = st.data_editor(frame, key="tidy_titles", hide_index=True, width="stretch", num_rows="fixed",
+                                 column_config={"Apply": st.column_config.CheckboxColumn("Apply"), "Type": st.column_config.TextColumn("Type", disabled=True), "Now": st.column_config.TextColumn("Now", disabled=True),
+                                                "New": st.column_config.TextColumn("New", required=True), "Lecture": st.column_config.TextColumn("Lecture / HW No.")}).to_dict("records")
+            todo = [dict(c, new=r["New"], new_lecture=r["Lecture"] or "") for c, r in zip(changes, got) if r["Apply"]]
+            if st.button(f"Apply {len(todo)} Titles", key="tidy_rename", type="primary", disabled=not todo):
+                T.backup("Before Rename")
+                n = T.apply_renames(todo)
+                st.session_state["lib_toast"] = f"Renamed {n} file{'s' if n != 1 else ''}."
+                st.rerun()
+
+
+PAGE = 120                                                       # files drawn at once in a list; the rest come with Show More
+
+
 def _tile_grid(tiles, has_books, courses, default_course=None):
-    st.markdown(_files_html([x for x in tiles if x != "add"], _view_mode(), courses, default_course, "add" in tiles), unsafe_allow_html=True)
+    books = [x for x in tiles if x != "add"]
+    key = f"_lib_shown_{default_course}_{len(books)}"
+    shown = st.session_state.get(key, PAGE)
+    st.markdown(_files_html(books[:shown], _view_mode(), courses, default_course, "add" in tiles and len(books) <= shown), unsafe_allow_html=True)
+    if len(books) > shown and st.button(f"Show {min(PAGE, len(books) - shown)} More ({len(books) - shown} Left)", key=f"{key}_more", icon=":material/expand_more:"):
+        st.session_state[key] = shown + PAGE
+        st.rerun()
 
 
 def _timeline(groups, courses, with_add):
@@ -1035,6 +1093,8 @@ def render():
             _add_dialog(None)
         if st.button("Import a Zip", key="imp_menu_zip", icon=":material/folder_zip:", width="stretch", help="a zip of pdf and html files; you confirm the list before anything is imported"):
             library_import.zip_dialog()
+        if st.button("Tidy Up", key="imp_menu_tidy", icon=":material/cleaning_services:", width="stretch", help="finds files that are in the Library twice and titles that can be written the Library's way"):
+            _tidy_dialog()
         if st.button("Update From Folder", key="imp_menu_folder", icon=":material/sync:", width="stretch", help="reads the folder your files are kept in and lists the new and the changed ones"):
             library_import.folder_dialog()
     inner = None

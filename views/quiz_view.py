@@ -143,10 +143,10 @@ def _unaided(s):
 def understanding(course):
     chapters = course_chapters(course)
     if not chapters:
-        st.caption("No notes with a quiz yet.")
         return
     stats = crud.quiz_stats(course["id"])
     taken = [stats[c["book"]["id"]] for c in chapters if c["book"]["id"] in stats]
+    st.subheader("Understanding")
     if taken:
         avg = round(sum(_pct(_unaided(s), s["last_total"]) for s in taken) / len(taken))
         failed = sum(_pct(_unaided(s), s["last_total"]) < PASS for s in taken)

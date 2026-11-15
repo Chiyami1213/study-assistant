@@ -169,6 +169,38 @@ def delete_occurrences(owner, meeting_id, day, scope):
     return "That day and the later ones on this weekday were deleted."
 
 
+def change_occurrences(owner, meeting_id, day, scope, start, end, location=None):
+    """Give a repeating meeting another time (and place when given), from the occurrence on `day`:
+    "this": only that day; "weekday": that day and every later one on the same weekday; "following": that day and every later occurrence of the meeting; "all": the whole series
+    (the weekly time itself changes). A day that was skipped stays skipped. Returns a short text of what was done."""
+    from datetime import timedelta
+    if scope not in SCOPES:
+        raise PlannerError("Choose what to change: this one, this and the following ones on this weekday, this and all following, or all.")
+    row = dict(_meeting_row(owner, meeting_id))
+    _check_day(owner, meeting_id, day)
+    days = sorted(int(d) for d in row["days"].split(",") if d != "")
+    if scope == "this":
+        override_occurrence(owner, meeting_id, day, start, end, location)
+        return "Changed for that day only."
+    if scope == "all":
+        update_meeting(owner, meeting_id, days, start, end, location if location is not None else (row.get("location") or ""),
+                       date.fromisoformat(row["end_date"]) if row.get("end_date") else None)
+        return "Every event was changed."
+    last = store.get_term().exams_end
+    if row.get("end_date"):
+        last = min(last, date.fromisoformat(row["end_date"]))
+    weekdays = {day.weekday()} if scope == "weekday" else set(days)
+    count, d = 0, day
+    while d <= last:
+        if d.weekday() in weekdays:
+            existing = exception_on(owner, meeting_id, d)
+            if not (existing and existing.kind == SKIP):
+                override_occurrence(owner, meeting_id, d, start, end, location)
+                count += 1
+        d += timedelta(days=1)
+    return f"Changed for {count} event{'s' if count != 1 else ''}."
+
+
 def get_meeting(owner, meeting_id):
     """One weekly meeting as a dict (days, start_time, end_time, location, end_date ...), or a PlannerError."""
     return dict(_meeting_row(owner, meeting_id))

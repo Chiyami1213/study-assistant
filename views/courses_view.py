@@ -234,8 +234,10 @@ def render():
         return
 
     st.session_state.pop("_recent_touched", None)
-    head, btn = st.columns([6, 1.3], vertical_alignment="center")
+    head, merge_col, btn = st.columns([5, 1.5, 1.3], vertical_alignment="center")
     head.title("Courses")
+    if merge_col.button("Merge Courses", key="merge_courses_open", icon=":material/merge:", help="make two or more courses one (MA 266 / MA 303), with each part's files, homework and exams kept apart by a tag"):
+        _merge_dialog()
     if btn.button("Add Course", key="add_course_open"):
         _add_course_dialog()
     # The filter, category and sort are remembered apart from their widgets (a widget's value is dropped while a course or a file is open), so Back
@@ -288,6 +290,38 @@ def render():
         _tile_grid(items)
 
 
+@st.dialog("Merge Courses", width="large")
+def _merge_dialog():
+    """Make two or more courses one: choose them, the one that stays, and a tag for each part. Everything of the others moves to the one that stays (after a copy of the database)."""
+    import coursemerge
+    courses = {c["id"]: c for c in crud.list_courses(section=None)}
+    picked = st.multiselect("Courses to Merge", list(courses), format_func=lambda i: crud.label(courses[i]), key="merge_pick", placeholder="Choose two or more courses")
+    if len(picked) < 2:
+        st.caption("Choose the courses that are really one course (the same lectures, listed under two numbers). Each part keeps its own homework, exams, outline and syllabus, told apart by a tag such as (MA 266).")
+        return
+    keep = st.selectbox("Course That Stays", picked, format_func=lambda i: crud.label(courses[i]), key="merge_keep", help="the others are deleted after everything of theirs has moved to this one")
+    st.markdown("**Tag of Each Part**")
+    tags = {}
+    cols = st.columns(min(len(picked), 4))
+    for i, cid in enumerate(picked):
+        tags[cid] = cols[i % len(cols)].text_input(crud.label(courses[cid]).split(":")[0], coursemerge.default_tag(courses[cid]), key=f"merge_tag_{cid}")
+    dropped = [c for c in picked if c != keep]
+    code = st.text_input("Number of the Merged Course", coursemerge.merged_code([courses[c] for c in picked]), key="merge_code_" + "_".join(map(str, picked)))
+    moved = coursemerge.preview(keep, dropped)
+    if moved:
+        st.caption("Moves to the course that stays: " + ", ".join(f"{n} in {t.replace('_', ' ')}" for t, n in sorted(moved.items())) + ".")
+    sure = st.checkbox("I understand the other courses are deleted after this", False, key="merge_sure")
+    if st.button("Merge", key="merge_go", type="primary", disabled=not sure):
+        try:
+            result = coursemerge.merge(keep, dropped, tags, code=code)
+        except ValueError as e:
+            st.error(str(e))
+            return
+        st.session_state["lib_toast"] = f"Merged {len(picked)} courses ({result['tagged']} titles tagged). A copy of the database is in Backups."
+        st.session_state["open_course"] = keep
+        st.rerun()
+
+
 def _tree(courses):
     """The courses as a tree of knowledge: a click on a leaf opens the course; the branches fold and unfold (script and CSS in app.py)."""
     sink = st.text_input("Tree Click", key="tree_sink", label_visibility="collapsed")
@@ -303,7 +337,7 @@ def _tree(courses):
             st.session_state.pop("course_tab", None)
             st.rerun()
     st.caption("Similar fields grow from the same branch of the map.")
-    st.markdown(course_tree.tree_html(courses, crud.course_status, crud.course_color, st.session_state.get("course_id")), unsafe_allow_html=True)
+    st.markdown(course_tree.tree_html(courses, crud.course_status, crud.course_color, st.session_state.get("course_id"), photo_of=lambda c: _photo_url(c["id"], 200)), unsafe_allow_html=True)
 
 
 def _tile_grid(courses):
@@ -745,17 +779,18 @@ def _glance(course, rows, homework, exams, data):
 
 
 def _overview(course):
-    """The Overview in a fixed order, every section foldable: the row of numbers at the top, Coming Up, Grades (what you have and what is needed, and what each part is worth), the
-    Syllabus (the file, its grading and letter grades, with Add and Edit), and how well the materials are understood (quiz scores)."""
+    """The Overview in a fixed order under the usual headers: the row of numbers at the top, Coming Up, Grades (what you have and what is needed, and what each part is worth), the
+    Syllabus (the file, its grading and letter grades, with Add and Edit), and Understanding (quiz scores)."""
     homework, exams = _homework_items(course), _exam_items(course)
     data = _syllabus_data(course)
     finished = crud.course_status(course) == "Completed"
     rows = [] if finished else coming_up(course)
     _glance(course, rows, homework, exams, data)
     if not finished:
-        with st.expander(f"Coming Up ({len(rows)})", expanded=True):
-            _coming_up(course, rows)
-    with st.expander("Grades", expanded=True):
+        st.subheader("Coming Up")
+        _coming_up(course, rows)
+    st.subheader("Grades")
+    if True:
         hw_avg, ex_avg = _percent(homework), _percent(exams)
         left, right = st.columns([3, 2], gap="large")
         with right:
@@ -778,10 +813,9 @@ def _overview(course):
                                    help=f"weighted by the syllabus, from the {share:.0%} of the course graded so far"
                                         + ("; the syllabus lists no cutoffs, so 90 / 80 / 70 / 60 is assumed" if assumed else ""))
                     _goals(data, homework, exams, assumed)
-    with st.expander("Syllabus", expanded=True):
-        _syllabus(course)
-    with st.expander("How Well You Know the Material", expanded=False):
-        quiz_view.understanding(course)
+    st.subheader("Syllabus")
+    _syllabus(course)
+    quiz_view.understanding(course)
 
 
 def _homework(course):

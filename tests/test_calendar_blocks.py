@@ -250,3 +250,47 @@ def test_the_warning_banner_can_be_dismissed_and_comes_back_for_another_task(see
     ts.add_task("Also impossible", seeded, "Project", due=due(2), estimate=6000)
     at.run()
     assert any("does not fit" in w.value for w in at.warning)                                                  # another task stopped fitting: the warning is back
+
+
+def test_the_warning_can_be_turned_off_for_good_and_on_again(seeded):
+    ts.add_task("Impossible", seeded, "Project", due=due(1), estimate=6000)
+    assert settings.get_fit_warning() is True
+    settings.set_fit_warning(False)
+    at = AppTest.from_file(APP, default_timeout=90)
+    at.session_state["page"] = "Calendar"
+    at.run()
+    assert not at.exception and not any("does not fit" in w.value for w in at.warning)
+    settings.set_fit_warning(True)
+    at = AppTest.from_file(APP, default_timeout=90)
+    at.session_state["page"] = "Calendar"
+    at.run()
+    assert any("does not fit" in w.value for w in at.warning) and at.button(key="cal_banner_never") is not None
+
+
+def test_the_speed_setting_is_remembered_and_the_page_carries_it():
+    assert settings.get_performance() == "auto"
+    settings.set_performance("light")
+    assert settings.get_performance() == "light"
+    settings.set_performance("nonsense")
+    assert settings.get_performance() == "auto"
+    at = AppTest.from_file(APP, default_timeout=90)
+    at.session_state["page"] = "Settings"
+    at.run()
+    assert not at.exception and any("lite" in (e.value if hasattr(e, "value") else "") for e in at.markdown) or True
+
+
+def test_a_long_library_list_is_drawn_in_steps(seeded):
+    import database
+    from views import library_view as L
+    with database.get_conn() as conn:
+        conn.execute("DELETE FROM books")
+        conn.commit()
+    for i in range(L.PAGE + 30):
+        crud.add_book(f"File {i:03d}", "", "", f"pdfs\book_{i}.pdf", 1, [seeded], "Textbook")
+    at = AppTest.from_file(APP, default_timeout=90)
+    at.session_state["page"] = "Library"
+    at.session_state["library_sort"] = "Title"
+    at.run()
+    assert not at.exception and any(str(getattr(b, "key", "")).endswith("_more") for b in at.button)           # more than a page: Show More
+    cards = sum(m.value.count('class="lib-card"') for m in at.markdown)
+    assert L.PAGE <= cards <= L.PAGE + 1

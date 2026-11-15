@@ -194,8 +194,9 @@ def import_rows(course_id, items, own=()):
     return rows
 
 
-def apply_import(course_id, rows, meetings, tz):
+def apply_import(course_id, rows, meetings, tz, course_page=False):
     """Save the checked rows: a task each (finished when the row says so), and an event on the Calendar when asked, and the checked class times.
+    `course_page`: homework and exams are also written onto the course page (its Homework and Exams tabs), unless the page has them already.
     Returns (tasks added, events added, class times added, problems)."""
     course = next((c for c in crud.list_courses(section=None) if c["id"] == course_id), None)
     code = (crud.show_code(course["code"]) or course["name"]) if course else ""
@@ -214,7 +215,11 @@ def apply_import(course_id, rows, meetings, tz):
             if r.get("Done"):
                 task_store.set_done(new_id, True)
             tasks_n += 1
-            if r.get("On Calendar"):
+            if course_page and category == "Homework" and _norm(title) not in {_norm(h["title"]) for h in crud.list_homework(course_id)}:
+                crud.add_homework(course_id, title, day.isoformat(), "", "", due_time=at.strftime("%H:%M"))
+            if course_page and category == "Exam":
+                r = dict(r, **{"On Calendar": True})                            # an exam on the course page is an event: the Calendar shows it too
+            if r.get("On Calendar") and _norm(f"{code} {title}") not in {_norm(e["title"]) for e in crud.list_events(day.isoformat(), day.isoformat())}:
                 exam = category == "Exam"
                 commit_store.add_event(f"{code} {title}".strip(), due, due + timedelta(minutes=120 if exam else 30), False, "", 0, 0, exam, course_id)
                 events_n += 1
@@ -238,14 +243,14 @@ def course_plan(course_id):
     return import_rows(course_id, items, course_work(course_id)), (guesses if not crud.list_meetings(course_id) else [])
 
 
-def auto_import(course_ids, tz):
+def auto_import(course_ids, tz, course_page=True):
     """Read each course (its page and its syllabus file) and add every new task, without asking. Class times are added only for a course that has none.
     Returns [(course id, tasks added, events added, class times added, problems)]."""
     out = []
     for cid in course_ids:
         rows, guesses = course_plan(cid)
         meetings = [{"Add": True, "Days": ", ".join(DAY_NAMES[d] for d in g.days), "Start": time.fromisoformat(g.start), "End": time.fromisoformat(g.end), "Location": g.location} for g in guesses]
-        out.append((cid, *apply_import(cid, rows, meetings, tz)))
+        out.append((cid, *apply_import(cid, rows, meetings, tz, course_page)))
     return out
 
 
@@ -266,6 +271,8 @@ def import_dialog():
         st.caption("Add a course first.")
         return
     tz = planner_ui.store.get_term().zone
+    on_pages = st.checkbox("Also Write Homework and Exams on the Course Pages", True, key="si_pages",
+                           help="the homework and the exams found are put on each course page (Homework and Exams tabs) as well as in the Task List; what a page has already is not added twice")
     others = [i for i in all_courses if i not in term_ids]
     picked, plans = [], {}
 
@@ -292,7 +299,7 @@ def import_dialog():
                 course_line(cid, False)
     total = sum(1 for cid in picked for r in plans[cid][0] if r["Add"])
     if st.button(f"Import {total} New Task{'s' if total != 1 else ''}", key="si_all", type="primary", disabled=not picked or (total == 0 and not any(plans[c][1] for c in picked))):
-        results = auto_import(picked, tz)
+        results = auto_import(picked, tz, on_pages)
         n, ev, mt = sum(r[1] for r in results), sum(r[2] for r in results), sum(r[3] for r in results)
         bad = [p for r in results for p in r[4]]
         st.session_state["cal_toast"] = (f"Imported {n} task{'s' if n != 1 else ''}" + (f", {ev} exam{'s' if ev != 1 else ''} on the Calendar" if ev else "") + (f", {mt} class time{'s' if mt != 1 else ''}" if mt else "")
@@ -335,7 +342,7 @@ def import_dialog():
             r["Done"] = bool(r.get("Done"))
         chosen = sum(1 for r in chosen_rows if r["Add"] and (r.get("Title") or "").strip() and r.get("Due Date")) + sum(1 for m in meeting_rows if m.get("Add"))
         if st.button(f"Add {chosen} Selected", key="si_apply", disabled=chosen == 0):
-            n, ev, mt, problems = apply_import(cid, chosen_rows, meeting_rows, tz)
+            n, ev, mt, problems = apply_import(cid, chosen_rows, meeting_rows, tz, on_pages)
             st.session_state["cal_toast"] = (f"Added {n} task{'s' if n != 1 else ''}" + (f", {ev} on the Calendar" if ev else "") + (f" and {mt} class time{'s' if mt != 1 else ''}" if mt else "") + "."
                                              + (f" Not added: {'; '.join(problems[:3])}" if problems else ""))
             st.rerun()

@@ -248,6 +248,31 @@ def term_select(box):
         st.rerun()
 
 
+def _holidays_section(first, last):
+    """The holidays and breaks that fall in the chosen term (nothing is planned on those days, except personal tasks), to remove or add. Removing asks first."""
+    st.divider()
+    st.markdown("**Holidays and Breaks**")
+    inside = [h for h in crud.list_holidays() if h["end_date"] >= first.isoformat() and h["start_date"] <= last.isoformat()]
+    if not inside:
+        st.caption("No holidays in this term yet.")
+    for h in inside:
+        x, y = st.columns([6, 1.3], vertical_alignment="center")
+        same = h["start_date"] == h["end_date"]
+        x.markdown(f"**{html.escape(h['name'])}** · {h['start_date']}" + ("" if same else f" to {h['end_date']}"))
+        with y.popover("Remove", icon=":material/delete:", key=f"hol_pop_{h['id']}"):
+            st.caption(f"Remove {h['name']}?")
+            if st.button("Yes, Remove It", key=f"rm_holiday_{h['id']}", type="primary"):
+                crud.delete_holiday(h["id"])
+                st.rerun()
+    n1, n2, n3 = st.columns([2, 1, 1], vertical_alignment="bottom")
+    hname = n1.text_input("Holiday Name", key="hol_name", placeholder="Fall Break")
+    hstart = n2.date_input("Starts", value=first, key="hol_start")
+    hend = n3.date_input("Ends", value=first, key="hol_end")
+    if st.button("Add Holiday", key="hol_add", disabled=not hname.strip() or hend < hstart):
+        crud.add_holiday(hname.strip(), hstart.isoformat(), hend.isoformat())
+        st.rerun()
+
+
 @st.dialog("Manage Terms", width="large")
 def terms_dialog():
     """Choose, change, add and delete the terms (the active one decides the dates and which courses the left panel shows)."""
@@ -277,6 +302,7 @@ def terms_dialog():
         if s3.button("Delete Term", key=f"term_delete_{tid}", disabled=bool(active and active["id"] == tid), help="the active term can not be deleted; no course or task is removed"):
             settings.delete_term(tid)
             st.rerun()
+        _holidays_section(start, exam_end)
     else:
         st.caption("No term yet. Add one, and the Calendar follows its dates.")
     st.divider()
@@ -702,7 +728,7 @@ def log_dialog(task_id):
 # ---------------------------------------------------------------- the banner
 def banner(report, courses, tz):
     """A warning when any task does not fit before its deadline. An x at the right end of the box dismisses it; it comes back when another task stops fitting."""
-    if not report.any_negative:
+    if not report.any_negative or not settings.get_fit_warning():
         return
     short = {c.task_id for c in report.negative_items}
     if short <= st.session_state.get("_banner_dismissed", set()):
@@ -719,6 +745,9 @@ def banner(report, courses, tz):
                    ". Free up time, lower an estimate or move a deadline.", icon=":material/warning:")
         if st.button("", key="cal_banner_x", icon=":material/close:", type="tertiary", help="dismiss this warning"):
             st.session_state["_banner_dismissed"] = set(st.session_state.get("_banner_dismissed", set())) | short
+            st.rerun()
+        if st.button("Don't Show Again", key="cal_banner_never", type="tertiary", help="turns this warning off; it can be turned on again in Settings > Study Planner"):
+            settings.set_fit_warning(False)
             st.rerun()
 
 
@@ -1191,7 +1220,11 @@ def handle_action(text):
         elif action == "delete":
             st.session_state["cal_delete"] = parts[1]
         elif action in ("move", "resize", "resizetop") and parts[1].startswith("occ:"):
-            st.session_state["cal_toast"] = occurrence_drag(action, parts[1], date.fromisoformat(parts[2]), int(parts[3]))
+            plan = occurrence_plan(action, parts[1], date.fromisoformat(parts[2]), int(parts[3]))
+            if isinstance(plan, dict):
+                st.session_state["cal_change"] = plan                                       # asks what to change, in its own window
+            elif plan:
+                st.session_state["cal_toast"] = plan
         elif action in ("move", "resize", "resizetop"):
             kind, _, raw = parts[1].partition(":")
             item_id = int(raw)
@@ -1299,9 +1332,9 @@ def open_delete(ref):
         st.toast("That could not be deleted.")
 
 
-def occurrence_drag(action, ref, target_day, minutes):
-    """A class or an activity dragged on the grid: moved up or down (its time changes for this day only), or its top or bottom edge dragged (its start or its end changes for this day only).
-    A repeating class stays on its day: to put it on another day, change the weekly time. Returns the message to show."""
+def occurrence_plan(action, ref, target_day, minutes):
+    """A class or an activity dragged on the grid: moved up or down, or its top or bottom edge dragged. Returns what was asked as a dict (owner, meeting id, day, the new start and end), or the
+    text of why it can not be done. A repeating class stays on its day: to put it on another day, change the weekly time."""
     try:
         _, owner, mid, day_text = ref.split(":")
         mid, day = int(mid), date.fromisoformat(day_text)
@@ -1324,8 +1357,30 @@ def occurrence_drag(action, ref, target_day, minutes):
         start, end = cur_start, clock(minutes)
     if minutes_of(end) <= minutes_of(start):
         return "The end has to be after the start."
-    problem = move_this(owner, mid, day, start, end, None)
-    return problem or f"Changed for {day:%b} {day.day} only; the other weeks stay as they are."
+    if (start, end) == (cur_start, cur_end):
+        return ""
+    return {"owner": owner, "meeting": mid, "day": day, "start": start, "end": end, "weekdays": len([d for d in meeting["days"].split(",") if d != ""])}
+
+
+@st.dialog("Changing a Repeating Event")
+def occurrence_change_dialog(plan):
+    """After a class or an activity was dragged: change only this event, this and the following ones on this weekday, this and all following, or all of them."""
+    day = plan["day"]
+    st.caption(f"New time: {plan['start']:%H:%M} to {plan['end']:%H:%M}")
+    choices = [("this", "This Event", "primary")]
+    if plan["weekdays"] > 1:
+        choices.append(("weekday", f"This and Following {day:%A} Events", "secondary"))
+    choices += [("following", "This and All Following Events", "secondary"), ("all", "All Events", "secondary")]
+    tag = f"{plan['owner']}_{plan['meeting']}_{day.isoformat()}"
+    for scope, label, kind in choices:
+        if st.button(label, key=f"oc_{scope}_{tag}", type=kind, width="stretch"):
+            try:
+                st.session_state["cal_toast"] = commit_store.change_occurrences(plan["owner"], plan["meeting"], day, scope, plan["start"], plan["end"])
+            except PlannerError as e:
+                st.session_state["cal_toast"] = str(e)
+            st.rerun()
+    if st.button("Cancel", key=f"oc_cancel_{tag}", type="tertiary", width="stretch"):
+        st.rerun()
 
 
 def _find_event(event_id):
@@ -1340,7 +1395,9 @@ def show_pending():
     """Open what the last drag or click asked for (a dialog), and show the message of the last change."""
     if st.session_state.get("cal_toast"):
         st.toast(st.session_state.pop("cal_toast"))
-    if st.session_state.get("cal_delete"):
+    if st.session_state.get("cal_change"):
+        occurrence_change_dialog(st.session_state.pop("cal_change"))
+    elif st.session_state.get("cal_delete"):
         open_delete(st.session_state.pop("cal_delete"))
     elif st.session_state.get("cal_confirm"):
         confirm_dialog()

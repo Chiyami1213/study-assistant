@@ -262,23 +262,7 @@ def _schedule_dialog():
     start = date.fromisoformat(settings.get_semester()["start"])
     st.caption("The terms (semesters) are managed from the term list above the calendar: choose Manage Terms.")
 
-    st.subheader("Holidays")
-    holidays = crud.list_holidays()
-    if not holidays:
-        st.caption("No holidays yet.")
-    for h in holidays:
-        x, y = st.columns([6, 1], vertical_alignment="center")
-        same = h["start_date"] == h["end_date"]
-        x.markdown(f"**{h['name']}** · {h['start_date']}" + ("" if same else f" to {h['end_date']}"))
-        if y.button("Remove", key=f"rm_holiday_{h['id']}"):
-            crud.delete_holiday(h["id"]); st.rerun()
-    n1, n2, n3 = st.columns([2, 1, 1], vertical_alignment="bottom")
-    hname = n1.text_input("Holiday Name", key="hol_name", placeholder="Fall Break")
-    hstart = n2.date_input("Starts", value=start, key="hol_start")
-    hend = n3.date_input("Ends", value=start, key="hol_end")
-    if st.button("Add Holiday", key="hol_add", disabled=not hname.strip() or hend < hstart):
-        crud.add_holiday(hname.strip(), hstart.isoformat(), hend.isoformat())
-        st.rerun()
+    st.caption("Holidays and breaks are managed with the terms: choose Manage Terms in the term list above the calendar.")
 
     st.subheader("Class Times")
     courses = {c["id"]: c for c in crud.list_courses(section=None)}
@@ -290,8 +274,10 @@ def _schedule_dialog():
         x, y = st.columns([6, 1], vertical_alignment="center")
         x.markdown(f"**{crud.label(course) if course else 'Removed Course'}** · {crud.meeting_days_label(m)} · "
                    f"{m['start_time']} - {m['end_time']}" + (f" · {m['location']}" if m["location"] else ""))
-        if y.button("Remove", key=f"rm_meeting_{m['id']}"):
-            crud.delete_meeting(m["id"]); st.rerun()
+        with y.popover("Remove", icon=":material/delete:", key=f"meeting_pop_{m['id']}"):
+            st.caption("Remove this class time and every change made to single days?")
+            if st.button("Yes, Remove It", key=f"rm_meeting_{m['id']}", type="primary"):
+                crud.delete_meeting(m["id"]); st.rerun()
 
     st.subheader("Add Class Time")
     active = {c["id"]: crud.label(c) for c in crud.courses_by_status("Active")}
