@@ -34,3 +34,13 @@ def test_the_launcher_reads_the_app_packages_by_name_and_the_build_does_not_bund
     for name in ("build_exe.py", "build_mac.py"):
         libs = re.search(r"LIBS = \[(.*?)\]", (ROOT / "tools" / name).read_text(encoding="utf-8"))
         assert libs and not any(pkg in libs.group(1) for pkg in ("pagerender", "core", "library"))
+
+
+def test_a_guides_three_js_comes_from_the_app_not_from_the_network():
+    from study import htmlnotes
+    page = ('<html><head><script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-svg.js" async></script></head><body>'
+            '<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script><script>if(!window.THREE){document.title="no three"}</script></body></html>')
+    out = htmlnotes.safe_html(page)
+    assert "three.js/r128" not in out and "WebGLRenderer" in out and "Three.js Authors" in out            # the library is inside the page
+    assert "mathjax/3.2.2/es5/tex-svg.js" in out                                                             # other CDN scripts are left alone
+    assert "</script" not in htmlnotes._vendor_text("three-r128.min.js")

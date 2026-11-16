@@ -94,8 +94,13 @@
 - **Help and Report an Issue in Settings.** Help answers the common questions; Report an Issue opens a ready-made GitHub issue in the browser (optional steps, technical details, a log excerpt with your
   name and folders replaced, screenshots you pick or the newest F2 ones). The app sends nothing by itself and keeps no e-mail address.
 - **Settings has a bar to jump to a section** (Appearance, Eye Rest, Study Planner, Backup, Keyboard Shortcuts, Help, Report an Issue, Danger Zone, About), styled like the tabs of a course page.
+- **3D views in guides work without the internet.** three.js (r128, which the guides use) is kept with the app (`study/vendor`) and put into a guide's page instead of being fetched, so the 3D
+  tools show on a device whose network blocks the CDN. The window also lets WebView2 fall back to software drawing when a graphics driver is on its block list, which is what turns WebGL off.
+  (The math in guides still comes from the MathJax CDN.)
 - **Speed on slower devices.** Settings > Speed and Effects: Light turns off animations, shadows and blur; Automatic does it by itself when the screen draws slowly and remembers it.
 - **Buttons at the top of every page look alike** (outlined, one size, icon and text centered), and the Remove buttons in Edit Schedule and Manage Terms use normal text.
+- **The old quiz files are gone.** The Quiz tab asks the questions that are in the notes themselves (the `Q` array of a study guide, or a note's Self-check); the `quizzes` folder of question
+  files that had to be written outside the app is no longer read.
 - **Back and Forward** return to the same place inside a page (the Task List, a Library tile and its sort), in the order the places were visited.
 - **The loading screen** shows the app icon with a bar from 0 to 100% and waits at least 1 second.
 

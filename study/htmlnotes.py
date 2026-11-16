@@ -1,6 +1,29 @@
 """Shows Claude-generated HTML notes inside the app without their in-page links navigating the frame, opens them at a
 section, and puts the course Quiz tab's question set into the note's own Self-check section."""
+import functools
 import json
+import re
+from pathlib import Path
+
+# Libraries the guides load from a CDN and that are kept with the app, so a guide's 3D view works with no connection or behind a network that blocks the CDN (a guide says "the 3D view needs
+# three.js, which did not load" otherwise). The page's own script tag is replaced by the library itself.
+VENDOR_DIR = Path(__file__).resolve().parent / "vendor"
+VENDOR = {"https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js": "three-r128.min.js"}
+_VENDOR_TAG = re.compile(r"""<script\b[^>]*\bsrc\s*=\s*["']([^"']+)["'][^>]*>\s*</script>""", re.I)
+
+
+@functools.lru_cache(maxsize=8)
+def _vendor_text(name):
+    return (VENDOR_DIR / name).read_text(encoding="utf-8").replace("</script", "<\/script")
+
+
+def inline_vendor(text):
+    """The note's HTML with the CDN script tags of the libraries in study/vendor replaced by the library's own code (anything else is left alone)."""
+    def swap(m):
+        name = VENDOR.get(m.group(1).strip())
+        return f"<script>{_vendor_text(name)}</script>" if name else m.group(0)
+    return _VENDOR_TAG.sub(swap, text)
+
 
 # srcdoc frames resolve "#section" links against the app's own address, so a click would load the whole app
 # inside the note. This script scrolls to the target instead (the note's own handlers still run).
@@ -502,6 +525,7 @@ def safe_html(text, goto=None, questions=None, errata_source=None, resume=None, 
     """The note's HTML with the link guard added just before the closing body tag (or at the end). `goto` is the id of
     a section to scroll to once the page has loaded (the Exercises tab opens the page at #exercises). `questions` (the
     app's question dicts) replace the note's own Self-check, so the note and the course Quiz tab agree."""
+    text = inline_vendor(text)
     script = _SCRIPT + _FIND + _F11
     if links:
         script += _LINKS

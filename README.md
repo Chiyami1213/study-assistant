@@ -32,6 +32,31 @@ side, and let the app keep track of deadlines, grades and outlines. It runs enti
 - **Backup and moving.** Automatic snapshots, a library backup in a folder you choose, and Export My Files / Import to keep a copy or take everything to another
   computer.
 
+## Get it
+
+- **Windows 10 and 11** and **macOS** (Apple silicon and Intel): download from the [Releases](https://github.com/Chiyami1213/study-assistant/releases) page and follow [Install](docs/INSTALL.md).
+- Your antivirus, Windows SmartScreen or macOS may warn about the app: **Study Assistant does not contain a virus** (see the note on the Install tab).
+- Problems, questions or ideas: the [Help](docs/HELP.md) tab, or Settings > Report an Issue inside the app.
+
+## Help
+
+Questions about installing, antivirus warnings, your files, backups, shortcuts and connection problems are answered on the [Help tab](docs/HELP.md).
+
+## What's new
+
+**1.1.0**
+- **A study planner and a new Calendar:** terms, classes, activities and events, tasks with estimates, a cushion that shows how much free time is left before each deadline, Auto-Plan, a study
+  timer, dragging on the schedule (with the repeating-event questions), and a **Task List** with **Import From Syllabus**.
+- **Courses:** a course page with what is coming up, grades and the syllabus; **All Disciplines**, your courses as a tree whose bubbles you can drag (they never overlap); **Merge Courses**.
+- **Library:** sort by type, course or date added; Cards, Tiles or Details; Import a Zip, Update From Folder and **Tidy Up**; and **Prompt for Claude**, which writes the prompt that makes your own
+  Claude produce study guides, helpers, grade explanations and exam pages in the format the app reads. A graded Gradescope paper is read for its grade report by the app itself.
+- **Study Assistant for macOS** (Apple silicon and Intel): a disk image to drag into Applications; files in `~/Library/Application Support/Study Assistant`.
+- **New setup wizard** for Windows: sharp on high-resolution screens, with a welcome page, the choice to update, uninstall first or keep both when it finds an installed version,
+  Desktop and Start menu shortcut options, an antivirus heads-up, and a last page with links to this page and its Help section.
+- **Faster on small devices** (Settings > Speed and Effects), Help and Report an Issue in Settings, and a loading screen with a progress bar.
+
+The full history is in [CHANGELOG.md](CHANGELOG.md).
+
 ## Gallery
 
 (With made-up courses and files.)
@@ -66,28 +91,3 @@ side, and let the app keep track of deadlines, grades and outlines. It runs enti
     <td><img src="docs/gallery/backup.png" alt="Settings: backup, export and import"><br><sub><b>Backup</b>: library backup, Export My Files and Import</sub></td>
   </tr>
 </table>
-
-## Get it
-
-- **Windows 10 and 11** and **macOS** (Apple silicon and Intel): download from the [Releases](https://github.com/Chiyami1213/study-assistant/releases) page and follow [Install](docs/INSTALL.md).
-- Your antivirus, Windows SmartScreen or macOS may warn about the app: **Study Assistant does not contain a virus** (see the note on the Install tab).
-- Problems, questions or ideas: the [Help](docs/HELP.md) tab, or Settings > Report an Issue inside the app.
-
-## Help
-
-Questions about installing, antivirus warnings, your files, backups, shortcuts and connection problems are answered on the [Help tab](docs/HELP.md).
-
-## What's new
-
-**1.1.0**
-- **A study planner and a new Calendar:** terms, classes, activities and events, tasks with estimates, a cushion that shows how much free time is left before each deadline, Auto-Plan, a study
-  timer, dragging on the schedule (with the repeating-event questions), and a **Task List** with **Import From Syllabus**.
-- **Courses:** a course page with what is coming up, grades and the syllabus; **All Disciplines**, your courses as a tree whose bubbles you can drag (they never overlap); **Merge Courses**.
-- **Library:** sort by type, course or date added; Cards, Tiles or Details; Import a Zip, Update From Folder and **Tidy Up**; and **Prompt for Claude**, which writes the prompt that makes your own
-  Claude produce study guides, helpers, grade explanations and exam pages in the format the app reads. A graded Gradescope paper is read for its grade report by the app itself.
-- **Study Assistant for macOS** (Apple silicon and Intel): a disk image to drag into Applications; files in `~/Library/Application Support/Study Assistant`.
-- **New setup wizard** for Windows: sharp on high-resolution screens, with a welcome page, the choice to update, uninstall first or keep both when it finds an installed version,
-  Desktop and Start menu shortcut options, an antivirus heads-up, and a last page with links to this page and its Help section.
-- **Faster on small devices** (Settings > Speed and Effects), Help and Report an Issue in Settings, and a loading screen with a progress bar.
-
-The full history is in [CHANGELOG.md](CHANGELOG.md).

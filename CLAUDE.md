@@ -12,7 +12,7 @@ scripts do not list them as hidden imports.
   git-ignored caches and build output.)
 - The user's own files live in the DATA folder `database.DATA_DIR` = `%APPDATA%\Study Assistant` on Windows and `~/Library/Application Support/Study Assistant` on a Mac (`database.default_data_dir()`; the env variable
   `STUDY_ASSISTANT_DATA` overrides it; an old `project\data` is still used only if it holds `study.db` and the roaming folder does not exist): `study.db`,
-  `settings.json`, `quizzes/`, `pdfs/`, `covers/`, `course_photos/`, `grading/`, `syllabus/`, `annotations/`, `equation_sheets/`, `quiz_progress/` (quizzes saved for later), `screenshots/` (F2), `logs/` (the exe's server log), `webview/`, `Backups/`.
+  `settings.json`, `pdfs/`, `covers/`, `course_photos/`, `grading/`, `syllabus/`, `annotations/`, `equation_sheets/`, `quiz_progress/` (quizzes saved for later), `screenshots/` (F2), `logs/` (the exe's server log), `webview/`, `Backups/`.
   Never edit files in it by hand. In code use `database.DATA_DIR`, `data_path(rel)` and `stored_path(path)`; never build paths from `BASE_DIR / "data"`.
   Book paths in the database are relative to the data folder (`pdfs\book_x.pdf`; older rows may start with `data\`); `data_path()` reads both kinds of slash, so a Windows database works on a Mac.
 

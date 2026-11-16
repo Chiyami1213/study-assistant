@@ -177,6 +177,9 @@ def open_log(data_dir):
 def main():
     import webview
 
+    # A guide's 3D view needs WebGL. Some devices (a Surface with an old graphics driver, a computer without a graphics card) are on WebView2's block list, which turns WebGL off: let it fall back to
+    # software drawing instead. (Set before the window is made; a value the user set stays.)
+    os.environ.setdefault("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS", "--ignore-gpu-blocklist --enable-unsafe-swiftshader")
     project = find_project()
     sys.path.insert(0, str(project))
     DATA_DIR = importlib.import_module("core.database").DATA_DIR      # by name: PyInstaller must not bundle the app's own packages (they are read from the project folder)

@@ -1,24 +1,11 @@
-"""Helpers for writing conceptual check questions for the sections of the HTML notes.
+"""Helpers for the sections of the HTML notes.
 
-`sections_of(html)` lists the content sections of a note with a suggested number of questions (1 to 3, from the
-section's length and how much it contains). The questions themselves are written into
-<data folder>/quizzes/<course code>/<note title>.json (plain files, so Claude in VS Code can write them):
-
-    {"book": 16, "title": "Complex Numbers Review",
-     "sections": [{"id": "euler", "title": "Euler's formula and polar form",
-                   "questions": [{"q": "...", "o": ["...", "..."], "a": 1, "e": "why"}]}]}
-
-Text uses $...$ for math. Write the right answer first: the Quiz tab shuffles the options (the same way each time).
-The Quiz tab adds these questions to the note's own Self-check questions."""
+`sections_of(html)` lists the content sections of a note with a suggested number of questions (1 to 3, from the section's length and how much it contains); `match_section` finds the section a
+question is about. The quiz questions themselves are in the notes (see quizzes.py)."""
 import html as _html
-import json
-import random
 import re
 
-from study import macros
-from core.database import DATA_DIR
 
-ROOT = DATA_DIR / "quizzes"
 SKIP = re.compile(r"notes check|errata|self-check|quiz|mind map", re.I)       # not content sections
 
 
@@ -77,30 +64,3 @@ def match_section(question_text, sections):
         if score > best_score:
             best, best_score = sec, score
     return best if best_score >= 3.0 else None
-
-
-def path_for(course_code, title):
-    safe = lambda s: re.sub(r"[^A-Za-z0-9 _.-]+", "", s).strip() or "note"
-    return ROOT / safe(course_code) / f"{safe(title)}.json"
-
-
-def load(path):
-    try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return None
-
-
-def questions(data):
-    """Flat list of questions from a quiz file, each tagged with its section title."""
-    out = []
-    for sec in (data or {}).get("sections", []):
-        for q in sec.get("questions", []):
-            if isinstance(q.get("o"), list) and isinstance(q.get("a"), int) and 0 <= q["a"] < len(q["o"]):
-                order = list(range(len(q["o"])))
-                random.Random(q["q"]).shuffle(order)                     # the right answer is not always first
-                fix = macros.expand
-                out.append({"kind": "mc", "q": fix(q["q"]), "o": [fix(q["o"][i]) for i in order], "a": order.index(q["a"]),
-                            "e": fix(q.get("e", "")), "h": fix(q.get("h", "")),
-                            "tag": f"§ {sec['title']}", "sec": sec.get("id")})
-    return out

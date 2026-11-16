@@ -1,7 +1,6 @@
 """Course Quiz tab and the Understanding block of the Overview.
 
-A chapter's quiz joins two kinds of questions: conceptual checks written for each section of the HTML note
-(quizzes/<course>/<note>.json, see quizgen.py) and the note's own Self-check questions. Answers are given one per
+A chapter's quiz is the questions of the HTML note itself (its Quiz or Self-check, see quizzes.py). Answers are given one per
 question. Save For Later keeps a quiz that is not finished (the questions in their order, the answers so far, the notes and hints
 used) in quiz_progress/ of the data folder; the quiz list then offers Resume. A finished quiz can be opened again from the quiz list (View): every attempt keeps its questions, the answers given
 and the explanations. A retake adds a new attempt and keeps the earlier ones; the history is deleted only when the user asks
@@ -96,21 +95,14 @@ def course_chapters(course):
             sec = quizgen.match_section(qq["q"] + " " + " ".join(qq["o"]) + " " + qq["e"], secs)
             own.append({**qq, "sec": sec["id"] if sec else None, "tag": ("Self-check · " + sec["title"]) if sec else "Self-check",
                         "_num": sec["num"] if sec else None})
-        made = quizgen.questions(quizgen.load(quizgen.path_for(course["code"] or course["name"], b["title"])))
-        nums = {x["id"]: x["num"] for x in secs}
         labels = {x["id"]: x.get("label") for x in secs}
         ref = lambda n: f"{b['lecture']}.{n}" if b.get("lecture") and n else f"§{n}" if n else ""     # "10.2": lecture, section
-        titles = {x["id"]: x["title"] for x in secs}
-        for qq in made:
-            qq["tag"] = (labels.get(qq.get("sec")) or ref(nums.get(qq.get("sec")))) + " · " + titles.get(qq.get("sec"), qq["tag"].lstrip("§ "))
-        if own and all(qq.get("_own") for qq in own):                   # the note's own quiz replaces the written section checks
-            made = []
         for qq in own:
             if qq.get("_num"):
                 qq["tag"] = (labels.get(qq.get("sec")) or ref(qq["_num"])) + " · " + qq["tag"].replace("Self-check · ", "") + " (self-check)"
-        qs = made + own
+        qs = own
         if qs:
-            out.append({"book": b, "questions": qs, "path": path, "made": len(made),
+            out.append({"book": b, "questions": qs, "path": path,
                         "name": (f"Lec {b['lecture']} · " if b.get("lecture") else "") + b["title"]})
     return out
 
@@ -317,8 +309,7 @@ def render(course):
     for c in chapters:
         s = stats.get(c["book"]["id"])
         name, meta, pill, view, go = st.columns([4.4, 2.6, 1.6, 1.2, 1.3], vertical_alignment="center")
-        name.markdown(f"**{c['name']}**  \n{len(c['questions'])} questions"
-                      + (f" ({c['made']} section checks)" if c["made"] else ""))
+        name.markdown(f"**{c['name']}**  \n{len(c['questions'])} questions")
         if s:
             pct = _pct(_unaided(s), s["last_total"])
             label, css = _level(pct)
