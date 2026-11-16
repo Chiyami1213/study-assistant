@@ -27,6 +27,6 @@ choose **Open**, then **Open** again; if macOS still blocks it, use System Setti
 > **Your antivirus, Windows SmartScreen or macOS may warn about the app, or block it.** It is a false alarm: **Study Assistant does not contain a virus**, and the whole source code
 > is here to read. Programs that are new and not code-signed are often flagged until many people have run them. If it blocks the file, choose "More info > Run anyway"
 > (Windows SmartScreen) or "Open Anyway" (macOS), or allow the file in your security software. Only download it from the [Releases](https://github.com/Chiyami1213/study-assistant/releases) page, and check the file against
-> the SHA-256 checksum published next to it (`SHA256SUMS.txt`): in PowerShell `Get-FileHash <file>`, on a Mac `shasum -a 256 <file>`.
+> the SHA-256 checksum published next to it (`SHA256SUMS.txt` for the Windows zip, `SHA256SUMS-macOS-Apple-Silicon.txt` or `SHA256SUMS-macOS-Intel.txt` for a Mac disk image): in PowerShell `Get-FileHash <file>`, on a Mac `shasum -a 256 <file>`.
 
 The app starts empty; add your own courses and files.
