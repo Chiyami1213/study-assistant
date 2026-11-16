@@ -214,22 +214,22 @@ section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-h
 .st-key-add_course_open, .st-key-merge_courses_open {{width: 10.5rem !important; flex: 0 0 10.5rem !important;}}
 .st-key-add_course_open [data-testid="stButton"], .st-key-merge_courses_open [data-testid="stButton"] {{width: 100% !important;}}
 /* The buttons at the top of every page look like Update Files: an outlined 40 px button with the icon and the text in the middle, on one line (the Import menu of the Library is the same). */
-.stApp :is(.st-key-merge_courses_open, .st-key-add_course_open, .st-key-course_back, .st-key-course_update_files, .st-key-edit_schedule_open, .st-key-cal_autoplan, .st-key-tk_add_open,
+.stApp :is(.st-key-tut_reopen, .st-key-merge_courses_open, .st-key-add_course_open, .st-key-course_back, .st-key-course_update_files, .st-key-edit_schedule_open, .st-key-cal_autoplan, .st-key-tk_add_open,
            .st-key-lab_full_close, .st-key-quiz_notes_close, [class*="st-key-lab_dock_"], [class*="st-key-quiz_save_"], [class*="st-key-quiz_back_"]) button {{
   min-height: 40px !important; height: 40px; min-width: 10.5rem; padding: 0 16px !important; border-radius: 8px !important; white-space: nowrap; width: auto;
   display: flex !important; align-items: center !important; justify-content: center !important; text-align: center !important;}}
-.stApp :is(.st-key-merge_courses_open, .st-key-add_course_open) button {{width: 100% !important;}}
-.stApp :is(.st-key-merge_courses_open, .st-key-add_course_open, .st-key-course_back, .st-key-course_update_files, .st-key-edit_schedule_open, .st-key-lab_full_close, .st-key-quiz_notes_close,
+.stApp :is(.st-key-tut_reopen, .st-key-merge_courses_open, .st-key-add_course_open) button {{width: 100% !important;}}
+.stApp :is(.st-key-tut_reopen, .st-key-merge_courses_open, .st-key-add_course_open, .st-key-course_back, .st-key-course_update_files, .st-key-edit_schedule_open, .st-key-lab_full_close, .st-key-quiz_notes_close,
            [class*="st-key-lab_dock_"], [class*="st-key-quiz_save_"], [class*="st-key-quiz_back_"]) button:not([data-testid="stBaseButton-primary"]) {{border: 1px solid var(--border) !important; background: var(--input) !important;}}
-.stApp :is(.st-key-merge_courses_open, .st-key-add_course_open, .st-key-course_back, .st-key-course_update_files, .st-key-edit_schedule_open, .st-key-lab_full_close, .st-key-quiz_notes_close) button:hover {{border-color: var(--accent) !important;}}
+.stApp :is(.st-key-tut_reopen, .st-key-merge_courses_open, .st-key-add_course_open, .st-key-course_back, .st-key-course_update_files, .st-key-edit_schedule_open, .st-key-lab_full_close, .st-key-quiz_notes_close) button:hover {{border-color: var(--accent) !important;}}
 /* inside: button > div > span (the row) > icon + text; every level is centered, and the text has no extra line height or margin that would sit it lower than the icon */
-.stApp :is(.st-key-merge_courses_open, .st-key-add_course_open, .st-key-course_back, .st-key-course_update_files, .st-key-edit_schedule_open, .st-key-cal_autoplan, .st-key-tk_add_open,
+.stApp :is(.st-key-tut_reopen, .st-key-merge_courses_open, .st-key-add_course_open, .st-key-course_back, .st-key-course_update_files, .st-key-edit_schedule_open, .st-key-cal_autoplan, .st-key-tk_add_open,
            .st-key-lab_full_close, .st-key-quiz_notes_close, [class*="st-key-lab_dock_"], [class*="st-key-quiz_save_"], [class*="st-key-quiz_back_"]) button :is(div, span):not([data-testid="stIconMaterial"]) {{
   display: flex !important; align-items: center !important; justify-content: center !important; gap: 8px; margin: 0 !important; padding: 0 !important; line-height: 1.4 !important; overflow: visible !important; width: auto !important;}}
-.stApp :is(.st-key-merge_courses_open, .st-key-add_course_open, .st-key-course_back, .st-key-course_update_files, .st-key-edit_schedule_open, .st-key-cal_autoplan, .st-key-tk_add_open,
+.stApp :is(.st-key-tut_reopen, .st-key-merge_courses_open, .st-key-add_course_open, .st-key-course_back, .st-key-course_update_files, .st-key-edit_schedule_open, .st-key-cal_autoplan, .st-key-tk_add_open,
            .st-key-lab_full_close, .st-key-quiz_notes_close, [class*="st-key-lab_dock_"], [class*="st-key-quiz_save_"], [class*="st-key-quiz_back_"]) button p {{
   font-size: 0.9rem !important; font-weight: 400 !important; line-height: 1.4 !important; overflow: visible !important; margin: 0 !important; padding: 0 !important; text-align: center !important;}}
-.stApp :is(.st-key-merge_courses_open, .st-key-add_course_open, .st-key-course_back, .st-key-course_update_files, .st-key-edit_schedule_open, .st-key-cal_autoplan, .st-key-tk_add_open,
+.stApp :is(.st-key-tut_reopen, .st-key-merge_courses_open, .st-key-add_course_open, .st-key-course_back, .st-key-course_update_files, .st-key-edit_schedule_open, .st-key-cal_autoplan, .st-key-tk_add_open,
            .st-key-lab_full_close, .st-key-quiz_notes_close, [class*="st-key-lab_dock_"], [class*="st-key-quiz_save_"]) [data-testid="stIconMaterial"] {{font-size: 1.2rem !important; line-height: 1 !important; display: block;}}
 
 /* Course summary tiles */

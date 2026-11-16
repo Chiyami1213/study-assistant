@@ -75,13 +75,20 @@ def _welcome():
         st.rerun()
 
 
-def render_card():
-    """The checklist at the top of Home. When it was skipped or finished, only a small button is left that brings it back (Settings > Help has one too)."""
-    state = ensure_state()
-    if state.get("mode") != "active":
-        if st.button("Show the Tutorial", key="tut_reopen", icon=":material/school:", type="tertiary", help="the getting-started checklist"):
+def header_button():
+    """In the row of the Home title, at the right: the button that opens the tutorial again after it was skipped or finished (Settings > Help has one too)."""
+    if ensure_state().get("mode") == "active":
+        return
+    with st.container(horizontal=True, horizontal_alignment="right"):
+        if st.button("Show the Tutorial", key="tut_reopen", icon=":material/school:", help="the getting-started checklist"):
             settings.set_tutorial(mode="active", welcomed=True)
             st.rerun()
+
+
+def render_card():
+    """The checklist at the top of Home (nothing while it is skipped or finished: `header_button` brings it back)."""
+    state = ensure_state()
+    if state.get("mode") != "active":
         return
     if not state.get("welcomed"):
         settings.set_tutorial(welcomed=True)

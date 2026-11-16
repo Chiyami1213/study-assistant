@@ -32,8 +32,11 @@ def _term_stats(today):
 
 
 def render():
-    st.title("Home")
     from views import tutorial
+    head, tutorial_col = st.columns([5, 2], vertical_alignment="center")
+    head.title("Home")
+    with tutorial_col:
+        tutorial.header_button()                        # right-aligned in the row of the title, once the tutorial was skipped or finished
     tutorial.render_card()                              # the getting-started checklist of a new student (it can be skipped)
     if settings.semester_set():                       # the week and the days to winter break, from the term dates saved in the Calendar
         chips = "".join(f'<div class="home-stat"><b>{big}</b><span>{small}</span></div>' for big, small in _term_stats(date.today()))
