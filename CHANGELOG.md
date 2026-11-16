@@ -48,7 +48,7 @@
   by chapter in a table, as free text, or pasted.
 - **Courses tree.** Courses > All > Tree is a tree that grows upward from **All Disciplines** at the bottom: branches for domains, fields and topics (similar fields on the same branch) and a bubble for each
   course, with its photo as the background. Click a bubble to fold or unfold its branches, click a course to open it, **drag any bubble** to move it (it lifts while held, settles when dropped, its branches
-  and courses follow, bubbles and lines never overlap: what a held bubble comes near is pushed away, and it slides along lines instead of crossing them), zoom with + / - or the wheel, drag the map to move it, Fit, **Reset View** (the view and every bubble back where it was) and Collapse All. Self-study courses sit on the branch of their
+  and courses follow, bubbles and lines never overlap: what a held bubble comes near is pushed away, it slides along lines instead of crossing them, and every bubble stays inside the map's rectangle; a line runs from the border of a bubble to the border of its parent), zoom with + / - or the wheel, drag the map to move it, Fit, **Reset View** (the view and every bubble back where it was) and Collapse All. Self-study courses sit on the branch of their
   own field with a dashed outline. A field with only one topic has no extra "General" bubble, and a course's whole title is shown.
 - **Merge Courses.** Make two or more courses one (MA 266 / MA 303): choose the course that stays and a tag for each part. Files, homework and exams get the tag, everything of the other courses moves
   over, they are deleted, and a copy of the database and settings is kept in `Backups\Before Merge`. A merged course's number is written out.

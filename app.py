@@ -1370,10 +1370,20 @@ if (!win.__treeDragV1) {
   };
   const base = n => {
     if (!n.__b) {
-      const s = n.style, f = v => parseFloat(s.getPropertyValue(v)) || 0, ln = n.querySelector('.mm-line');
-      n.__b = {x: f('--x'), y: f('--y'), px: f('--px'), py: f('--py'), lx: ln ? parseFloat(ln.getAttribute('x2')) : 0, ly: ln ? parseFloat(ln.getAttribute('y2')) : 0};
+      const s = n.style, f = v => parseFloat(s.getPropertyValue(v)) || 0, c = n.querySelector('circle');
+      n.__b = {x: f('--x'), y: f('--y'), px: f('--px'), py: f('--py'), r: c ? parseFloat(c.getAttribute('r')) || 0 : 0};
     }
     return n.__b;
+  };
+  // the two ends of a line between circle centers (dx, dy from the first to the second), both pulled back to the borders of their circles; null when the circles touch
+  const trimmed = (dx, dy, r1, r2) => {
+    const len = Math.hypot(dx, dy); if (len <= r1 + r2 + 1) return null;
+    const ux = dx / len, uy = dy / len; return [ux * r1, uy * r1, dx - ux * r2, dy - uy * r2];
+  };
+  const setLine = (ln, ends, ox = 0, oy = 0) => {
+    if (!ends) { ln.style.visibility = 'hidden'; return; }
+    ln.style.visibility = '';
+    ln.setAttribute('x1', ends[0] + ox); ln.setAttribute('y1', ends[1] + oy); ln.setAttribute('x2', ends[2] + ox); ln.setAttribute('y2', ends[3] + oy);
   };
   const place = svg => {
     const nodes = [...svg.querySelectorAll('.mm-node')], byId = new Map(nodes.map(n => [n.dataset.id, n]));
@@ -1381,9 +1391,11 @@ if (!win.__treeDragV1) {
       const b = base(n), o = offsets[keyOf(n)] || [0, 0], par = byId.get(n.dataset.parent), po = par ? (offsets[keyOf(par)] || [0, 0]) : [0, 0];
       n.style.setProperty('--x', (b.x + o[0]) + 'px'); n.style.setProperty('--y', (b.y + o[1]) + 'px');
       n.style.setProperty('--px', (b.px + po[0]) + 'px'); n.style.setProperty('--py', (b.py + po[1]) + 'px');
-      const ln = n.querySelector('.mm-line'); if (ln) { ln.setAttribute('x2', b.lx + po[0] - o[0]); ln.setAttribute('y2', b.ly + po[1] - o[1]); }
-      if (hold && hold.ghost && hold.node === n) {                                      // the held bubble's line is drawn under every bubble, so it never crosses its parent
-        hold.ghost.setAttribute('x1', b.x + o[0]); hold.ghost.setAttribute('y1', b.y + o[1]); hold.ghost.setAttribute('x2', b.px + po[0]); hold.ghost.setAttribute('y2', b.py + po[1]);
+      const ln = n.querySelector('.mm-line');
+      if (ln && par) {
+        const dx = b.px + po[0] - (b.x + o[0]), dy = b.py + po[1] - (b.y + o[1]), ends = trimmed(dx, dy, b.r, base(par).r);
+        setLine(ln, ends);
+        if (hold && hold.ghost && hold.node === n) setLine(hold.ghost, ends, b.x + o[0], b.y + o[1]);        // the held bubble's line is drawn under every bubble, so it never crosses its parent
       }
     });
   };
@@ -1391,6 +1403,10 @@ if (!win.__treeDragV1) {
   // Bubbles and lines never overlap: what the held bubble (with the branches that hang on it) comes near is pushed away, bubbles from bubbles, and bubbles from lines (a line that the held
   // bubble touches swings aside, because the bubble at its end is pushed sideways). The center bubble does not move; the held bubble stops at it.
   const GAP = 10, LINE_GAP = 8, STEP = 18, PASSES = 12, MAX_MOVE = 260;
+  const field = svg => {                                                                        // the rectangle of the map as it was drawn (the view may be zoomed or moved; the field is not)
+    if (!svg.__field) { const h = (svg.dataset.home || '').split(' ').map(Number); const v = svg.viewBox.baseVal; svg.__field = h.length === 4 && h.every(isFinite) ? h : [v.x, v.y, v.width, v.height]; }
+    return svg.__field;
+  };
   const repel = (svg, group, held) => {
     const info = [...svg.querySelectorAll('.mm-node')].filter(n => !n.classList.contains('mm-hidden')).map(n => {
       const b = base(n), o = offsets[keyOf(n)] || [0, 0];
@@ -1413,11 +1429,20 @@ if (!win.__treeDragV1) {
         shiftGroup(dx / dd * (min - d), dy / dd * (min - d));
       });
     }
+    const fld = field(svg);
+    const inside = i => { i.x = Math.max(fld[0] + i.r, Math.min(fld[0] + fld[2] - i.r, i.x)); i.y = Math.max(fld[1] + i.r, Math.min(fld[1] + fld[3] - i.r, i.y)); };
+    {                                                                                           // the held bubbles (with their branches) stay inside the field
+      const g = info.filter(i => group.has(i.n)); if (g.length) {
+        const lo = [Math.min(...g.map(i => i.x - i.r)), Math.min(...g.map(i => i.y - i.r))], hi = [Math.max(...g.map(i => i.x + i.r)), Math.max(...g.map(i => i.y + i.r))];
+        const sx = lo[0] < fld[0] ? fld[0] - lo[0] : hi[0] > fld[0] + fld[2] ? fld[0] + fld[2] - hi[0] : 0, sy = lo[1] < fld[1] ? fld[1] - lo[1] : hi[1] > fld[1] + fld[3] ? fld[1] + fld[3] - hi[1] : 0;
+        if (sx || sy) shiftGroup(sx, sy);
+      }
+    }
     const start = info.map(i => [i.x, i.y]);
     const shove = (i, dx, dy) => {
       if (i.fixed) return;
       const m = Math.hypot(dx, dy); if (m > STEP) { dx *= STEP / m; dy *= STEP / m; }
-      i.x += dx; i.y += dy; i.moved = true;
+      i.x += dx; i.y += dy; inside(i); i.moved = true;
     };
     for (let pass = 0; pass < PASSES; pass++) {
       let any = false;

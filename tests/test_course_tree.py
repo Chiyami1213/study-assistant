@@ -129,3 +129,11 @@ def test_a_field_with_only_the_unnamed_topic_has_no_general_bubble_and_a_name_on
     html = K.tree_html([course(1, "", "Tonal Harmony")], lambda c: "Self-Study", lambda c: "#888")
     assert "Tonal" in html and "Harmony" in html
     assert 'data-mm-zoom="reset"' in html and 'data-mm-zoom="fit"' in html                              # Reset View puts the view and every bubble back
+
+
+def test_a_line_runs_from_the_border_of_its_bubble_to_the_border_of_its_parent_and_the_field_is_in_the_svg():
+    x1, y1, x2, y2 = K.border_line(300.0, 400.0, 60.0, 112.0)                                 # a 3-4-5 triangle: the length is 500
+    assert (round(x1, 1), round(y1, 1)) == (36.0, 48.0) and (round(x2, 1), round(y2, 1)) == (300 - 67.2, 400 - 89.6)
+    assert K.border_line(50.0, 0.0, 60.0, 112.0) is None                                      # the circles touch: no line
+    html = K.tree_html([course(1, "AE 6009", "Viscous Fluid Flow"), course(2, "PHYS 6105", "Quantum Mechanics I")], lambda c: "Active", lambda c: "#888")
+    assert 'data-home="' in html and 'class="mm-line" x1="0.0" y1="0.0"' not in html          # the field is kept, and no line starts at a center

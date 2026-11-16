@@ -228,18 +228,29 @@ def layout(courses):
     return nodes, (max(abs(n["x"]) + n["r"] for n in nodes) + 30, max(abs(n["y"]) + n["r"] for n in nodes) + 30)
 
 
+def border_line(dx, dy, r_from, r_to):
+    """The two ends (x1, y1, x2, y2) of the line from a bubble to its parent at (dx, dy), pulled back to the borders of both circles; None when the circles touch."""
+    length = math.hypot(dx, dy)
+    if length <= r_from + r_to + 1:
+        return None
+    ux, uy = dx / length, dy / length
+    return ux * r_from, uy * r_from, dx - ux * r_to, dy - uy * r_to
+
+
 def tree_html(courses, status_of, color_of, selected=None, root_label="All Disciplines", photo_of=None):
     """The mind map as one SVG. A bubble with branches folds them into itself when clicked (CSS animates every bubble to its parent and back, see app.py); a white bubble is a course and
     a click on it opens the course. `status_of(course)` / `color_of(course)`: the status text and the color of a course; `selected`: the id of the course to mark."""
     if not courses:
         return ""
     nodes, (ex, ey) = layout(courses)
+    radius = {n["id"]: n["r"] for n in nodes}
     parts = []
     for n in sorted(nodes, key=lambda m: -m["level"]):              # outer bubbles first: a bubble covers the lines of the ones it holds
         r, level = n["r"], n["level"]
         dx, dy = n["px"] - n["x"], n["py"] - n["y"]
         style = f'--x:{n["x"]:.1f}px;--y:{n["y"]:.1f}px;--px:{n["px"]:.1f}px;--py:{n["py"]:.1f}px'
-        line = "" if n["parent"] is None else f'<line class="mm-line" x1="0" y1="0" x2="{dx:.1f}" y2="{dy:.1f}"/>'
+        ends = None if n["parent"] is None else border_line(dx, dy, r, radius[n["parent"]])
+        line = f'<line class="mm-line" x1="{ends[0]:.1f}" y1="{ends[1]:.1f}" x2="{ends[2]:.1f}" y2="{ends[3]:.1f}"/>' if ends else ""             # from the border of the bubble to the border of its parent
         if level == 4:
             c = n["course"]
             raw = crud.show_code(c.get("code") or c.get("name") or "Course")
@@ -270,4 +281,4 @@ def tree_html(courses, status_of, color_of, selected=None, root_label="All Disci
             f'<span class="tk-zoom"><button type="button" data-mm-zoom="out" title="zoom out">&minus;</button><button type="button" data-mm-zoom="in" title="zoom in">+</button>'
             f'<button type="button" data-mm-zoom="fit" title="show the whole map">Fit</button><button type="button" data-mm-zoom="reset" title="show the whole map and put every bubble back where it was">Reset View</button></span>'
             f'<button type="button" class="tk-btn" data-mm-all="close">Collapse All</button></div>'
-            f'<svg class="mm" viewBox="{-ex:.0f} {-ey:.0f} {2 * ex:.0f} {2 * ey:.0f}" role="img" aria-label="{html.escape(root_label)}">{"".join(parts)}</svg></div>')
+            f'<svg class="mm" viewBox="{-ex:.0f} {-ey:.0f} {2 * ex:.0f} {2 * ey:.0f}" data-home="{-ex:.0f} {-ey:.0f} {2 * ex:.0f} {2 * ey:.0f}" role="img" aria-label="{html.escape(root_label)}">{"".join(parts)}</svg></div>')
