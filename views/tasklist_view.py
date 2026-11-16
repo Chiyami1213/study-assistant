@@ -439,6 +439,9 @@ def render(report, courses, tz):
         planner_ui.defaults_dialog()
     if top[2].button("Import From Syllabus", key="tk_import_open", icon=":material/upload_file:", help="reads the homework, quizzes and exams of each course of the term, from its course page and its syllabus, and adds them to the list"):
         import_dialog()
+    if top[3].button("Import From Calendar", key="tk_cal_open", icon=":material/event_repeat:", help="brings the assignments and events of canvas, brightspace or google calendar into the planner, and keeps them up to date"):
+        from views import calendar_import
+        calendar_import.import_dialog()
 
     side, main = st.columns([1.2, 6], gap="medium")
     open_tasks = [t for t in tasks if not t.is_done]

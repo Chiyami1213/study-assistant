@@ -10,8 +10,14 @@ optional), and the app reads what is already in each course page and in its syll
 **How do I change the term, the dates or the wake-up time?** The term list above the calendar switches the term; its last entry, Manage Terms, changes the dates and has Add New Term (with its wake-up
 time, bedtime and holidays).
 
-**How do I get study guides, helpers and grade pages made by Claude into the app?** Library > Import > **Prompt for Claude**: choose the course, the kind of page and its number, copy the prompt into a
-chat on claude.ai and attach your course files (the prompt lists which). Claude writes one HTML page in the format the app reads; download it, keep the file name the prompt gave, and import it with
+**How do I bring in my Canvas, Brightspace or Google Calendar?** Calendar > Task List > **Import From Calendar**. Copy the private calendar link of your service (Canvas: Calendar > Calendar Feed;
+Brightspace: Calendar > Subscribe; Google Calendar: Settings > the calendar > Integrate calendar > Secret address in iCal format), paste it, read it, check the table and add. The link is kept on this
+computer and read again to keep your tasks and events up to date (**Sync Now**, or when the app opens). Without a link, import an `.ics` file (Google Calendar: Settings > Import & export > Export).
+
+**How do I see the getting-started tutorial again?** Settings > Help > **Show the Tutorial Again**.
+
+**How do I get study guides, helpers and grade pages made by an AI assistant into the app?** Library > Import > **Prompt for AI**: choose the course, the kind of page and its number, and your assistant
+(**Claude**, **ChatGPT** or **Gemini**), copy the prompt into a chat with it and attach your course files (the prompt lists which). The assistant writes one HTML page in the format the app reads; download it, keep the file name the prompt gave, and import it with
 **Add a File** (or a zip of several). The app recognizes the type from the name (Notes, Homework Helper, Grade Explanation, Exam Reflection, Exam Preparation ...), pairs a helper or a grade
 explanation with its homework or exam, and opens the links between your pages.
 

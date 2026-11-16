@@ -1097,6 +1097,12 @@ def render():
     if open_book:
         _viewer(open_book); return
 
+    if st.session_state.pop("_tut_add_file", False):                          # the tutorial opens these windows
+        _reset_add_boxes()
+        _add_dialog(None)
+    elif st.session_state.pop("_tut_prompt", False):
+        from views import prompt_dialog
+        prompt_dialog.prompt_dialog()
     all_books = crud.list_books()
     courses = {c["id"]: c for c in crud.list_courses(section=None)}
     _handle_click()
@@ -1119,7 +1125,7 @@ def render():
             _tidy_dialog()
         if st.button("Update From Folder", key="imp_menu_folder", icon=":material/sync:", width="stretch", help="reads the folder your files are kept in and lists the new and the changed ones"):
             library_import.folder_dialog()
-        if st.button("Prompt for Claude", key="imp_menu_prompt", icon=":material/auto_awesome:", width="stretch", help="makes a prompt for your own claude chat that writes a study guide, a helper or a grade page in the format this app reads"):
+        if st.button("Prompt for AI", key="imp_menu_prompt", icon=":material/auto_awesome:", width="stretch", help="makes a prompt for your own ai chat (claude, chatgpt or gemini) that writes a study guide, a helper or a grade page in the format this app reads"):
             from views import prompt_dialog
             prompt_dialog.prompt_dialog()
     inner = None

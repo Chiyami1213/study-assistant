@@ -4,6 +4,21 @@
 
 ---
 
+## 1.1.1 (2026-11-16)
+
+- **Prompt for AI** (it was Prompt for Claude): the prompt can now be made for **Claude, ChatGPT or Gemini**. Pick the assistant in the window; the contents and the format the app reads are the same,
+  and only the way the finished page is handed over differs (an artifact for Claude; a downloadable `.html` file or one code block for ChatGPT; Canvas or one code block for Gemini). Notes pages that are
+  not on the web are linked as `https://study-assistant.local/artifact/notes-<lecture number>#<section id>`, and the app now reads a link of the form `.../artifact/<id>` at any address (it used to
+  need `claude.ai`).
+- **Getting Started tutorial.** A new student (no course yet) sees a welcome window and a checklist at the top of Home: add courses, set up the term, add class times, add files, make study guides
+  with an AI assistant, add tasks, build the schedule. Each step has a button that goes to the right page and opens the right window, and ticks itself off from what you have done. **Skip
+  Tutorial** hides it for good; Settings > Help > Show the Tutorial Again brings it back. Someone who already has courses never sees it.
+- **Import From Calendar** (Task List). Bring the assignments and events of **Canvas**, **Brightspace** and **Google Calendar** into the planner: paste the private calendar link of the service (it is
+  read again to keep things up to date: **Sync Now**, and when the app opens, at most every 3 hours) or import an `.ics` file once. You check a table first (task or event, course found from the
+  course number in the title, category); repeating events and time zones are handled; an item is never added twice, a changed one is updated, and one you deleted is not brought back. The link is
+  only read, and kept only in the settings file of this computer.
+- **Fix:** the hover note of the Import button no longer stays on top of the window that the Import menu opens.
+
 ## 1.1.0 (2026-11-15)
 
 ### Study planner and Calendar

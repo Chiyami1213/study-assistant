@@ -241,7 +241,7 @@ _ANCHOR = """<script>
 _LINKS = r"""<script>
 (function () {
   var P = window.parent, lec = {};
-  function art(a) { var m = /claude\.ai\/artifact\/([^#?\/]+)/.exec(a.getAttribute('href') || ''); return m && m[1]; }
+  function art(a) { var m = /\/artifact\/([^#?\/]+)/.exec(a.getAttribute('href') || ''); return m && m[1]; }
   function lecOf(a) { var m = /\b(?:Lec(?:ture)?|Ch(?:apter)?)\s*(\d+)/i.exec(a.textContent || ''); return m && m[1]; }
   [].forEach.call(document.querySelectorAll('a[href]'), function (a) {
     var id = art(a), l = lecOf(a);

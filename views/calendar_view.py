@@ -305,7 +305,7 @@ def render():
     head, tog, btn = st.columns([2.2, 2.6, 1.6], vertical_alignment="center")
     page = tog.segmented_control("Page", PAGES, key="cal_page", label_visibility="collapsed") or "Calendar"
     head.title(page)
-    if page == "Calendar" and btn.button("Edit Schedule", key="edit_schedule_open"):
+    if page == "Calendar" and (btn.button("Edit Schedule", key="edit_schedule_open") or st.session_state.pop("_tut_schedule", False)):          # the tutorial opens it too
         _schedule_dialog()
 
     sink = st.text_input("Calendar Actions", key="cal_sink", label_visibility="collapsed")          # a drag or click in the grid writes here (see app.py)

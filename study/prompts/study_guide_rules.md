@@ -53,7 +53,7 @@ Applies to every interactive study guide I ask for, for any course. The sections
 2. **Which equations**: governing equations and final results whose derivation is in the lecture or is the standard route (definitions that are only stated, tables and data values get none). A derivation the lecture skips is still written when it is short and needed to trust the result.
 3. **Build**: start from equations already numbered in the notes and link them; each step is one boxed equation with a black edge and a local label (a), (b), …; the last step names the numbered equation (red-edge, with its number, stays in the main text). Say what each step uses, one short sentence between boxes. No new notation: keep the chapter's symbols, hats and bars.
 4. **Checks before delivery**: every expression parses in a LaTeX checker, math is not wider than the page at 390 (px), and the folds do not change the numbering or the table of contents.
-5. **All notes of a course**: when the rule is added to a course, every chapter or lecture page gets the blocks, not only the one being edited, and the artifacts are republished in place with the downloadable zip regenerated.
+5. **All notes of a course**: when the rule is added to a course, every chapter or lecture page gets the blocks, not only the one being edited, and {{REPUBLISH}} with the downloadable zip regenerated.
 
 ## Labs
 

@@ -340,6 +340,10 @@ def _help_section():
     from desktop import helpinfo
     _section("Help")
     st.caption(f"Answers to common questions. More help is on the [project page]({helpinfo.HELP_URL}).")
+    if st.button("Show the Tutorial Again", key="tut_again", icon=":material/school:", help="the getting-started checklist on the home page"):
+        settings.set_tutorial(mode="active", welcomed=True)
+        st.session_state["page"] = "Home"
+        st.rerun()
     files = helpinfo.where_files()
     for question, answer in helpinfo.FAQ:
         with st.expander(question):

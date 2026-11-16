@@ -1,4 +1,4 @@
-"""Prompts for the student's Claude chat: every page type, the course filled in, the format the app reads, and file names the Library recognizes."""
+"""Prompts for the student's AI chat (Claude, ChatGPT, Gemini): every page type, the course filled in, the format the app reads, and file names the Library recognizes."""
 from pathlib import Path
 
 import pytest
@@ -106,3 +106,31 @@ def test_the_quiz_array_the_prompt_asks_for_is_what_the_quiz_reader_understands(
     got = quizzes.parse(page)
     assert [(q["kind"], q["section"], q["a"], q["textbook"]) for q in got] == [("mc", "s2-2", 1, False), ("mc", "s3-1", 0, True)]
     assert got[0]["o"][1] == "An eigenpair" and got[0]["h"] == "Think of v."
+
+
+@pytest.mark.parametrize("assistant", list(P.ASSISTANTS))
+@pytest.mark.parametrize("kind", list(P.KINDS))
+def test_a_prompt_for_each_assistant_has_no_placeholder_and_only_claude_talks_of_artifacts(kind, assistant):
+    text = P.build_prompt(kind, COURSE, number_of(kind), assistant=assistant)
+    assert "{{" not in text and "<COURSE>" not in text
+    assert (f"a {assistant} chat" in text.split(chr(10))[2])
+    assert ("claude" in text.lower()) == (assistant == "Claude") and ("an HTML artifact" in text) == (assistant == "Claude")
+    assert "Artifact tool" not in text or assistant == "Claude"
+    assert 'id="p1"' in text or kind in ("Study Guide", "Exam Reflection", "Exam Preparation")                       # the format the app reads is in every one
+
+
+def test_chatgpt_and_gemini_hand_over_a_file_or_one_code_block_and_name_notes_pages_with_a_neutral_address():
+    chatgpt = P.build_prompt("Homework Helper", COURSE, "4", assistant="ChatGPT")
+    gemini = P.build_prompt("Homework Helper", COURSE, "4", assistant="Gemini")
+    assert "one downloadable `.html` file" in chatgpt and "single code block" in chatgpt and "Canvas" in gemini and "single code block" in gemini
+    for text in (chatgpt, gemini):
+        assert "https://study-assistant.local/artifact/notes-3#s2-2" in text and "Lec N §x.y · Title" in text
+        assert "claude:viewport" not in text and "whole updated file" in text
+    assert "an artifact link on any host" in P.build_prompt("Homework Helper", COURSE, "4")                          # Claude's text is as it was
+    with pytest.raises(ValueError):
+        P.build_prompt("Homework Helper", COURSE, "4", assistant="Bard")
+
+
+def test_the_notes_link_reader_accepts_an_artifact_address_on_any_host():
+    from study import htmlnotes
+    assert "/\/artifact\/([^#?\/]+)/" in htmlnotes._LINKS and "claude\.ai" not in htmlnotes._LINKS.split("function art")[1].split("function lecOf")[0]

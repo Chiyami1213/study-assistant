@@ -295,6 +295,14 @@ def update_event(event_id, title, start, end, all_day=False, location="", commut
         conn.commit()
 
 
+def events_by_source(prefix):
+    """{source: event} for the events whose source starts with `prefix` (what a calendar import brought in)."""
+    with _conn() as conn:
+        rows = conn.execute("SELECT * FROM events WHERE source LIKE ?", (prefix + "%",)).fetchall()
+    term = store.get_term()
+    return {r["source"]: _event_from_row(r, term) for r in rows}
+
+
 def delete_event(event_id):
     with _conn() as conn:
         conn.execute("DELETE FROM events WHERE id=?", (event_id,))

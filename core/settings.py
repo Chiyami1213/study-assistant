@@ -152,6 +152,75 @@ DEFAULT_KEYS = {
 }
 
 
+FEED_KINDS = ("Canvas", "Brightspace", "Google Calendar", "Other")
+
+
+def list_feeds():
+    """The calendar feeds the student subscribed to: [{id, name, kind, url, tasks, events, last_sync, status, seen}]."""
+    return [dict(f) for f in _load().get("calendar_feeds", []) if isinstance(f, dict) and f.get("id") and f.get("url")]
+
+
+def add_feed(feed_id, name, kind, url, tasks=True, events=True):
+    """Keep a feed (its address is private: it is only stored in the settings file of this computer). Returns the feed."""
+    data = _load()
+    feeds = [f for f in data.get("calendar_feeds", []) if f.get("id") != feed_id]
+    feed = {"id": feed_id, "name": (name or kind).strip() or kind, "kind": kind if kind in FEED_KINDS else "Other", "url": url.strip(), "tasks": bool(tasks), "events": bool(events),
+            "last_sync": None, "status": "", "seen": []}
+    data["calendar_feeds"] = feeds + [feed]
+    _save(data)
+    return feed
+
+
+def update_feed(feed_id, **fields):
+    data = _load()
+    for f in data.get("calendar_feeds", []):
+        if f.get("id") == feed_id:
+            f.update(fields)
+    _save(data)
+
+
+def mark_feed_seen(feed_id, keys):
+    """Remember the items of a feed that were shown to the student (so a deleted one is not brought back by the next sync)."""
+    data = _load()
+    for f in data.get("calendar_feeds", []):
+        if f.get("id") == feed_id:
+            f["seen"] = sorted(set(f.get("seen") or []) | set(keys))[-5000:]
+    _save(data)
+
+
+def remove_feed(feed_id):
+    """Forget a feed (what it brought in stays in the planner)."""
+    data = _load()
+    data["calendar_feeds"] = [f for f in data.get("calendar_feeds", []) if f.get("id") != feed_id]
+    _save(data)
+
+
+def get_auto_sync():
+    """True (the usual): the saved feeds are read again when the app opens (at most every few hours)."""
+    return bool(_load().get("calendar_auto_sync", True))
+
+
+def set_auto_sync(on):
+    data = _load()
+    data["calendar_auto_sync"] = bool(on)
+    _save(data)
+
+
+def get_tutorial():
+    """The state of the getting-started tutorial: {"mode": "active" | "dismissed", "welcomed": bool}, or None before the app decided (see views/tutorial.py)."""
+    state = _load().get("tutorial")
+    return dict(state) if isinstance(state, dict) else None
+
+
+def set_tutorial(**fields):
+    """Change the tutorial state (mode, welcomed); the other fields stay."""
+    data = _load()
+    state = dict(data.get("tutorial") or {})
+    state.update(fields)
+    data["tutorial"] = state
+    _save(data)
+
+
 def get_fit_warning():
     """True (the usual) when the Calendar warns that work does not fit before its deadline; False after the student chose Don't Show Again."""
     return bool(_load().get("fit_warning", True))

@@ -29,6 +29,14 @@ if "_backed_up" not in st.session_state:             # a safety copy of the data
     from datafiles import backup
     backup.run()
     st.session_state["_backed_up"] = True
+if "_cal_synced" not in st.session_state:                        # the saved calendar feeds (Canvas, Brightspace, Google Calendar) are read again, at most every few hours
+    st.session_state["_cal_synced"] = True
+    try:
+        from views import calendar_import
+        for _msg in calendar_import.auto_sync():
+            st.toast(_msg)
+    except Exception:
+        pass
 if "_titles_fixed" not in st.session_state:          # course codes in file names read "AE 333", not "AE333" or "ae 333"
     crud.fix_book_titles()
     st.session_state["_titles_fixed"] = True
@@ -199,6 +207,10 @@ section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-h
 
 /* Merge Courses and Add Course: two outlined buttons of the same size, side by side at the top right */
 .st-key-course_actions {{gap: 0.6rem !important; justify-content: flex-end !important;}}
+/* Getting Started (Home): a number or a tick in a circle in front of each step */
+.tut-mark {{width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 0.85rem; font-weight: 700; opacity: 0.85;}}
+.tut-mark.tut-done {{background: #2c7a4b; border-color: #2c7a4b; color: #fff; opacity: 1;}}
+.tut-why {{font-size: 0.85rem; opacity: 0.72;}}
 .st-key-add_course_open, .st-key-merge_courses_open {{width: 10.5rem !important; flex: 0 0 10.5rem !important;}}
 .st-key-add_course_open [data-testid="stButton"], .st-key-merge_courses_open [data-testid="stButton"] {{width: 100% !important;}}
 /* The buttons at the top of every page look like Update Files: an outlined 40 px button with the icon and the text in the middle, on one line (the Import menu of the Library is the same). */
@@ -1150,6 +1162,18 @@ if (!win.__calDragV1) {
     const dx = e.changedTouches[0].clientX - swipe.x, dy = e.changedTouches[0].clientY - swipe.y; swipe = null;
     if (Math.abs(dx) > 60 && Math.abs(dy) < 50) { const b = doc.querySelector(dx < 0 ? '.st-key-cal_next button' : '.st-key-cal_prev button'); if (b) b.click(); }
   }, {passive: true, capture: true});
+}
+// A hover note (the "add files to the library" of the Import button) is closed by the pointer leaving its button. When a window opens and the button disappears under the pointer, the note
+// would stay on top of the window; so when a window opens, the notes that are open then are hidden.
+if (!win.__dialogTipV1) {
+  win.__dialogTipV1 = true;
+  let open = false;
+  const hideTips = () => doc.querySelectorAll('[data-testid="stTooltipContent"]').forEach(t => { const box = t.closest('[data-baseweb="popover"]') || t.parentElement; if (box) box.style.display = 'none'; });
+  new win.MutationObserver(() => {
+    const now = !!doc.querySelector('[data-testid="stDialog"]');
+    if (now && !open) { hideTips(); win.setTimeout(hideTips, 120); win.setTimeout(hideTips, 400); }
+    open = now;
+  }).observe(doc.body, {childList: true, subtree: true});
 }
 // Settings: the bar at the top jumps to a section (the page scrolls inside the app, so the link scrolls that heading into view itself).
 if (!win.__setNavV1) {

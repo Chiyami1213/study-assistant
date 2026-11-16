@@ -6,7 +6,7 @@ I will import the finished page into my study app, which recognizes a page only 
 2. **Math**: MathJax 3.2.2 from `https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-svg.js`, written `\( ... \)` inline and `\[ ... \]` for display.
 3. **Light and dark** through `prefers-color-scheme`.
 4. **The `<title>` and the file name are the same**: `<FILE>`. The app reads the type of the page, the number and the course from the file name, so use exactly this name and never rename it.
-5. **Delivery**: publish the page as an HTML artifact and tell me the file name. I download the file and import it in my app with Library > Import > Add a File.
+5. **Delivery**: {{DELIVERY}}
 
 ## Study Guide
 
@@ -79,8 +79,8 @@ The same format as the Homework Grade Explanation. The exam name in the title (M
 
 ## Links
 
-My app turns a link into an action by reading its **visible text** and, for notes, the `#id` at the end of its address. Write the address you have for my page (an artifact link on any host is fine) and keep the visible text in these forms:
+My app turns a link into an action by reading its **visible text** and, for notes, the `#id` at the end of its address. {{LINK_ADDRESS}} Keep the visible text in these forms:
 
-1. **A section of my notes**: the address of the notes page followed by the section id, for example `.../artifact/<id>#s2-2`, with the visible text `Lec N §x.y · Title` (for example `Lec 3 §2.2 · Eigenpairs`). The app reads the lecture number from the text and the section from the `#id`, and opens the course's notes of that lecture number at that id. A link to a worked example uses the example's id (`#ex-3`) and the text `(Lec N)`. A link to a chapter without a section id uses `Ch2 · Title` and opens that chapter's notes at the top. A link with no lecture number takes the lecture number of another link to the same address on the page.
+1. **A section of my notes**: the address of the notes page followed by the section id, for example `{{LINK_EXAMPLE}}`, with the visible text `Lec N §x.y · Title` (for example `Lec 3 §2.2 · Eigenpairs`). The app reads the lecture number from the text and the section from the `#id`, and opens the course's notes of that lecture number at that id. A link to a worked example uses the example's id (`#ex-3`) and the text `(Lec N)`. A link to a chapter without a section id uses `Ch2 · Title` and opens that chapter's notes at the top. A link with no lecture number takes the lecture number of another link to the same address on the page.
 2. **Other pages of the same course**, with exactly this visible text (the number is the page's own number): `Midterm 2 Preparation`, `Final Exam Preparation`, `Midterm 1 Reflection`, `Midterm 1 Grades`, `Final Exam Grades`, `Homework 4 Helper`, `Homework 4 Solution`. A Grades link opens the graded paper with its explanation beside it, a Helper link opens the problem file with its helper, a Solution link opens the posted solution.
 3. Links to places inside the same page are plain `#anchors`.

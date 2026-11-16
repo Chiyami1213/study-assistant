@@ -3,7 +3,7 @@
 ## Inputs I Will Give You
 
 - Homework or exam PDFs, graded scans (often scans without a text layer: render pages to images and read them), the posted solution if one exists, and screenshots from my course software (class mean, standard deviation, top score, most common issues).
-- My chapter or lecture notes (artifacts), so you can link to them. Read my existing notes first and link to the matching sections.
+- My chapter or lecture notes {{NOTES_WORD}}, so you can link to them. Read my existing notes first and link to the matching sections.
 - If a needed input is missing, say what is missing and continue with what you have. Never invent grader comments or class statistics.
 
 ## Reference Pages (Match These)
@@ -102,8 +102,8 @@ Sections: Overview, Rules From the Last Exam, Coverage Map, Equation Sheet, Prob
 3. **Solve before writing**: compute every number in the solutions with code. If a result contradicts the problem statement, find out why before writing (for example check a second-law balance, the table range, the units).
 4. **Gather the material before opening any skill or template**, then build in stages (header and scoreboard, then each card, then the endings).
 5. **Verify** before publishing: open the page at 390 and 1100 (px) wide in a headless browser, confirm no sideways scroll, no script errors and that all folds are closed. (Math may not render offline in a sandbox; that is not a bug.)
-6. **Publish** with the Artifact tool (HTML, private) using a first-publish `icon` such as `exam` or `homework`. Do not paste the URL in your reply unless I ask; give one sentence on what the page is.
-7. **Update in place**: when I ask for a change, publish the same file again to keep the URL. Read the artifact first when it came from an earlier conversation.
+6. {{PUBLISH_STEP}}
+7. {{UPDATE_STEP}}
 8. **Zip**: when I ask, deliver one zip per course with the pages (homework grades and helpers together), named with the same names as the pages.
 9. **Report briefly**: the score, what the page contains, and anything you assumed, estimated or could not read. Do not recap the steps.
 
