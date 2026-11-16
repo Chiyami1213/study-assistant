@@ -297,6 +297,9 @@ def _viewer(book):
         sel = st.session_state.get(f"gp{book['id']}_sel")
         explanation = _sibling(book, ("Grade Explanation",) if book["kind"] == "Graded Homework" else ("Exam Grade Explanation",))
         graded = gradereport.load(book["id"])
+        if graded is None and not st.session_state.get(f"_gr_tried_{book['id']}"):          # a Gradescope graded copy carries its own grade report: read it once, no script needed
+            st.session_state[f"_gr_tried_{book['id']}"] = True
+            graded = gradereport.read_into(book["id"], path)
         if explanation:
             with right:
                 _handle_link(book)                       # before the paper is drawn: a click may change its page or its marks

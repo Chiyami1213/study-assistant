@@ -24,6 +24,19 @@ def save(book_id, data):
     (DIR / f"{book_id}.json").write_text(json.dumps(data, indent=1, ensure_ascii=False), encoding="utf-8")
 
 
+def read_into(book_id, path):
+    """Read the grade report of a graded paper (a Gradescope graded copy: the report pages come first) and keep it for the file. Returns the data, or None when the file has no such report or cannot
+    be read. The student does nothing: the Library calls this when a graded homework or exam is opened and has no grade data yet."""
+    try:
+        data = from_report(path)
+    except Exception:
+        return None
+    if not data.get("problems"):
+        return None
+    save(book_id, data)
+    return data
+
+
 def lost(item_text):
     """True for a rubric line that cost points: "+ 0 pts ..." or a partial credit line that names its maximum, "(/1.5)"."""
     return bool(re.match(r"0 pts?\b", item_text) or re.search(r"\(/\s*[\d.]+\)", item_text))

@@ -28,7 +28,15 @@ Rules:
 1. Use these ids exactly, in this order: `mindmap` first, then `s1`, `s2`, ..., then `eqsheet`, `assumptions` (if any), `errata`, `quiz`. A part the guide does not have gets no section and no tab.
 2. Give every subsection heading an id built from its section: `s2-1`, `s2-2`, ... (the heading `<h3 id="s2-2">`). Give every worked example an id `ex-1`, `ex-2`, ... in page order. My other pages link to these ids.
 3. Equations carry their number in the box as in the style rules, and the equation sheet links back to them.
-4. The quiz follows the Quiz rules. If the page has its own quiz script, put the quiz inside an element with `id="qBox"` and the page runs it as it is; if it has none, my app adds its own question set.
+4. **The quiz data** follows the Quiz rules and is written as one JavaScript array in the page's script, named `Q`, one entry for each question in this exact shape (the app reads it for the Quiz tab of the course page, and the page can run its own quiz from the same array):
+
+   ```js
+   const Q = [
+     ["s2-2", "Question text, with math as \( ... \)", ["Option 1", "Option 2", "Option 3", "Option 4"], 1, "Why the correct answer is right.", "A hint that does not give the answer away.", false],
+   ];
+   ```
+
+   The entries are: the id of the subsection the question tests (`s2-2`), the question, the list of options, the **zero-based index of the correct option** (`1` is the second option), the explanation, the hint, and `true` only for a question that comes from the textbook (else `false`). Use plain strings only (no functions, no variables). Put the quiz itself inside the `quiz` section; if the page runs its own quiz script, give the element that holds it `id="qBox"` and the page runs it as it is.
 5. Keep the page responsive; it is shown in a panel next to a slide or textbook viewer.
 
 ## Homework Helper

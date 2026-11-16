@@ -739,7 +739,8 @@ div[data-testid="stColumn"]:has(.pl-wrap) + div[data-testid="stColumn"] {{flex: 
 /* Courses > All > Tree: a map of circles. Every bubble sits at --x/--y; a folded one slides into its parent (--px/--py), shrinks and fades. No fill for the bubbles of topics and courses. */
 .mm-wrap {{position: relative; margin: 0.4rem 0 0.5rem; overflow: hidden; border: 0; padding: 4px 0 0;}}
 .tk-top {{display: flex; align-items: center; gap: 10px; margin-bottom: 8px;}}
-.tk-note {{font-size: 0.85rem; opacity: 0.7;}}
+.tk-note {{font-size: 0.85rem; opacity: 0.7; flex: 1 1 0; min-width: 0;}}                     /* the hint wraps; the buttons never do */
+.tk-top button, .tk-zoom button {{white-space: nowrap; flex: 0 0 auto;}}
 .tk-btn {{cursor: pointer; border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 5px 16px; font-size: 0.85rem; user-select: none; background: var(--input); transition: border-color .15s, color .15s;}}
 .tk-btn:hover {{border-color: var(--accent); color: var(--accent);}}
 svg.mm {{width: 100%; height: calc(100vh - 330px); min-height: 520px; display: block; user-select: none;}}   /* the whole map fits the window; wheel and + / - zoom it */

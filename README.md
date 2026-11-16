@@ -43,18 +43,26 @@ side, and let the app keep track of deadlines, grades and outlines. It runs enti
   </tr>
   <tr>
     <td><img src="docs/gallery/task-list.png" alt="Task List: tasks by due date, category or course"><br><sub><b>Task List</b>: every task by due date, category or course, with its cushion</sub></td>
-    <td><img src="docs/gallery/courses.png" alt="Courses: one card for each course"><br><sub><b>Courses</b>: one card for each course, by status (or as a map of fields)</sub></td>
+    <td><img src="docs/gallery/courses.png" alt="Courses: one card for each course"><br><sub><b>Courses</b>: one card for each course, by status</sub></td>
   </tr>
   <tr>
+    <td><img src="docs/gallery/course-tree.png" alt="All Disciplines: the courses as a tree that grows from one root"><br><sub><b>All Disciplines</b>: your courses as a tree, similar fields on the same branch; drag the bubbles, they never overlap</sub></td>
     <td><img src="docs/gallery/course-page.png" alt="A course page with what is coming up, grades and tabs"><br><sub><b>Course page</b>: what is coming up, grades, syllabus and understanding</sub></td>
+  </tr>
+  <tr>
     <td><img src="docs/gallery/course-homework.png" alt="A course page: homework with its helper and solution"><br><sub><b>Homework</b>: each problem set with its solution, graded paper and helper</sub></td>
+    <td><img src="docs/gallery/course-outline.png" alt="A course outline built from the lecture titles"><br><sub><b>Course outline</b>: built from the syllabus or the lecture titles, and editable</sub></td>
   </tr>
   <tr>
     <td><img src="docs/gallery/note-reader.png" alt="Note Reader: an interactive note beside the slide its equation comes from"><br><sub><b>Note Reader</b>: click an equation and its source slide opens beside the note</sub></td>
-    <td><img src="docs/gallery/library.png" alt="Library: lecture slides, notes and textbooks by type"><br><sub><b>Library</b>: slides, notes and textbooks by type, course or date added</sub></td>
+    <td><img src="docs/gallery/prompt-for-claude.png" alt="Prompt for Claude: a prompt that makes your own Claude write a page in the format the app reads"><br><sub><b>Prompt for Claude</b>: a ready-to-paste prompt for a study guide, helper, grade explanation or exam page</sub></td>
   </tr>
   <tr>
-    <td><img src="docs/gallery/course-outline.png" alt="A course outline built from the lecture titles"><br><sub><b>Course outline</b>: built from the syllabus or the lecture titles, and editable</sub></td>
+    <td><img src="docs/gallery/library.png" alt="Library: files by type"><br><sub><b>Library</b>: slides, notes and textbooks by type</sub></td>
+    <td><img src="docs/gallery/library-courses.png" alt="Library: files by course"><br><sub><b>Library by course</b>: a tile for each course</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/gallery/library-timeline.png" alt="Library: files in a timeline by day added"><br><sub><b>Date added</b>: a timeline by day, month or year</sub></td>
     <td><img src="docs/gallery/backup.png" alt="Settings: backup, export and import"><br><sub><b>Backup</b>: library backup, Export My Files and Import</sub></td>
   </tr>
 </table>
@@ -72,10 +80,14 @@ Questions about installing, antivirus warnings, your files, backups, shortcuts a
 ## What's new
 
 **1.1.0**
+- **A study planner and a new Calendar:** terms, classes, activities and events, tasks with estimates, a cushion that shows how much free time is left before each deadline, Auto-Plan, a study
+  timer, dragging on the schedule (with the repeating-event questions), and a **Task List** with **Import From Syllabus**.
+- **Courses:** a course page with what is coming up, grades and the syllabus; **All Disciplines**, your courses as a tree whose bubbles you can drag (they never overlap); **Merge Courses**.
+- **Library:** sort by type, course or date added; Cards, Tiles or Details; Import a Zip, Update From Folder and **Tidy Up**; and **Prompt for Claude**, which writes the prompt that makes your own
+  Claude produce study guides, helpers, grade explanations and exam pages in the format the app reads. A graded Gradescope paper is read for its grade report by the app itself.
 - **Study Assistant for macOS** (Apple silicon and Intel): a disk image to drag into Applications; files in `~/Library/Application Support/Study Assistant`.
 - **New setup wizard** for Windows: sharp on high-resolution screens, with a welcome page, the choice to update, uninstall first or keep both when it finds an installed version,
   Desktop and Start menu shortcut options, an antivirus heads-up, and a last page with links to this page and its Help section.
-- **Loading screen with a progress bar** from 0% to 100% that shows for at least two seconds.
-- **Help and Report an Issue** in Settings; the report opens a ready-made GitHub issue.
+- **Faster on small devices** (Settings > Speed and Effects), Help and Report an Issue in Settings, and a loading screen with a progress bar.
 
 The full history is in [CHANGELOG.md](CHANGELOG.md).

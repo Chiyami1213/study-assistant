@@ -94,3 +94,15 @@ def test_the_library_import_menu_has_the_prompt_button():
     at.session_state["page"] = "Library"
     at.run()
     assert not at.exception and at.button(key="imp_menu_prompt") is not None
+
+
+def test_the_quiz_array_the_prompt_asks_for_is_what_the_quiz_reader_understands():
+    from study import quizzes
+    prompt = P.build_prompt("Study Guide", COURSE, "3")
+    assert "const Q = [" in prompt and "zero-based index of the correct option" in prompt
+    page = ('<html><body><section id="quiz"><h2>Quiz</h2><div id="qBox"></div></section><script>const Q = [\n'
+            '  ["s2-2", "What does \\(Av=\\lambda v\\) define?", ["A norm", "An eigenpair", "A basis", "A rank"], 1, "It is the eigenvalue equation.", "Think of v.", false],\n'
+            '  ["s3-1", "Which result is from the textbook?", ["One", "Two", "Three"], 0, "Because.", "", true],\n];</script></body></html>')
+    got = quizzes.parse(page)
+    assert [(q["kind"], q["section"], q["a"], q["textbook"]) for q in got] == [("mc", "s2-2", 1, False), ("mc", "s3-1", 0, True)]
+    assert got[0]["o"][1] == "An eigenpair" and got[0]["h"] == "Think of v."

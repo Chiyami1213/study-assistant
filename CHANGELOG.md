@@ -4,7 +4,7 @@
 
 ---
 
-## 1.1.0 (not released yet)
+## 1.1.0 (2026-11-15)
 
 ### Study planner and Calendar
 
@@ -66,6 +66,8 @@
   and the app writes a prompt to paste into your own Claude chat on claude.ai. It carries the page's contents and style rules, the file name the page must have, and the exact format the app reads
   (section ids, problem cards, grader-comment badges, link texts), and can list your notes from the Library so Claude links to them. Download the HTML Claude makes and import it as usual. The
   Library now also recognizes `... Midterm 1 Reflection.html` and `... Final Exam Preparation.html` as those page types. The prompt texts are in `study/prompts/` and can be edited.
+- **Grade reports are read by the app.** When a graded homework or exam (a Gradescope graded copy, whose first pages are the grade report) is opened and has no grade data yet, the app reads the
+  problems, scores, grader comments and where each comment sits on the paper, so a grade explanation can mark the paper. Nothing has to be run by hand.
 - **Tidy Up.** Finds files that are in the Library twice and lets you remove the extra ones (the book that stays takes over their courses), and suggests titles in the Library's own form. Both ask
   first, and the database is copied to Backups.
 
@@ -85,6 +87,10 @@
 
 ### Settings, speed and small things
 
+- **The code is grouped in folders** (`core`, `library`, `study`, `datafiles`, `desktop`, `planner`, `views`, and `tools` for the build scripts and the installer) instead of one long list of files.
+- **Streamlit is limited to 1.50 up to 1.66** in `requirements.txt` (what the app was tested with); the exe carries its own copy.
+- **Fixes found while checking this release:** the tree's buttons no longer wrap to two lines on a narrow window, a cancelled repeating-event change bounces back, the Import menu closes behind the
+  window it opens, and the Remove buttons in Edit Schedule are right-aligned.
 - **Help and Report an Issue in Settings.** Help answers the common questions; Report an Issue opens a ready-made GitHub issue in the browser (optional steps, technical details, a log excerpt with your
   name and folders replaced, screenshots you pick or the newest F2 ones). The app sends nothing by itself and keeps no e-mail address.
 - **Settings has a bar to jump to a section** (Appearance, Eye Rest, Study Planner, Backup, Keyboard Shortcuts, Help, Report an Issue, Danger Zone, About), styled like the tabs of a course page.

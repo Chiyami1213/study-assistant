@@ -1,4 +1,4 @@
-streamlit>=1.35
+streamlit>=1.50,<1.67          # tested with 1.66; the app injects scripts with st.components.v1.html, which a later release may remove
 pypdf>=4.0
 pymupdf>=1.24
 pillow>=10.0
@@ -6,7 +6,7 @@ pillow-heif>=0.16
 pywebview>=5.0
 psutil>=5.9
 tzdata>=2024.1               # time zones for the study planner on Windows (zoneinfo has no system copy there)
-# only to build the exe and the installer (build_exe.py, build_installer.py):
+# only to build the exe and the installer (tools/build_exe.py, tools/build_installer.py):
 # pyinstaller>=6.0
 pyobjc-framework-Quartz>=10.0; sys_platform == "darwin"   # the F2 screenshot on a Mac (pywebview brings the rest)
 # only to run the tests (python -m pytest):
