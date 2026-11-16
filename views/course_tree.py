@@ -7,7 +7,7 @@ import html
 import math
 import re
 
-import crud
+from core import crud
 
 # letters of a course number -> field; a category the student typed is matched by the words in FIELD_WORDS
 PREFIX_FIELD = {"AE": "Aerospace Engineering", "AAE": "Aerospace Engineering", "AERO": "Aerospace Engineering", "ASE": "Aerospace Engineering", "MAE": "Mechanical Engineering",
@@ -268,6 +268,6 @@ def tree_html(courses, status_of, color_of, selected=None, root_label="All Disci
                      f'<text class="mm-label" text-anchor="middle" style="font-size:{size}px">{text}</text>{badge}<text class="mm-plus" y="{-r + 24}" text-anchor="middle">+</text></g>')
     return (f'<div class="mm-wrap"><div class="tk-top"><span class="tk-note">Click a bubble to fold or unfold its branches; click a course to open it. Drag a bubble to move it (double-click the map to put them back). Scroll to zoom, drag the map to move it.</span>'
             f'<span class="tk-zoom"><button type="button" data-mm-zoom="out" title="zoom out">&minus;</button><button type="button" data-mm-zoom="in" title="zoom in">+</button>'
-            f'<button type="button" data-mm-zoom="fit" title="show the whole map">Fit</button></span>'
+            f'<button type="button" data-mm-zoom="fit" title="show the whole map">Fit</button><button type="button" data-mm-zoom="reset" title="show the whole map and put every bubble back where it was">Reset View</button></span>'
             f'<button type="button" class="tk-btn" data-mm-all="close">Collapse All</button></div>'
             f'<svg class="mm" viewBox="{-ex:.0f} {-ey:.0f} {2 * ex:.0f} {2 * ey:.0f}" role="img" aria-label="{html.escape(root_label)}">{"".join(parts)}</svg></div>')

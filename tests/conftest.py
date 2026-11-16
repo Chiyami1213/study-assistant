@@ -17,8 +17,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 @pytest.fixture
 def fresh_data():
     """An empty database and settings file for one test (the tables are emptied: Windows will not delete a database file that a connection still holds)."""
-    import database
-    import settings
+    from core import database
+    from core import settings
     database.init_db()
     with database.get_conn() as conn:
         for table in ("planner_settings", "planner_awake", "holidays", "meeting_exceptions", "activity_meetings", "activities", "events", "study_timer", "time_logs", "study_sessions", "tasks", "task_defaults", "class_meetings", "courses"):

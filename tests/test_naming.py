@@ -1,7 +1,7 @@
 """The Library's naming forms are the defaults of an imported file (the real examples are from the Library)."""
 import pytest
 
-import naming as N
+from library import naming as N
 
 
 @pytest.mark.parametrize("kind, name, expected", [

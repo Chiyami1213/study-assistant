@@ -7,8 +7,8 @@ from pathlib import Path
 
 import pytest
 
-import crud
-import settings
+from core import crud
+from core import settings
 from views import library_import as LI
 
 pytestmark = pytest.mark.usefixtures("fresh_data", "no_books")
@@ -18,7 +18,7 @@ PDF = b"%PDF-1.4\n1 0 obj<</Type/Catalog>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF"
 
 @pytest.fixture
 def no_books():
-    import database
+    from core import database
     with database.get_conn() as conn:
         conn.execute("DELETE FROM books")
         conn.commit()
@@ -170,7 +170,7 @@ def test_the_buttons_are_on_the_library_and_the_course_page():
 
 # ---------------------------------------------------------------- the same file under another title; the folders a file is in
 def test_a_file_that_is_already_in_the_library_under_another_name_is_not_new(tmp_path):
-    from database import PDF_DIR, stored_path
+    from core.database import PDF_DIR, stored_path
     PDF_DIR.mkdir(parents=True, exist_ok=True)
     stored = PDF_DIR / "book_old.pdf"
     stored.write_bytes(pdf(7))
@@ -225,7 +225,7 @@ def syllabus_pdf():
 
 
 def test_a_syllabus_added_on_the_course_page_is_a_library_file_and_is_read(tmp_path):
-    import syllabus
+    from library import syllabus
     cid = crud.add_course("AE 6009", "Viscous Fluid Flow", "Fall 2026", 0, "Active")
     book_id, data = LI.add_syllabus(cid, "AE6009 Syllabus.pdf", syllabus_pdf())
     book = crud.get_book(book_id)
@@ -236,7 +236,7 @@ def test_a_syllabus_added_on_the_course_page_is_a_library_file_and_is_read(tmp_p
 
 
 def test_a_syllabus_for_one_part_of_a_merged_course_leaves_the_other_parts_alone():
-    import syllabus
+    from library import syllabus
     cid = crud.add_course("MA 266 / 303", "Differential Equations", "Fall 2026", 0, "Active")
     syllabus.save(cid, {"book": 0, "rows": [{"item": "Old", "percent": 100, "kind": None}], "scale": []})
     book_id, data = LI.add_syllabus(cid, "syl.pdf", syllabus_pdf(), "MA303")
@@ -245,7 +245,7 @@ def test_a_syllabus_for_one_part_of_a_merged_course_leaves_the_other_parts_alone
 
 
 def test_the_overview_has_add_and_edit_syllabus_and_an_edit_keeps_the_students_changes():
-    import syllabus
+    from library import syllabus
     from pathlib import Path as P
     from streamlit.testing.v1 import AppTest
     app = str(P(__file__).resolve().parent.parent / "app.py")

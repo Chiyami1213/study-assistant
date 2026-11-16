@@ -1,7 +1,7 @@
 """Active recall: Leitner-box flashcards."""
 import streamlit as st
 
-import crud
+from core import crud
 
 
 def render():

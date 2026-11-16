@@ -4,7 +4,7 @@ A hard problem (outside the term, in a break, over another session) always refus
 or event, shorter than the minimum block) refuses it unless force=True, so a screen can ask the student whether to go ahead. check_session() lists the problems."""
 from datetime import datetime, timedelta, timezone
 
-import database
+from core import database
 
 from . import commit_store, sessions as S, store, task_store, timeutil
 from .models import PlannerError

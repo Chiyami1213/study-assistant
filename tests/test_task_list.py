@@ -5,8 +5,8 @@ from pathlib import Path
 import pytest
 from streamlit.testing.v1 import AppTest
 
-import crud
-import settings
+from core import crud
+from core import settings
 from planner import commit_store as cs, session_store as ss, store, syllabus_read, task_store as ts, tasks as T, timeutil
 from planner.models import AwakeTimes, PlannerError
 from views import planner_ui, tasklist_view as TL

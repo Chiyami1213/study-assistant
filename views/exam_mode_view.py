@@ -1,7 +1,7 @@
 """Condensed high-yield exam study hub."""
 import streamlit as st
 
-import crud
+from core import crud
 
 
 def render():

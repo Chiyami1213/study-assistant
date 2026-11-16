@@ -4,7 +4,7 @@ from pathlib import Path
 
 import streamlit as st
 
-import settings
+from core import settings
 
 SECTIONS = ["Appearance", "Eye Rest", "Study Planner", "Backup", "Keyboard Shortcuts", "Help", "Report an Issue", "Danger Zone", "About"]
 
@@ -98,14 +98,14 @@ def render():
     _report_section()
     _danger_zone()
     _section("About")
-    import helpinfo
+    from desktop import helpinfo
     from version import VERSION
     st.caption(f"Study Assistant version {VERSION} · [Project page on GitHub]({helpinfo.REPO_URL})")
 
 
 def _browse(key, add):
     """Button callback: open the folder window; the chosen folder replaces the text in `key`, or (add) is added as a new line."""
-    import folderpick
+    from desktop import folderpick
     current = st.session_state.get(key, "")
     last_line = (current.splitlines() or [""])[-1] if add else current
     chosen = folderpick.pick(last_line, "Choose a Folder")
@@ -121,7 +121,7 @@ def _browse(key, add):
 
 def _backup_section():
     """Where the Library is backed up, the folders the original files live in, Back Up Now and the two ways to restore; then Export and Import."""
-    import libbackup
+    from datafiles import libbackup
     _section("Backup")
     st.caption("Keeps a copy of every Library file, what each one is, the database and the settings in a folder you choose, so the Library can be "
                "brought back quickly if it is ever lost. The folders where you keep the original files are remembered too: files that are missing "
@@ -182,7 +182,7 @@ def _backup_section():
 
 def _browse_file(key):
     """Button callback: open the file window; the chosen file replaces the text in `key`."""
-    import folderpick
+    from desktop import folderpick
     chosen = folderpick.pick_file(st.session_state.get(key, ""), "Choose the Zip to Import")
     if chosen:
         st.session_state[key] = chosen
@@ -190,8 +190,8 @@ def _browse_file(key):
 
 def _export_import_section():
     """Part of Backup: one zip with the user's own files, to keep as a backup or to bring to another device, and the import of such a zip."""
-    import dataimport
-    import exportfiles
+    from datafiles import dataimport
+    from datafiles import exportfiles
     st.subheader("Export and Import")
     st.caption("Export My Files makes one zip with your database, settings and imported files (covers, photos, grades and drawings too), to keep as a backup or to take to another "
                "device. On that device, install Study Assistant, then choose the zip under Import. Nothing is deleted: a file that is already there and differs is copied to "
@@ -257,7 +257,7 @@ def _export_import_section():
 
 @st.fragment(run_every=1)
 def _import_progress():
-    import dataimport
+    from datafiles import dataimport
     job = dataimport.JOB
     if job["running"]:
         st.progress(min(max(job["fraction"], 0.0), 1.0), text=f"{int(job['fraction'] * 100)}%  {job['message'][:90]}")
@@ -267,7 +267,7 @@ def _import_progress():
 
 @st.fragment(run_every=1)
 def _export_progress():
-    import exportfiles
+    from datafiles import exportfiles
     job = exportfiles.JOB
     if job["running"]:
         st.progress(min(max(job["fraction"], 0.0), 1.0), text=f"{int(job['fraction'] * 100)}%  {job['message'][:90]}")
@@ -276,7 +276,7 @@ def _export_progress():
 
 
 def _danger_zone():
-    import libbackup
+    from datafiles import libbackup
     _section("Danger Zone")
     with st.container(key="danger_zone", border=True):
         st.markdown("**Clear All Library**")
@@ -337,7 +337,7 @@ def _keys_section(title, group, rows):
 
 def _help_section():
     """Answers to common questions (installing, antivirus warnings, where the files are, backups, connection problems, shortcuts, uninstalling)."""
-    import helpinfo
+    from desktop import helpinfo
     _section("Help")
     st.caption(f"Answers to common questions. More help is on the [project page]({helpinfo.HELP_URL}).")
     files = helpinfo.where_files()
@@ -350,7 +350,7 @@ def _help_section():
 def _open_issue(url):
     """Callback of Open on GitHub: collect the chosen screenshots into one folder and open it, then open the issue page in the browser."""
     import webbrowser
-    import helpinfo
+    from desktop import helpinfo
     s = st.session_state
     uploads = [(f.name, f.getvalue()) for f in (s.get("report_uploads") or [])]
     saved = [Path(p) for p in (s.get("report_saved") or [])]
@@ -370,7 +370,7 @@ def _open_issue(url):
 
 def _report_section():
     """Report a problem or an idea: a pre-filled GitHub issue opens in the browser; the user reads it and submits it there."""
-    import helpinfo
+    from desktop import helpinfo
     _section("Report an Issue")
     st.caption("Found a problem, or have an idea? This opens a ready-made report on GitHub in your browser. You read it and press Submit there; "
                "the app sends nothing by itself. A free GitHub account is needed, and reports are public, so leave out anything personal.")

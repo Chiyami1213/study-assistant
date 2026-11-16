@@ -3,7 +3,7 @@ import sqlite3
 
 import pytest
 
-import database
+from core import database
 from planner import tasks as T
 
 pytestmark = pytest.mark.usefixtures("fresh_data")

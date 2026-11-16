@@ -2,7 +2,7 @@
 import pytest
 import streamlit as st
 
-import navigation as N
+from views import navigation as N
 
 
 @pytest.fixture(autouse=True)

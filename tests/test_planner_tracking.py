@@ -3,8 +3,8 @@ from datetime import date, datetime, time, timedelta, timezone
 
 import pytest
 
-import crud
-import database
+from core import crud
+from core import database
 from planner import service, session_store as ss, store, task_store as ts, timeutil, track_store as tr, tracking as K
 from planner import sessions as S
 from planner import tasks as T

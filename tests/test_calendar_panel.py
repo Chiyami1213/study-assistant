@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 from streamlit.testing.v1 import AppTest
 
-import crud
+from core import crud
 from planner import commit_store as cs
 from planner import freetime as F
 from planner import service, session_store as ss, store, task_store as ts, timeutil

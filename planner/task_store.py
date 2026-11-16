@@ -4,7 +4,7 @@ A task saved without an estimate inherits the default of its course and category
 change tasks that already exist. Everything is validated as a planner.tasks.Task before it is saved, so a bad entry is refused with a PlannerError."""
 from datetime import datetime, timezone
 
-import database
+from core import database
 
 from . import store, tasks as T, timeutil
 from .models import PlannerError

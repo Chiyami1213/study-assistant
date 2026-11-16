@@ -48,7 +48,7 @@
   by chapter in a table, as free text, or pasted.
 - **Courses tree.** Courses > All > Tree is a tree that grows upward from **All Disciplines** at the bottom: branches for domains, fields and topics (similar fields on the same branch) and a bubble for each
   course, with its photo as the background. Click a bubble to fold or unfold its branches, click a course to open it, **drag any bubble** to move it (it lifts while held, settles when dropped, its branches
-  and courses follow, and double-clicking the map puts everything back), zoom with + / - or the wheel, drag the map to move it, Fit and Collapse All. Self-study courses sit on the branch of their
+  and courses follow, bubbles and lines never overlap: what a held bubble comes near is pushed away, and it slides along lines instead of crossing them), zoom with + / - or the wheel, drag the map to move it, Fit, **Reset View** (the view and every bubble back where it was) and Collapse All. Self-study courses sit on the branch of their
   own field with a dashed outline. A field with only one topic has no extra "General" bubble, and a course's whole title is shown.
 - **Merge Courses.** Make two or more courses one (MA 266 / MA 303): choose the course that stays and a tag for each part. Files, homework and exams get the tag, everything of the other courses moves
   over, they are deleted, and a copy of the database and settings is kept in `Backups\Before Merge`. A merged course's number is written out.
@@ -62,6 +62,10 @@
   documents come first. Your folders are only read, never changed.
 - **Imported files are named the Library's way:** HW 5, HW 5 Solution, Midterm 1 Practice, a note's topic with its number in the lecture field, Syllabus. The Type box of Add File and Edit File shows
   the general types first; Homework and Exam show their own types (helper, solution, graded paper, grade explanation, preparation ...) only when chosen.
+- **Prompt for Claude (Library > Import).** Pick a course and a kind of page (a study guide, a homework helper, a homework or exam grade explanation, an exam reflection or an exam preparation page)
+  and the app writes a prompt to paste into your own Claude chat on claude.ai. It carries the page's contents and style rules, the file name the page must have, and the exact format the app reads
+  (section ids, problem cards, grader-comment badges, link texts), and can list your notes from the Library so Claude links to them. Download the HTML Claude makes and import it as usual. The
+  Library now also recognizes `... Midterm 1 Reflection.html` and `... Final Exam Preparation.html` as those page types. The prompt texts are in `study/prompts/` and can be edited.
 - **Tidy Up.** Finds files that are in the Library twice and lets you remove the extra ones (the book that stays takes over their courses), and suggests titles in the Library's own form. Both ask
   first, and the database is copied to Backups.
 
@@ -69,7 +73,7 @@
 
 - **Study Assistant for macOS.** A `.dmg` for Apple silicon and one for Intel Macs: open it, drag the app into Applications and approve it once (right-click > Open). The files live in
   `~/Library/Application Support/Study Assistant`; an export from Windows imports on a Mac and the other way round. Screenshots (F2), the folder and file pickers use the macOS tools. The Mac app is built
-  and checked by GitHub (`.github/workflows/build-macos.yml`, `build_mac.py`).
+  and checked by GitHub (`.github/workflows/build-macos.yml`, `tools/build_mac.py`).
 - **A new setup wizard (Windows),** drawn at the screen's real resolution with a picture panel and Back / Next / Cancel: welcome, existing version, shortcuts, ready, progress with percentage, finish
   (with links to the project page, Help and the issue page). Larger check boxes.
 - **The installer finds an installed version** and offers Update (the old program is removed only after the new one is in place), Uninstall the older version first, or Keep both (own folder, shortcut and

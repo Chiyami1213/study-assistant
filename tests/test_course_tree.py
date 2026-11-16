@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 from streamlit.testing.v1 import AppTest
 
-import crud
+from core import crud
 from views import course_tree as K
 
 pytestmark = pytest.mark.usefixtures("fresh_data")
@@ -128,3 +128,4 @@ def test_a_field_with_only_the_unnamed_topic_has_no_general_bubble_and_a_name_on
     assert all(n["r"] == K.RADII[4] for n in nodes if n["level"] == 4)
     html = K.tree_html([course(1, "", "Tonal Harmony")], lambda c: "Self-Study", lambda c: "#888")
     assert "Tonal" in html and "Harmony" in html
+    assert 'data-mm-zoom="reset"' in html and 'data-mm-zoom="fit"' in html                              # Reset View puts the view and every bubble back

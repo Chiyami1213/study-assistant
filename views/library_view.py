@@ -10,19 +10,19 @@ import uuid
 import streamlit as st
 import streamlit.components.v1 as components
 
-import covers
-import htmlnotes
-import gradereport
-import solcrop
-import hwassist
-import reader
-import crud
-import libbackup
-import syllabus
-import navigation
-import pdfmeta
-from pdfmeta import guess_lecture, split_lecture, strip_notes_prefix
-from database import BASE_DIR, PDF_DIR, data_path, stored_path
+from library import covers
+from study import htmlnotes
+from study import gradereport
+from study import solcrop
+from study import hwassist
+from study import reader
+from core import crud
+from datafiles import libbackup
+from library import syllabus
+from views import navigation
+from library import pdfmeta
+from library.pdfmeta import guess_lecture, split_lecture, strip_notes_prefix
+from core.database import BASE_DIR, PDF_DIR, data_path, stored_path
 
 COLUMNS = 6
 KINDS = ["Textbook", "Lecture Notes", "Notes", "Homework", "Homework Helper", "Homework Solution", "Graded Homework", "Grade Explanation",
@@ -112,6 +112,8 @@ PRACTICE_WORDS = re.compile(r"(?<![a-z])(practice|sample|mock|past|old|review)(?
 EXAM_WORDS = re.compile(r"(?<![a-z])(exams?|mid[\s_\-]*terms?|final[\s_\-]*exams?)(?![a-z])", re.I)
 HELPER_WORDS = re.compile(r"(?<![a-z])(helpers?|hints?)(?![a-z])", re.I)
 GRADE_WORDS = re.compile(r"(?<![a-z])(grades?|explanations?)(?![a-z])", re.I)
+REFLECTION_WORDS = re.compile(r"(?<![a-z])reflections?(?![a-z])", re.I)
+PREPARATION_WORDS = re.compile(r"(?<![a-z])(preparation|prep)(?![a-z])", re.I)
 SOLUTION_WORDS = re.compile(r"(?<![a-z])(solutions?|soln?s?)(?![a-z])", re.I)
 HOMEWORK_WORDS = re.compile(r"(?<![a-z])(homework|hw|problem[\s_\-]*sets?|psets?|assignment)(?![a-z])", re.I)
 BOOK_WORDS = re.compile(r"(?<![a-z])(textbook|text[\s_\-]*book|edition|ed\.?\s*\d+|\d+(st|nd|rd|th)[\s_\-]*ed)(?![a-z])", re.I)
@@ -132,6 +134,11 @@ def detect_kind(filename, title=""):
             if HELPER_WORDS.search(text):
                 return "Exam Helper" if exam else "Homework Helper"
             return "Exam Grade Explanation" if exam else "Grade Explanation"
+        if filename.lower().endswith((".html", ".htm")) and EXAM_WORDS.search(text) and not HOMEWORK_WORDS.search(text):          # the pages of "Midterm 1 Reflection" and "Final Exam Preparation"
+            if REFLECTION_WORDS.search(text):
+                return "Exam Reflection"
+            if PREPARATION_WORDS.search(text):
+                return "Exam Preparation"
         if EXAM_WORDS.search(text) and not HOMEWORK_WORDS.search(text):
             if SOLUTION_WORDS.search(text):
                 return "Exam Solution"
@@ -203,7 +210,7 @@ def _add_dialog(default_course=None):
     lec_guess, clean_title = split_lecture(info["title"])
     if not lec_guess and up:
         lec_guess = guess_lecture(up.name.rsplit(".", 1)[0], info["title"])          # "Lec 3", or "Chapter 3" in an html note's name or title
-    import naming
+    from library import naming
     named_title, named_lecture = naming.default_title(kind, up.name, info["title"]) if up else (None, "")        # the Library's own forms for the title of a homework, an exam or a note
     title = st.text_input("Title", key=_auto("title", crud.fix_course_ids(named_title or (strip_notes_prefix(clean_title) if is_notes else info["title"]))))     # "AE333" -> "AE 333"
     lecture = ""
@@ -985,7 +992,7 @@ def _view_mode():
 @st.dialog("Tidy Up the Library", width="large")
 def _tidy_dialog():
     """Two kinds of tidying, both after a confirmation: files that are in the Library twice (same content) and titles that can be written in the Library's own form (HW 5 Solution, Midterm 1)."""
-    import library_tidy as T
+    from library import library_tidy as T
     import pandas as pd
     groups = T.find_duplicates()
     changes = T.suggest_renames()
@@ -1109,6 +1116,9 @@ def render():
             _tidy_dialog()
         if st.button("Update From Folder", key="imp_menu_folder", icon=":material/sync:", width="stretch", help="reads the folder your files are kept in and lists the new and the changed ones"):
             library_import.folder_dialog()
+        if st.button("Prompt for Claude", key="imp_menu_prompt", icon=":material/auto_awesome:", width="stretch", help="makes a prompt for your own claude chat that writes a study guide, a helper or a grade page in the format this app reads"):
+            from views import prompt_dialog
+            prompt_dialog.prompt_dialog()
     inner = None
     if not in_tile:                                                                    # the overview: sort by type, course, date added or title
         st.session_state.setdefault("library_sort", lib["sort"] if lib["sort"] in SORTS else "Type")

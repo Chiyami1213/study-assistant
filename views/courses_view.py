@@ -7,12 +7,12 @@ import streamlit as st
 
 import base64
 
-import crud
-import eqsheet
-import settings
-import syllabus
-import icons
-import photos
+from core import crud
+from study import eqsheet
+from core import settings
+from library import syllabus
+from views import icons
+from library import photos
 from views import course_tree, library_view, quiz_view
 
 COLUMNS = 5
@@ -294,7 +294,7 @@ def render():
 @st.dialog("Merge Courses", width="large")
 def _merge_dialog():
     """Make two or more courses one: choose them, the one that stays, and a tag for each part. Everything of the others moves to the one that stays (after a copy of the database)."""
-    import coursemerge
+    from library import coursemerge
     courses = {c["id"]: c for c in crud.list_courses(section=None)}
     picked = st.multiselect("Courses to Merge", list(courses), format_func=lambda i: crud.label(courses[i]), key="merge_pick", placeholder="Choose two or more courses")
     if len(picked) < 2:
@@ -967,7 +967,7 @@ def _open_pdf_from_outline():
 
 def _auto_build(course_id, part=None):
     """Build the outline from the syllabus topics, else the lecture titles; it then follows the Library again until it is edited."""
-    import courseoutline
+    from library import courseoutline
     items, source = courseoutline.auto_items(course_id, part)
     if not items:
         st.toast("There is nothing to build from yet: add the lectures, or a syllabus with a topic list, to the Library.", icon=":material/info:")
@@ -978,19 +978,19 @@ def _auto_build(course_id, part=None):
 
 
 def _fill_outline(key, items):
-    import courseoutline
+    from library import courseoutline
     st.session_state[key] = courseoutline.to_text(items)
 
 
 def _read_pasted(key, paste_key):
-    import courseoutline
+    from library import courseoutline
     text = courseoutline.normalize_text(st.session_state.get(paste_key, ""))
     if text:
         st.session_state[key] = text
 
 
 def _outline_rows_to_table(key_rows, key_ver, items):
-    import courseoutline
+    from library import courseoutline
     st.session_state[key_rows] = courseoutline.rows_from_items(items)
     st.session_state[key_ver] = st.session_state.get(key_ver, 0) + 1
 
@@ -999,9 +999,9 @@ def _outline_rows_to_table(key_rows, key_ver, items):
 def _outline_dialog(course):
     """The outline written the way the course is organized: lecture by lecture, chapter by chapter (a table: the number and the title), or free text with levels. Save keeps it as the student's own
     (it is no longer rebuilt); the one it replaces is copied to the outlines folder."""
-    import courseoutline
+    from library import courseoutline
     import pandas as pd
-    import settings
+    from core import settings
     cid, part = course["id"], course.get("part")
     key = f"outline_text_{cid}_{part}"
     rows_key, ver_key, mode_key = f"outline_rows_{cid}_{part}", f"outline_ver_{cid}_{part}", f"outline_mode_{cid}_{part}"
@@ -1065,7 +1065,7 @@ def _outline_dialog(course):
 def _outline(course):
     """The course outline: main topics (I., II., ...), their sub topics (A., B., ...), and under each sub topic a
     folded list of its numbered points (1., 2., ...)."""
-    import courseoutline
+    from library import courseoutline
     part = course.get("part")
     state = courseoutline.ensure(course["id"], part)         # builds it when there is none (syllabus topics, else lecture titles) and keeps an automatic one current
     items = crud.list_outline(course["id"], part)

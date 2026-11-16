@@ -21,13 +21,13 @@ from datetime import datetime
 import streamlit as st
 import streamlit.components.v1 as components
 
-import crud
-import htmlnotes
-import macros
+from core import crud
+from study import htmlnotes
+from study import macros
 import re
-import quizgen
-import quizzes
-from database import BASE_DIR, DATA_DIR, data_path
+from study import quizgen
+from study import quizzes
+from core.database import BASE_DIR, DATA_DIR, data_path
 from views import library_view
 
 PASS, STRONG = 60, 80          # percent: below PASS the quiz is failed

@@ -3,8 +3,8 @@ from datetime import datetime, timezone
 
 import pytest
 
-import crud
-import database
+from core import crud
+from core import database
 from planner import store, task_store as ts, tasks as T
 from planner.models import PlannerError
 

@@ -5,11 +5,11 @@ from pathlib import Path
 import pytest
 from streamlit.testing.v1 import AppTest
 
-import coursemerge
-import crud
-import database
-import library_tidy as T
-import settings
+from library import coursemerge
+from core import crud
+from core import database
+from library import library_tidy as T
+from core import settings
 from planner import store, task_store as ts, timeutil
 from views import tasklist_view as TL
 

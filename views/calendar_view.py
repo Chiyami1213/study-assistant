@@ -6,8 +6,8 @@ from datetime import date, datetime, time, timedelta
 
 import streamlit as st
 
-import crud
-import settings
+from core import crud
+from core import settings
 from planner import commit_store, service, session_store, store as planner_store, task_store, timeutil, track_store
 from views import plan_grid, planner_ui, tasklist_view
 

@@ -4,8 +4,8 @@ from datetime import date, datetime, time, timedelta, timezone
 
 import pytest
 
-import crud
-import database
+from core import crud
+from core import database
 from planner import commit_store as cs
 from planner import store, timeutil
 from planner.commitments import ACTIVITY, COURSE

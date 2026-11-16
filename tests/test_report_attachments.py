@@ -2,7 +2,7 @@
 import os
 import time
 
-import helpinfo
+from desktop import helpinfo
 
 
 def test_report_mentions_the_screenshots():
@@ -57,7 +57,7 @@ def test_old_report_folders_are_removed_but_other_folders_are_not(tmp_path, monk
 
 
 def test_recent_screenshots_lists_newest_first(tmp_path, monkeypatch):
-    import database
+    from core import database
     monkeypatch.setattr(database, "DATA_DIR", tmp_path)
     shots = tmp_path / "screenshots"
     shots.mkdir()

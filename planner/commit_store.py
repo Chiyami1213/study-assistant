@@ -5,8 +5,8 @@ Everything that is saved is validated as a model from planner.commitments first,
 Events are stored with UTC times (start_utc, end_utc) and, so the older parts of the app keep working, the local date and times in the old columns."""
 from datetime import date, datetime, timedelta
 
-import crud
-import database
+from core import crud
+from core import database
 
 from . import store, timeutil
 from .commitments import (ACTIVITY, COURSE, OVERRIDE, SKIP, Event, Meeting, MeetingException, Series, legacy_event)

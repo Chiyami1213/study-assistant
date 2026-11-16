@@ -1,12 +1,13 @@
 """Desktop launcher: opens Study Assistant in its own window (no Chrome / Edge tab).
 
     python launcher.py            run the window from source
-    StudyAssistant.exe            the same, packaged by build_exe.py
+    StudyAssistant.exe            the same, packaged by tools/build_exe.py
 
 The app's code and data are always read from the project folder, so edits made in VS Code show up here and
 everything saved in the app lands in <project>/data. The app is a Streamlit server (started as a hidden
 child process of this program) shown inside a native window (WebView2 on Windows, WKWebView on a Mac).
 """
+import importlib
 import os
 import socket
 import subprocess
@@ -178,7 +179,7 @@ def main():
 
     project = find_project()
     sys.path.insert(0, str(project))
-    from database import DATA_DIR
+    DATA_DIR = importlib.import_module("core.database").DATA_DIR      # by name: PyInstaller must not bundle the app's own packages (they are read from the project folder)
     holder = {"server": None, "log": None}
     if not port_open(PORT):        # a copy that is already running keeps serving; this window just attaches to it
         holder["log"] = open_log(DATA_DIR) if getattr(sys, "frozen", False) else None
@@ -266,7 +267,6 @@ if __name__ == "__main__":
     if len(sys.argv) > 2 and sys.argv[1] == "--server":
         run_server(int(sys.argv[2]), int(sys.argv[4]) if len(sys.argv) > 4 and sys.argv[3] == "--parent" else None)
     elif len(sys.argv) > 2 and sys.argv[1] == "--render":          # page renderer for the scrolling PDF view
-        import pagerender
-        pagerender.main(sys.argv[2:])
+        importlib.import_module("library.pagerender").main(sys.argv[2:])
     else:
         main()

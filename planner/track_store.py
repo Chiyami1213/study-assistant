@@ -5,7 +5,7 @@ The timer survives closing the app: it is stored with its start time. Only one t
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-import database
+from core import database
 
 from . import session_store, task_store, tracking
 from .models import PlannerError

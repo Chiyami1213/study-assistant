@@ -4,7 +4,7 @@ from datetime import date
 
 import pytest
 
-import settings
+from core import settings
 
 pytestmark = pytest.mark.usefixtures("fresh_data")
 FALL = ("Fall 2026", "2026-08-24", "2026-12-08", "2026-12-18")

@@ -6,8 +6,8 @@ from datetime import date, datetime, time, timedelta, timezone
 
 import streamlit as st
 
-import crud
-import settings
+from core import crud
+from core import settings
 from planner import commit_store, service, session_store, store, task_store, tasks as T, timeutil, track_store, tracking
 from planner.models import AwakeTimes, PlannerError
 from views import plan_grid
@@ -387,7 +387,7 @@ def delete_block(ref):
         else:
             import sqlite3
             from datetime import datetime as _dt
-            import database
+            from core import database
             target = database.DATA_DIR / "Backups" / f"Before Delete {_dt.now():%Y-%m-%d %H-%M-%S}"
             target.mkdir(parents=True, exist_ok=True)
             src = sqlite3.connect(database.DB_PATH)

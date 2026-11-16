@@ -5,8 +5,8 @@ from datetime import date, timedelta
 
 import streamlit as st
 
-import crud
-import settings
+from core import crud
+from core import settings
 
 
 def _plural(n, word):

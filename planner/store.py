@@ -5,9 +5,9 @@ Everything that comes out is a validated model from planner.models; anything inv
 import os
 from datetime import date
 
-import crud
-import database
-import settings
+from core import crud
+from core import database
+from core import settings
 
 from . import timeutil
 from .models import AwakeTimes, Break, DayWindow, PlannerConfig, PlannerError, Term, check_min_block, DEFAULT_MIN_BLOCK

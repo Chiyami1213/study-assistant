@@ -5,8 +5,8 @@ from pathlib import Path
 import pytest
 from streamlit.testing.v1 import AppTest
 
-import crud
-import settings
+from core import crud
+from core import settings
 from planner import commit_store as cs, session_store as ss, store, task_store as ts, timeutil
 from planner.models import AwakeTimes
 from views import plan_grid, planner_ui as U
@@ -133,7 +133,7 @@ def test_delete_a_task_an_activity_and_a_course_with_a_backup(seeded):
     assert f"task:{tid}" not in settings.get_hidden_blocks()                                                       # nothing about it is kept
     aid = cs.add_activity("Gym", "#0f766e", "", True, False)
     assert U.delete_block(f"activity:{aid}") is None and cs.list_activities() == []
-    import database
+    from core import database
     before = len(list((database.DATA_DIR / "Backups").glob("Before Delete *"))) if (database.DATA_DIR / "Backups").exists() else 0
     assert any("weekly time" in p for p in U.delete_counts(f"course:{seeded}"))
     assert U.delete_block(f"course:{seeded}") is None and crud.list_courses(section=None) == []
@@ -280,7 +280,7 @@ def test_the_speed_setting_is_remembered_and_the_page_carries_it():
 
 
 def test_a_long_library_list_is_drawn_in_steps(seeded):
-    import database
+    from core import database
     from views import library_view as L
     with database.get_conn() as conn:
         conn.execute("DELETE FROM books")

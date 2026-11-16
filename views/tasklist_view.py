@@ -8,9 +8,9 @@ from pathlib import Path
 
 import streamlit as st
 
-import crud
-import settings
-from database import data_path
+from core import crud
+from core import settings
+from core.database import data_path
 from planner import commit_store, service, session_store, syllabus_read, task_store, tasks as T, timeutil, track_store
 from planner.models import PlannerError
 from views import plan_grid, planner_ui

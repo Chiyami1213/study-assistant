@@ -1,6 +1,11 @@
 # Study Assistant: notes for Claude
 
-Personal Streamlit + SQLite study app (`python run.py`). Code is in `app.py`, `views/`, `crud.py`, `database.py`.
+Personal Streamlit + SQLite study app (`python run.py`). The project root holds only the entry points (`app.py`, `run.py`, `launcher.py`, `version.py`) and these folders:
+`core/` (database, crud, settings), `library/` (file details, covers, naming, tidy, merge, outlines, syllabus), `study/` (notes, quizzes, equation sheets, errata, helpers, grade reports, reader),
+`datafiles/` (backup, export, import), `desktop/` (screenshot, folder picker, help and report), `planner/` (the study planner), `views/` (every page, plus `navigation.py` and `icons.py`), `tools/`
+(developer build scripts and the installer, never in the release) and `tests/`. Import with the folder: `from core import crud`, `from library import naming`. A new module goes into the folder it belongs to
+(and into the reload list at the top of `app.py`). The exe must not bundle these packages (it reads them from the project folder): `launcher.py` imports them by name with `importlib`, and the build
+scripts do not list them as hidden imports.
 
 ## Where things live
 - The PROJECT folder (`Documents\study-assistant`) holds only what is pushed to GitHub: the code and docs. (`static/`, `build/`, `dist/` are
@@ -20,7 +25,7 @@ Personal Streamlit + SQLite study app (`python run.py`). Code is in `app.py`, `v
   `SA_INSTALL_PROGRAM_DIR` / `SA_INSTALL_DATA_DIR` set to scratch folders.
 - Source files outside the project (OneDrive, other drives, Downloads ...) are READ ONLY for this app and for Claude: import = COPY into
   `pdfs/` of the data folder. Never delete, move, rename or edit a file in the user's own drives or OneDrive.
-- `backup.py` copies the database, settings and the small folders to `<data folder>\Backups\Snapshots` when the app starts (the library backup in
+- `datafiles/backup.py` copies the database, settings and the small folders to `<data folder>\Backups\Snapshots` when the app starts (the library backup in
   Settings goes to `Backups\Library`). Restore from the newest copy there if the data is damaged. Old copies may also exist in `~/StudyAssistantBackup`.
 
 ## The Note Reader reads notes; it does not build them
@@ -66,15 +71,15 @@ Number (or "Midterm 1", "Final" in the title) pair it with the problem file and 
   letters must match the numbering of the problem PDF (the app finds them by their text).
 
 ## Backup, export and release (the app does not build anything)
-- The app only manages the user's own files: Settings > Backup keeps the library backup (`libbackup.py`) and has Export My Files (`exportfiles.py`: one zip with
-  `payload/data/...`, the data folder without `webview` and `Backups`, the database as a consistent copy) and Import (`dataimport.py`: writes every file of the zip, so an
+- The app only manages the user's own files: Settings > Backup keeps the library backup (`datafiles/libbackup.py`) and has Export My Files (`datafiles/exportfiles.py`: one zip with
+  `payload/data/...`, the data folder without `webview` and `Backups`, the database as a consistent copy) and Import (`datafiles/dataimport.py`: writes every file of the zip, so an
   existing file is replaced; a differing one is first copied to `Backups\Before Import <time>`, an identical one (same CRC) is just written again, replaces the database through sqlite's backup after copying the
   current one there; nothing is deleted; restart afterwards). The app never builds an exe or packages the program.
-- The developer builds the release from VS Code: `python build_release.py` builds the app (`build_exe.py`), the installer (`build_installer.py`, from `installer.py`) and
+- The developer builds the release from VS Code: `python tools/build_release.py` builds the app (`tools/build_exe.py`), the installer (`tools/build_installer.py`, from `tools/installer.py`) and
   `dist/release/StudyAssistant-<version>-Windows-Installer.zip`: a CLEAN install (installer + `payload/program`, no personal files). It is uploaded as the asset of the
   GitHub release; people extract it and run `Install Study Assistant.exe`. A clean copy can also be made by copying the project folder alone and running `python run.py`
   (after `pip install -r requirements.txt`).
-- The installer (a tkinter wizard, `Wizard` in `installer.py`, drawn at the real screen resolution; pages: welcome, existing version, shortcuts, ready, installing, finish) COPIES
+- The installer (a tkinter wizard, `Wizard` in `tools/installer.py`, drawn at the real screen resolution; pages: welcome, existing version, shortcuts, ready, installing, finish) COPIES
   `payload/program` to `Documents\study-assistant` (and `payload/data` to `AppData\Roaming\Study Assistant` when a zip has one). It finds an installed version (`find_existing`: the marker
   file, or an installed-apps entry) and offers Update (the old program folder is set aside and only deleted after the new copy is in), Uninstall first, or Keep both (own folder,
   registry key `StudyAssistant-<version>`, shortcut name; with a warning that both share the data folder and port 8765). A folder without the marker (a dev copy) is only renamed to
@@ -85,20 +90,20 @@ Number (or "Midterm 1", "Final" in the title) pair it with the problem file and 
   registry entry and by default KEEPS the data folder; its window has a "remove everything, including my files" choice (asks again, `--remove-files` for tests) that
   deletes the data folder too. It never enters a link or junction, and refuses a folder without the marker or with a `.git`. Never run it on the development copy. Test
   only with `SA_INSTALL_PROGRAM_DIR` / `SA_INSTALL_DATA_DIR` and `SA_INSTALL_REG_KEY` (a test key name, removed afterwards).
-- macOS: `build_mac.py` (PyInstaller `.app`, program code copied into `Contents/Resources/project`, ad hoc `codesign`, `.dmg` with an Applications link) can only run on a Mac; the
+- macOS: `tools/build_mac.py` (PyInstaller `.app`, program code copied into `Contents/Resources/project`, ad hoc `codesign`, `.dmg` with an Applications link) can only run on a Mac; the
   GitHub workflow `.github/workflows/build-macos.yml` builds Apple-Silicon and Intel images, smoke-tests the built app (`--server` mode answers `/_stcore/health`) and attaches the
-  `.dmg` to a published release. Platform-specific code: `database.default_data_dir`, `screenshot.py` (`screencapture`), `folderpick.py` (`osascript`), `launcher.find_project`.
+  `.dmg` to a published release. Platform-specific code: `database.default_data_dir`, `desktop/screenshot.py` (`screencapture`), `desktop/folderpick.py` (`osascript`), `launcher.find_project`.
   Nothing Mac-specific has been run on a real Mac by Claude: the workflow is the test.
-- To lower antivirus false alarms: the exes carry version information (`buildinfo.py`), are built `--noupx`, `build_release.py` writes `SHA256SUMS.txt`, and the installer tells the
+- To lower antivirus false alarms: the exes carry version information (`tools/buildinfo.py`), are built `--noupx`, `tools/build_release.py` writes `SHA256SUMS.txt`, and the installer tells the
   user about SmartScreen / antivirus warnings. Real fix: code signing (e.g. SignPath Foundation for open source).
-- The loading screen is `launcher.SPLASH` (bar 0 to 100%, at least `MIN_SPLASH` = 1 second). Help and Report an Issue (`helpinfo.py`, Settings) open a pre-filled GitHub issue; the
+- The loading screen is `launcher.SPLASH` (bar 0 to 100%, at least `MIN_SPLASH` = 1 second). Help and Report an Issue (`desktop/helpinfo.py`, Settings) open a pre-filled GitHub issue; the
   app never sends anything or stores an e-mail address.
 - The release number is `version.py` (`VERSION`, shown in Settings > About, the installer and the installed-apps entry).
 - Do not store anything else elsewhere (user profile, registry). The only other extras are the Desktop shortcut and the optional backup folder.
-- `build_release.py` skips `static`, `build`, `data`, ... only directly under the project folder; deeper folders of the same name (the built app's
+- `tools/build_release.py` skips `static`, `build`, `data`, ... only directly under the project folder; deeper folders of the same name (the built app's
   `streamlit\static` web page) must be copied, or the exe shows a black window with "Not Found".
 
-## Course outlines (`courseoutline.py`, Courses > Outline)
+## Course outlines (`library/courseoutline.py`, Courses > Outline)
 - A course with no outline gets one automatically: the topic list of its syllabus / Lec 0 slides if it has one (`parse_topics`), else the lecture titles
   (`from_titles`; the chapter notes when the lecture files only have generic names). `ensure()` runs when the Outline tab is drawn; the state of each outline
   ({source: syllabus | titles | manual}) is in `settings.json` (`outlines`). An outline with no state, or edited through Edit Outline, is "manual" and is never touched.
@@ -124,8 +129,9 @@ Number (or "Midterm 1", "Final" in the title) pair it with the problem file and 
   style: `_block` (grip `.pl-handle`, ⋯ menu, double-click rename); what the user did with a block is kept in `settings.json` key `calendar_blocks` (hidden, names, colors, order), the panel width,
   the hour height and the fold state next to it. Terms are `settings.list_terms()` etc.; `planner_ui.term_select` / `terms_dialog` is the only place they are managed. A personal task
   (`tasks.personal`) has no course and may be planned in a break and outside the term. Everything the grid and the panel report goes through the hidden box `cal_sink` (also on the Task List).
+- Prompt for Claude (Library > Import, `views/prompt_dialog.py`, pure `study/promptgen.py`): builds the prompt a student pastes into claude.ai from the texts in `study/prompts/` (`study_guide_rules.md`, `homework_exam_pages.md`, `app_format.md`). `app_format.md` MUST be kept in step with the format rules in this file (note section ids, `card id="p<n>"`, `.part` / `.pl`, `.gc` + `.badge`, link texts, file-name words that `library_view.detect_kind` reads); `tests/test_promptgen.py` checks that the file names it asks for are recognized by the Library.
 - Library (`views/library_view.py`): the usual sort is Type (tiles), Course (tiles), Date Added (timeline) or Title; what is open is kept in `st.session_state["_lib"]`.
-- Task categories are `planner.tasks.CATEGORIES` (Homework, Exam, Quiz, Reading, Project, Lab, Other); the `tasks` and `task_defaults` tables carry the list in a CHECK, so a new category needs the schema text in `database.py` AND a start-up widening of older databases (`_allow_task_category_lab` edits the stored table text; never copy or drop `tasks`, other tables point at it).
+- Task categories are `planner.tasks.CATEGORIES` (Homework, Exam, Quiz, Reading, Project, Lab, Other); the `tasks` and `task_defaults` tables carry the list in a CHECK, so a new category needs the schema text in `core/database.py` AND a start-up widening of older databases (`_allow_task_category_lab` edits the stored table text; never copy or drop `tasks`, other tables point at it).
 - The Courses tree (`views/course_tree.py`) grows upward from the root "All Disciplines" at the bottom (angles -pi..0); a field whose only topic is General has no General bubble (its courses hang on the field). Bubbles are dragged by the script `__treeDragV1` in app.py (offsets kept in `window.__mmOffsets` per bubble key; a drag moves the bubble's branches too; double-click on the map resets).
 - Buttons at the top of every page share one look (outlined, 40 px, icon and text centered) through the key list in the `app.py` CSS block "The buttons at the top of every page"; a new top button needs its key added there.
 - README gallery images (`docs/gallery/`) are made with made-up courses only (never the real data folder); update them with the demo data scripts in the scratchpad pattern: scratch `STUDY_ASSISTANT_DATA`, fictional courses, Playwright screenshots.
@@ -138,4 +144,4 @@ Number (or "Midterm 1", "Final" in the title) pair it with the problem file and 
 
 ## Conventions
 - Interface text uses APA title case; hover tooltips are all lower case.
-- Exams, homework and the course outlines live in the database (use the app or `crud.py`).
+- Exams, homework and the course outlines live in the database (use the app or `core/crud.py`).

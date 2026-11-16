@@ -7,13 +7,13 @@ import streamlit.components.v1 as components
 import json
 import re
 
-import crud
-import errata
-import htmlnotes
-import outline
-import reader
-import settings
-from database import BASE_DIR, data_path
+from core import crud
+from study import errata
+from study import htmlnotes
+from study import outline
+from study import reader
+from core import settings
+from core.database import BASE_DIR, data_path
 
 SECTIONS = [("notes", "Notes"), ("exercises", "Exercises"), ("errata", "Errata")]
 HTML_START = ("<!doctype", "<html", "<div", "<section", "<main", "<body", "<style")
@@ -491,7 +491,7 @@ def _printed_offset(path):
 
 def _lecture_source(note, src, ctx, heading=""):
     """(book, page) for a source line like 'Lec 14, slides 2-3', 'Lec 3-1, Perfect Gases 1-14' or 'Notes Eqs. (427)-(433)'; None if it names none."""
-    import errata
+    from study import errata
     m = re.match(r"\s*Lec(?:ture)?\s*(\d+(?:-\d+)?)\s*,?\s*(.*)$", src or "", re.I)
     if m:
         lecture, rest = m.group(1), m.group(2).strip()

@@ -3,7 +3,7 @@ from datetime import date, time
 
 import pytest
 
-import settings
+from core import settings
 from planner import store
 from planner.models import AwakeTimes, Break, DayWindow, PlannerError
 
@@ -65,7 +65,7 @@ def test_breaks_are_the_holidays_table_and_validated():
     listed = store.list_breaks()
     assert [b.name for _, b in listed] == ["Spring Break", "Reading Day"]
     assert listed[0][1] == Break("Spring Break", date(2027, 3, 15), date(2027, 3, 19))
-    import crud
+    from core import crud
     assert [h["name"] for h in crud.list_holidays()] == ["Spring Break", "Reading Day"]      # the Calendar sees the same rows
     with pytest.raises(PlannerError):
         store.add_break("Backwards", date(2027, 3, 19), date(2027, 3, 15))

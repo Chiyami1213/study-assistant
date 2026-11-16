@@ -2,31 +2,31 @@
 import streamlit as st
 import streamlit.components.v1 as components
 
-import crud
+from core import crud
 import importlib
 import json
 import sys
 
-import icons
+from views import icons
 
 # The dev server caches imported modules between reruns; reload ours so edits apply without a restart.
 # (exportfiles and dataimport are not reloaded: their running job and its progress live in the module.)
-for _m in ("database", "crud", "courseoutline", "settings", "icons", "pdfmeta", "covers", "reader", "macros", "unitex", "outline", "htmlnotes", "quizzes", "quizgen", "hwassist", "gradereport", "solcrop", "syllabus", "eqsheet", "photos", "views.courses_view", "views.home_view",
-           "navigation", "views.homework_view", "views.exam_mode_view", "views.recall_view", "views.library_view", "views.quiz_view", "views.calendar_view", "views.lab_view",
+for _m in ("core.database", "core.crud", "library.courseoutline", "core.settings", "views.icons", "library.pdfmeta", "library.covers", "study.reader", "study.macros", "study.unitex", "study.outline", "study.htmlnotes", "study.quizzes", "study.quizgen", "study.hwassist", "study.gradereport", "study.solcrop", "library.syllabus", "study.eqsheet", "study.promptgen", "library.photos", "views.courses_view", "views.home_view",
+           "views.navigation", "views.homework_view", "views.exam_mode_view", "views.recall_view", "views.library_view", "views.quiz_view", "views.calendar_view", "views.lab_view",
            "views.settings_view"):
     if _m in sys.modules:
         importlib.reload(sys.modules[_m])
-import navigation
-import photos
-import settings
-from database import init_db
+from views import navigation
+from library import photos
+from core import settings
+from core.database import init_db
 from views import calendar_view, courses_view, home_view, lab_view, library_view, settings_view
 
 st.set_page_config(page_title="Study Assistant", page_icon=":material/book:", layout="wide",
                    initial_sidebar_state="expanded")
 init_db()
 if "_backed_up" not in st.session_state:             # a safety copy of the database and settings outside the project (see backup.py)
-    import backup
+    from datafiles import backup
     backup.run()
     st.session_state["_backed_up"] = True
 if "_titles_fixed" not in st.session_state:          # course codes in file names read "AE 333", not "AE333" or "ae 333"
@@ -666,6 +666,8 @@ div[data-testid="stColumn"]:has(.pl-wrap) + div[data-testid="stColumn"] {{flex: 
 /* The Remove buttons of the class times and the holidays (a popover with a word, not the three dots): normal text */
 [class*="st-key-meeting_pop_"] [data-testid="stPopover"] button p, [class*="st-key-hol_pop_"] [data-testid="stPopover"] button p {{font-size: 0.9rem; font-weight: 400; letter-spacing: 0; line-height: 1.4;}}
 [class*="st-key-meeting_pop_"] [data-testid="stPopover"] button > div, [class*="st-key-hol_pop_"] [data-testid="stPopover"] button > div {{gap: 6px !important; align-items: center;}}
+[class*="st-key-meeting_pop_"], [class*="st-key-hol_pop_"] {{display: flex !important; justify-content: flex-end !important; width: 100% !important;}}
+[class*="st-key-meeting_pop_"] [data-testid="stPopover"], [class*="st-key-hol_pop_"] [data-testid="stPopover"] {{width: auto !important;}}
 .lab-tab.dragging {{opacity: 0.45;}}
 .lab-tab.drop-target {{box-shadow: inset 0 -3px 0 var(--accent);}}
 [class*="st-key-lab_pane_"] {{flex: none; height: calc(100vh - 62px); overflow-y: auto; overflow-x: hidden; padding: 0 12px; background: var(--bg);}}
@@ -770,7 +772,7 @@ svg.mm {{width: 100%; height: calc(100vh - 330px); min-height: 520px; display: b
 .tk-zoom button:hover {{border-color: var(--accent); color: var(--accent);}}
 svg.mm {{cursor: grab; touch-action: none;}}
 /* Dragging a bubble: it follows the pointer at once (no slide), lifts with a shadow while it is held, and settles back with a small bounce when it is dropped. */
-.mm-node.mm-moving {{transition: opacity .4s ease !important;}}
+.mm-node.mm-moving, svg.mm.mm-holding .mm-node {{transition: opacity .4s ease !important;}}               /* every bubble follows at once while one is held, so no line is left behind its circle */
 .mm-node:not([data-parent=""]) {{cursor: grab;}}
 svg.mm.mm-holding, svg.mm.mm-holding .mm-node {{cursor: grabbing;}}
 .mm-node > circle, .mm-node > text, .mm-node > image {{transition: transform .2s cubic-bezier(.3, 1.4, .5, 1), filter .2s;}}
@@ -834,6 +836,8 @@ summary.tl-head:hover b {{color: var(--accent);}}
 .st-key-lib_import_box [data-testid="stPopover"] button {{min-height: 40px !important; height: 40px; padding: 0 16px !important; border: 1px solid var(--border) !important; border-radius: 8px !important;
   background: var(--input) !important; width: 100%; display: flex !important; align-items: center !important; justify-content: center !important;}}
 .st-key-lib_import_box [data-testid="stPopover"] button:hover {{border-color: var(--accent) !important;}}
+/* The Import menu closes behind the window it opened (a popover cannot be closed from the program) */
+body:has([data-testid="stDialog"]) [data-testid="stPopoverBody"]:has([class*="st-key-imp_menu_"]) {{display: none !important;}}
 .st-key-lib_import_box [data-testid="stPopover"] button > div {{display: flex !important; align-items: center !important; justify-content: center !important; gap: 8px !important; width: auto !important;}}
 .st-key-lib_import_box [data-testid="stPopover"] button p {{font-size: 0.9rem !important; font-weight: 400 !important; line-height: 1 !important; letter-spacing: 0 !important; margin: 0 !important;}}
 .st-key-lib_import_box [data-testid="stPopover"] button [data-testid="stIconMaterial"] {{font-size: 1.2rem !important; color: var(--text) !important;}}
@@ -1332,7 +1336,8 @@ if (!win.__treeZoomV2) {
   doc.addEventListener('click', e => {
     const b = e.target.closest && e.target.closest('[data-mm-zoom]'); if (!b) return;
     const svg = (b.closest('.mm-wrap') || doc).querySelector('svg.mm'); if (!svg) return;
-    if (b.dataset.mmZoom === 'fit') setBox(svg, home(svg), true); else zoomAt(svg, b.dataset.mmZoom === 'in' ? 1.35 : 1 / 1.35, 0.5, 0.5, true);
+    if (b.dataset.mmZoom === 'reset') { setBox(svg, home(svg), true); doc.dispatchEvent(new win.CustomEvent('mm-reset', {detail: svg})); }          // the view and the places of the bubbles
+    else if (b.dataset.mmZoom === 'fit') setBox(svg, home(svg), true); else zoomAt(svg, b.dataset.mmZoom === 'in' ? 1.35 : 1 / 1.35, 0.5, 0.5, true);
   }, true);
   doc.addEventListener('wheel', e => {
     const svg = e.target.closest && e.target.closest('svg.mm'); if (!svg) return;
@@ -1357,7 +1362,12 @@ if (!win.__treeZoomV2) {
 if (!win.__treeDragV1) {
   win.__treeDragV1 = true;
   const offsets = win.__mmOffsets = win.__mmOffsets || {};
-  const keyOf = n => n.dataset.treeCourse ? 'c' + n.dataset.treeCourse : 'b' + (n.querySelector('.mm-label') ? n.querySelector('.mm-label').textContent : n.dataset.id) + n.className.baseVal.match(/mm-l[0-9]/);
+  const keyOf = n => {                                              // the same on every redraw: the course id, or the labels of the bubble and of every bubble above it (two "General" bubbles are two keys)
+    if (n.__key) return n.__key;
+    const own = n.dataset.treeCourse ? 'c' + n.dataset.treeCourse : 'b' + (n.querySelector('.mm-label') ? n.querySelector('.mm-label').textContent : n.dataset.id);
+    const par = n.dataset.parent && n.parentNode ? n.parentNode.querySelector('.mm-node[data-id="' + n.dataset.parent + '"]') : null;
+    return (n.__key = (par ? keyOf(par) + '/' : '') + own);
+  };
   const base = n => {
     if (!n.__b) {
       const s = n.style, f = v => parseFloat(s.getPropertyValue(v)) || 0, ln = n.querySelector('.mm-line');
@@ -1372,7 +1382,65 @@ if (!win.__treeDragV1) {
       n.style.setProperty('--x', (b.x + o[0]) + 'px'); n.style.setProperty('--y', (b.y + o[1]) + 'px');
       n.style.setProperty('--px', (b.px + po[0]) + 'px'); n.style.setProperty('--py', (b.py + po[1]) + 'px');
       const ln = n.querySelector('.mm-line'); if (ln) { ln.setAttribute('x2', b.lx + po[0] - o[0]); ln.setAttribute('y2', b.ly + po[1] - o[1]); }
+      if (hold && hold.ghost && hold.node === n) {                                      // the held bubble's line is drawn under every bubble, so it never crosses its parent
+        hold.ghost.setAttribute('x1', b.x + o[0]); hold.ghost.setAttribute('y1', b.y + o[1]); hold.ghost.setAttribute('x2', b.px + po[0]); hold.ghost.setAttribute('y2', b.py + po[1]);
+      }
     });
+  };
+  let hold = null;
+  // Bubbles and lines never overlap: what the held bubble (with the branches that hang on it) comes near is pushed away, bubbles from bubbles, and bubbles from lines (a line that the held
+  // bubble touches swings aside, because the bubble at its end is pushed sideways). The center bubble does not move; the held bubble stops at it.
+  const GAP = 10, LINE_GAP = 8, STEP = 18, PASSES = 12, MAX_MOVE = 260;
+  const repel = (svg, group, held) => {
+    const info = [...svg.querySelectorAll('.mm-node')].filter(n => !n.classList.contains('mm-hidden')).map(n => {
+      const b = base(n), o = offsets[keyOf(n)] || [0, 0];
+      return {n, b, key: keyOf(n), r: parseFloat(n.querySelector('circle').getAttribute('r')) || 0, x: b.x + o[0], y: b.y + o[1], fixed: group.has(n) || n.dataset.parent === '', moved: false};
+    });
+    const byId = new Map(info.map(i => [i.n.dataset.id, i]));
+    const H = info.find(i => i.n === held), R = info.find(i => i.n.dataset.parent === '');
+    const shiftGroup = (sx, sy) => { group.forEach(n => { const o = offsets[keyOf(n)]; if (o) { o[0] += sx; o[1] += sy; } }); info.forEach(i => { if (group.has(i.n)) { i.x += sx; i.y += sy; } }); };
+    const segDist = (px, py, ax, ay, bx, by) => {
+      const sx = bx - ax, sy = by - ay, l2 = sx * sx + sy * sy; if (l2 < 1) return [Math.hypot(px - ax, py - ay), ax, ay];
+      const u = Math.max(0, Math.min(1, ((px - ax) * sx + (py - ay) * sy) / l2)), qx = ax + sx * u, qy = ay + sy * u; return [Math.hypot(px - qx, py - qy), qx, qy];
+    };
+    // walls: the held bubble cannot be pushed into the center bubble, and it slides along the lines of other bubbles instead of crossing them
+    for (let k = 0; k < 4 && H; k++) {
+      if (R) { const d = Math.hypot(H.x - R.x, H.y - R.y), min = H.r + R.r + GAP; if (d < min && d > 0) shiftGroup((H.x - R.x) / d * (min - d), (H.y - R.y) / d * (min - d)); }
+      info.forEach(L => {
+        const P = byId.get(L.n.dataset.parent); if (!P || group.has(L.n) || P === H || L === H) return;
+        const [d, qx, qy] = segDist(H.x, H.y, L.x, L.y, P.x, P.y), min = H.r + LINE_GAP; if (d >= min) return;
+        let dx = H.x - qx, dy = H.y - qy, dd = Math.hypot(dx, dy); if (dd < 0.01) { dx = -(P.y - L.y); dy = P.x - L.x; dd = Math.hypot(dx, dy) || 1; }
+        shiftGroup(dx / dd * (min - d), dy / dd * (min - d));
+      });
+    }
+    const start = info.map(i => [i.x, i.y]);
+    const shove = (i, dx, dy) => {
+      if (i.fixed) return;
+      const m = Math.hypot(dx, dy); if (m > STEP) { dx *= STEP / m; dy *= STEP / m; }
+      i.x += dx; i.y += dy; i.moved = true;
+    };
+    for (let pass = 0; pass < PASSES; pass++) {
+      let any = false;
+      for (let a = 0; a < info.length; a++) for (let c = a + 1; c < info.length; c++) {                 // bubble from bubble
+        const A = info[a], B = info[c]; if (A.fixed && B.fixed) continue;
+        let dx = B.x - A.x, dy = B.y - A.y, d = Math.hypot(dx, dy); const min = A.r + B.r + GAP; if (d >= min) continue;
+        if (d < 0.01) { dx = 1; dy = 0; d = 1; }
+        const push = min - d, ux = dx / d, uy = dy / d; any = true;
+        if (A.fixed) shove(B, ux * push, uy * push); else if (B.fixed) shove(A, -ux * push, -uy * push); else { shove(A, -ux * push / 2, -uy * push / 2); shove(B, ux * push / 2, uy * push / 2); }
+      }
+      info.forEach(L => {                                                                               // bubble from line: a bubble that a line crosses is moved off it
+        const P = byId.get(L.n.dataset.parent); if (!P) return;
+        info.forEach(C => {
+          if (C === L || C === P || C.fixed) return;
+          const [d, qx, qy] = segDist(C.x, C.y, L.x, L.y, P.x, P.y), min = C.r + LINE_GAP; if (d >= min) return;
+          let dx = C.x - qx, dy = C.y - qy, dd = Math.hypot(dx, dy); if (dd < 0.01) { dx = -(P.y - L.y); dy = P.x - L.x; dd = Math.hypot(dx, dy) || 1; }
+          any = true; shove(C, dx / dd * (min - d), dy / dd * (min - d));
+        });
+      });
+      if (!any) break;
+    }
+    if (info.some((i, k) => i.moved && Math.hypot(i.x - start[k][0], i.y - start[k][1]) > MAX_MOVE) || info.some(i => !isFinite(i.x) || !isFinite(i.y))) return;     // a push that runs away is not applied
+    info.forEach(i => { if (i.moved) offsets[i.key] = [i.x - i.b.x, i.y - i.b.y]; });
   };
   const subtree = (svg, root) => {
     const nodes = [...svg.querySelectorAll('.mm-node')], out = new Set([root.dataset.id]);
@@ -1380,7 +1448,6 @@ if (!win.__treeDragV1) {
     while (grew) { grew = false; nodes.forEach(n => { if (!out.has(n.dataset.id) && out.has(n.dataset.parent)) { out.add(n.dataset.id); grew = true; } }); }
     return nodes.filter(n => out.has(n.dataset.id));
   };
-  let hold = null;
   doc.addEventListener('pointerdown', e => {
     const node = e.target.closest && e.target.closest('.mm-node'); if (!node || e.button !== 0 || node.classList.contains('mm-hidden') || node.dataset.parent === '') return;
     const svg = node.closest('svg.mm'); if (!svg) return;
@@ -1396,10 +1463,17 @@ if (!win.__treeDragV1) {
       hold.start = new Map(hold.group.map(n => [keyOf(n), (offsets[keyOf(n)] || [0, 0]).slice()]));
       hold.group.forEach(n => n.classList.add('mm-moving'));
       hold.node.classList.add('mm-dragging'); hold.node.classList.remove('mm-settle');
+      hold.next = hold.node.nextSibling;
+      const own = hold.node.querySelector('.mm-line');
+      if (own) {                                                                          // its line moves out of the bubble and under all bubbles while it is held
+        hold.ghost = doc.createElementNS('http://www.w3.org/2000/svg', 'line'); hold.ghost.setAttribute('class', 'mm-line mm-ghost');
+        hold.svg.insertBefore(hold.ghost, hold.svg.firstChild); own.style.display = 'none';
+      }
       hold.svg.appendChild(hold.node);                                                   // the held bubble is drawn over the others
       hold.svg.classList.add('mm-holding');
     }
     hold.start.forEach((o, k) => { offsets[k] = [o[0] + dx / hold.scale, o[1] + dy / hold.scale]; });
+    repel(hold.svg, new Set(hold.group), hold.node);
     place(hold.svg);
   }, true);
   const drop = () => {
@@ -1408,15 +1482,19 @@ if (!win.__treeDragV1) {
     if (!h.moved) return;
     win.__mmDragged = true; win.setTimeout(() => { win.__mmDragged = false; }, 80);
     h.svg.classList.remove('mm-holding');
+    if (h.ghost) { h.ghost.remove(); const own = h.node.querySelector('.mm-line'); if (own) own.style.display = ''; }
+    h.svg.insertBefore(h.node, h.next || null);                                          // back in its place in the drawing order: a parent bubble covers the lines that end in it
     h.node.classList.remove('mm-dragging'); h.node.classList.add('mm-settle');
     win.setTimeout(() => { h.group.forEach(n => n.classList.remove('mm-moving')); h.node.classList.remove('mm-settle'); }, 420);
   };
   doc.addEventListener('pointerup', drop, true);
   doc.addEventListener('pointercancel', drop, true);
+  const putBack = svg => { Object.keys(offsets).forEach(k => delete offsets[k]); place(svg); };
   doc.addEventListener('dblclick', e => {
     const svg = e.target.closest && e.target.closest('svg.mm'); if (!svg || e.target.closest('.mm-node')) return;
-    Object.keys(offsets).forEach(k => delete offsets[k]); place(svg);
+    putBack(svg);
   }, true);
+  doc.addEventListener('mm-reset', e => putBack(e.detail), true);
   // a page that is drawn again (a filter, a switch of the view) gets the places the bubbles were given
   new win.MutationObserver(() => {
     doc.querySelectorAll('svg.mm').forEach(svg => { if (svg.__placed || !Object.keys(offsets).length) { svg.__placed = true; return; } svg.__placed = true; place(svg); });
@@ -2252,7 +2330,7 @@ st.session_state.setdefault("pdf_page", 1)
 st.session_state.setdefault("nav_history", [])
 st.session_state.setdefault("nav_forward", [])       # pages left by going back, newest last
 if st.button("Screenshot", key="screenshot_hidden"):  # clicked by F2 (hidden by CSS): a picture of the app window is saved in the data folder
-    import screenshot
+    from desktop import screenshot
     try:
         st.toast(f"Screenshot saved in {screenshot.FOLDER}", icon=":material/photo_camera:")
         screenshot.take()

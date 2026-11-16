@@ -1,8 +1,8 @@
 """Homework & solution pairing viewer."""
 import streamlit as st
 
-import crud
-from database import BASE_DIR, PDF_DIR, data_path, stored_path
+from core import crud
+from core.database import BASE_DIR, PDF_DIR, data_path, stored_path
 
 ICON = {"todo": "⚪", "attempted": "🟡", "verified": "🟢"}
 

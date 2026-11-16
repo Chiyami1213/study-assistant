@@ -10,6 +10,11 @@ optional), and the app reads what is already in each course page and in its syll
 **How do I change the term, the dates or the wake-up time?** The term list above the calendar switches the term; its last entry, Manage Terms, changes the dates and has Add New Term (with its wake-up
 time, bedtime and holidays).
 
+**How do I get study guides, helpers and grade pages made by Claude into the app?** Library > Import > **Prompt for Claude**: choose the course, the kind of page and its number, copy the prompt into a
+chat on claude.ai and attach your course files (the prompt lists which). Claude writes one HTML page in the format the app reads; download it, keep the file name the prompt gave, and import it with
+**Add a File** (or a zip of several). The app recognizes the type from the name (Notes, Homework Helper, Grade Explanation, Exam Reflection, Exam Preparation ...), pairs a helper or a grade
+explanation with its homework or exam, and opens the links between your pages.
+
 **How do I add many files at once, or keep the Library up to date?** Library > **Import** has **Import a Zip** (a zip of pdf and html files) and **Update From Folder** (the folder your files are kept
 in; also the **Update Files** button on a course page). Both show what they found, with the type, title and course of each, and import only after you confirm. The folder is only read: your files there
 are never changed or deleted.

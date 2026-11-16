@@ -1,5 +1,5 @@
 """An outline pasted from somewhere else becomes the editor's text form (and then the same outline the editor saves)."""
-import courseoutline as C
+from library import courseoutline as C
 
 
 def test_markers_set_the_levels():

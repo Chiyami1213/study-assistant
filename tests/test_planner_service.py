@@ -3,7 +3,7 @@ from datetime import date, datetime, time, timedelta, timezone
 
 import pytest
 
-import crud
+from core import crud
 from planner import commit_store as cs
 from planner import service, store, task_store as ts, timeutil
 from planner.models import AwakeTimes

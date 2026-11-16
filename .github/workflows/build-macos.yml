@@ -8,7 +8,7 @@ on:
     types: [published]
   push:                         # also checks the Mac build whenever the files that decide it change
     branches: [main]
-    paths: ["build_mac.py", "launcher.py", "database.py", "screenshot.py", "folderpick.py", "requirements.txt", ".github/workflows/build-macos.yml"]
+    paths: ["tools/build_mac.py", "launcher.py", "core/**", "desktop/**", "requirements.txt", ".github/workflows/build-macos.yml"]
 
 permissions:
   contents: write
@@ -43,9 +43,9 @@ jobs:
         run: |
           python - <<'EOF'
           import importlib, sys
-          for name in ("crud", "database", "settings", "helpinfo", "screenshot", "folderpick", "courseoutline", "quizzes"):
+          for name in ("core.crud", "core.database", "core.settings", "desktop.helpinfo", "desktop.screenshot", "desktop.folderpick", "library.courseoutline", "study.quizzes", "planner.store"):
               importlib.import_module(name)
-          import database
+          from core import database
           print("data folder on this Mac:", database.DATA_DIR)
           assert "Library/Application Support/Study Assistant" in str(database.DATA_DIR) or "sa-data-source" in str(database.DATA_DIR)
           assert str(database.data_path("pdfs\\book_x.pdf")).endswith("pdfs/book_x.pdf"), database.data_path("pdfs\\book_x.pdf")
@@ -59,7 +59,7 @@ jobs:
           EOF
 
       - name: Build the app and the disk image
-        run: python build_mac.py
+        run: python tools/build_mac.py
 
       - name: Check that the built app starts and answers
         env:

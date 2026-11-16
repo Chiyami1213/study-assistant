@@ -26,6 +26,8 @@ side, and let the app keep track of deadlines, grades and outlines. It runs enti
   chosen and managed from the list above the calendar, and Home shows what is due next.
 - **Study planner.** Tasks have a due date and a time estimate, and the Calendar shows how much free time is left before each deadline (a green, yellow or red cushion), warns when work does not fit, and
   places study sessions for you around classes, activities and events (with travel time); drag sessions and events to change them. Personal tasks can be planned in a break too.
+- **Prompts for your own Claude.** Library > Import > **Prompt for Claude** writes a ready-to-paste prompt for claude.ai for a study guide, a homework helper, a grade explanation, an exam
+  reflection or an exam preparation page, with the format this app reads built in; download the page Claude makes and import it.
 - **Quizzes and eye rest.** Quizzes from your notes with scores kept per chapter, and a reminder to rest your eyes every 20 minutes.
 - **Backup and moving.** Automatic snapshots, a library backup in a folder you choose, and Export My Files / Import to keep a copy or take everything to another
   computer.

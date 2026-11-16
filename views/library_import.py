@@ -11,9 +11,9 @@ import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
 
-import crud
-import settings
-from database import PDF_DIR, data_path, stored_path
+from core import crud
+from core import settings
+from core.database import PDF_DIR, data_path, stored_path
 
 SUPPORTED = (".pdf", ".html", ".htm")
 MAX_FILE = 600 * 1024 * 1024            # a single file in a zip
@@ -114,7 +114,7 @@ def guess_fields(name, default_course=None, key=""):
             title = f"HW {lecture}" + {"Homework Solution": " Solution", "Graded Homework": " Graded", "Homework Helper": " Helper", "Grade Explanation": " Grade Explanation"}.get(kind, "")
     elif kind in ("Lecture Notes", "Notes"):
         lecture = lec or L.guess_lecture(stem, "") or ""
-    import naming
+    from library import naming
     named, named_lecture = naming.default_title(kind, name)                 # the Library's own forms: HW 5 Solution, Midterm 1 Practice, a note's topic with its number apart
     if named:
         title, lecture = named, named_lecture or lecture
@@ -218,8 +218,8 @@ def zip_candidates(data, default_course=None):
 def import_candidate(c, remember=False, default_course=None):
     """Copy one file into the Library (a New file is a new book, a Changed file replaces the stored copy of its book). Returns the book id. The title, author, edition, year and page
     count are read from the file like the Add File window does."""
-    import pdfmeta
-    import syllabus
+    from library import pdfmeta
+    from library import syllabus
     data = c.reader()
     is_pdf = c.name.lower().endswith(".pdf")
     try:
@@ -233,7 +233,7 @@ def import_candidate(c, remember=False, default_course=None):
         dest.write_bytes(data)                                              # the stored copy is ours to replace; the source file is untouched
         crud._exec("UPDATE books SET total_pages=? WHERE id=?", (info.get("pages"), c.book_id))
         try:
-            import covers
+            from library import covers
             covers.remove_cover(c.book_id)
         except Exception:
             pass
@@ -271,7 +271,7 @@ def import_all(candidates, remember=False, default_course=None):
             problems.append(f"{c.name}: {e}")
     if added or replaced:
         try:
-            import libbackup
+            from datafiles import libbackup
             libbackup.auto()
         except Exception:
             pass
@@ -343,7 +343,7 @@ def folder_dialog(course_id=None):
 
     @st.dialog("Update From Folder", width="large")
     def dialog():
-        import folderpick
+        from desktop import folderpick
         own = settings.get_own_import_folder(course_id)
         folder = settings.get_import_folder(course_id)
         label = "this course" if course_id else "the Library"
@@ -388,7 +388,7 @@ def folder_dialog(course_id=None):
 def add_syllabus(course_id, name, data, part=None):
     """Add a syllabus file to the Library as the Syllabus of a course and read it: the grading breakdown, the letter-grade scale and the instructor are kept for the course page (an outline
     that was not typed by hand follows it). For one part of a merged course the data is kept for that part. Returns (book id, the data read or None)."""
-    import syllabus
+    from library import syllabus
     before = syllabus.load(course_id)
     candidate = Candidate(key=name, name=name, size=len(data), mtime=0.0, status="New", kind="Syllabus", title=f"Syllabus ({part})" if part else "Syllabus", course_ids=[course_id],
                           reader=lambda: data)
