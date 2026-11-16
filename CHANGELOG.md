@@ -4,12 +4,10 @@
 
 ---
 
-## 1.1.1 (2026-11-16)
+## 1.1.0 (2026-11-15)
 
-- **Prompt for AI** (it was Prompt for Claude): the prompt can now be made for **Claude, ChatGPT or Gemini**. Pick the assistant in the window; the contents and the format the app reads are the same,
-  and only the way the finished page is handed over differs (an artifact for Claude; a downloadable `.html` file or one code block for ChatGPT; Canvas or one code block for Gemini). Notes pages that are
-  not on the web are linked as `https://study-assistant.local/artifact/notes-<lecture number>#<section id>`, and the app now reads a link of the form `.../artifact/<id>` at any address (it used to
-  need `claude.ai`).
+### Getting started and calendars
+
 - **Getting Started tutorial.** A new student (no course yet) sees a welcome window and a checklist at the top of Home: add courses, set up the term, add class times, add files, make study guides
   with an AI assistant, add tasks, build the schedule. Each step has a button that goes to the right page and opens the right window, and ticks itself off from what you have done. **Skip
   Tutorial** hides it for good; Settings > Help > Show the Tutorial Again brings it back. Someone who already has courses never sees it.
@@ -17,9 +15,6 @@
   read again to keep things up to date: **Sync Now**, and when the app opens, at most every 3 hours) or import an `.ics` file once. You check a table first (task or event, course found from the
   course number in the title, category); repeating events and time zones are handled; an item is never added twice, a changed one is updated, and one you deleted is not brought back. The link is
   only read, and kept only in the settings file of this computer.
-- **Fix:** the hover note of the Import button no longer stays on top of the window that the Import menu opens.
-
-## 1.1.0 (2026-11-15)
 
 ### Study planner and Calendar
 
@@ -77,10 +72,13 @@
   documents come first. Your folders are only read, never changed.
 - **Imported files are named the Library's way:** HW 5, HW 5 Solution, Midterm 1 Practice, a note's topic with its number in the lecture field, Syllabus. The Type box of Add File and Edit File shows
   the general types first; Homework and Exam show their own types (helper, solution, graded paper, grade explanation, preparation ...) only when chosen.
-- **Prompt for Claude (Library > Import).** Pick a course and a kind of page (a study guide, a homework helper, a homework or exam grade explanation, an exam reflection or an exam preparation page)
-  and the app writes a prompt to paste into your own Claude chat on claude.ai. It carries the page's contents and style rules, the file name the page must have, and the exact format the app reads
-  (section ids, problem cards, grader-comment badges, link texts), and can list your notes from the Library so Claude links to them. Download the HTML Claude makes and import it as usual. The
-  Library now also recognizes `... Midterm 1 Reflection.html` and `... Final Exam Preparation.html` as those page types. The prompt texts are in `study/prompts/` and can be edited.
+- **Prompt for AI (Library > Import).** Pick a course, a kind of page (a study guide, a homework helper, a homework or exam grade explanation, an exam reflection or an exam preparation page) and
+  your AI assistant (**Claude, ChatGPT or Gemini**), and the app writes a prompt to paste into your own chat with it. It carries the page's contents and style rules, the file name the page
+  must have, and the exact format the app reads (section ids, problem cards, grader-comment badges, quiz questions, link texts), and can list your notes from the Library so the assistant links to
+  them. Only the way the finished page is handed over differs between the assistants (an artifact for Claude; a downloadable `.html` file or one code block for ChatGPT; Canvas or one code
+  block for Gemini). Download the HTML it makes and import it as usual. The Library also recognizes `... Midterm 1 Reflection.html` and `... Final Exam Preparation.html` as those page types,
+  and the app reads a link of the form `.../artifact/<id>` at any address (notes pages that are not on the web are linked as `https://study-assistant.local/artifact/notes-<lecture number>#<section id>`).
+  The prompt texts are in `study/prompts/` and can be edited.
 - **Grade reports are read by the app.** When a graded homework or exam (a Gradescope graded copy, whose first pages are the grade report) is opened and has no grade data yet, the app reads the
   problems, scores, grader comments and where each comment sits on the paper, so a grade explanation can mark the paper. Nothing has to be run by hand.
 - **Tidy Up.** Finds files that are in the Library twice and lets you remove the extra ones (the book that stays takes over their courses), and suggests titles in the Library's own form. Both ask
@@ -104,7 +102,7 @@
 
 - **The code is grouped in folders** (`core`, `library`, `study`, `datafiles`, `desktop`, `planner`, `views`, and `tools` for the build scripts and the installer) instead of one long list of files.
 - **Streamlit is limited to 1.50 up to 1.66** in `requirements.txt` (what the app was tested with); the exe carries its own copy.
-- **Fixes found while checking this release:** the tree's buttons no longer wrap to two lines on a narrow window, a cancelled repeating-event change bounces back, the Import menu closes behind the
+- **Fixes found while checking this release:** the hover note of the Import button no longer stays on top of the window the Import menu opens, the tree's buttons no longer wrap to two lines on a narrow window, a cancelled repeating-event change bounces back, the Import menu closes behind the
   window it opens, and the Remove buttons in Edit Schedule are right-aligned.
 - **Help and Report an Issue in Settings.** Help answers the common questions; Report an Issue opens a ready-made GitHub issue in the browser (optional steps, technical details, a log excerpt with your
   name and folders replaced, screenshots you pick or the newest F2 ones). The app sends nothing by itself and keeps no e-mail address.

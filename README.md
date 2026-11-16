@@ -4,7 +4,7 @@
 
 ---
 
-Version 1.1.1. See the [changelog](CHANGELOG.md) for what changed in each release.
+Version 1.1.0. See the [changelog](CHANGELOG.md) for what changed in each release.
 
 **A personal study desk for university coursework.** Keep a course's textbooks, lecture slides, notes, homework and exams in one library, read them side by
 side, and let the app keep track of deadlines, grades and outlines. It runs entirely on your computer, in its own desktop window; nothing is sent anywhere.
@@ -28,7 +28,7 @@ side, and let the app keep track of deadlines, grades and outlines. It runs enti
   places study sessions for you around classes, activities and events (with travel time); drag sessions and events to change them. Personal tasks can be planned in a break too.
 - **Getting started and calendars.** New students get a short checklist on Home (it can be skipped). **Import From Calendar** brings in the assignments and events of Canvas, Brightspace and
   Google Calendar from a calendar link (kept up to date) or an `.ics` file.
-- **Prompts for your own AI.** Library > Import > **Prompt for AI** (called Prompt for Claude in 1.1.0) writes a ready-to-paste prompt for **Claude, ChatGPT or Gemini** for a study guide, a homework
+- **Prompts for your own AI.** Library > Import > **Prompt for AI** writes a ready-to-paste prompt for **Claude, ChatGPT or Gemini** for a study guide, a homework
   helper, a grade explanation, an exam reflection or an exam preparation page, with the format this app reads built in; download the page the assistant makes and import it.
 - **Quizzes and eye rest.** Quizzes from your notes with scores kept per chapter, and a reminder to rest your eyes every 20 minutes.
 - **Backup and moving.** Automatic snapshots, a library backup in a folder you choose, and Export My Files / Import to keep a copy or take everything to another
@@ -52,16 +52,13 @@ Questions about installing, antivirus warnings, your files, backups, shortcuts a
 
 ## What's new
 
-**1.1.1**
-- **Getting Started tutorial** for new students (it can be skipped), and **Import From Calendar**: assignments and events of Canvas, Brightspace and Google Calendar from a calendar link (kept up to
-  date) or an `.ics` file.
-- **Prompt for AI** now makes the prompt for Claude, ChatGPT or Gemini (it was Prompt for Claude).
-
 **1.1.0**
+- **Getting started and calendars:** a short **Getting Started** checklist for new students (it can be skipped), and **Import From Calendar**: the assignments and events of Canvas, Brightspace and Google
+  Calendar from a calendar link (kept up to date) or an `.ics` file.
 - **A study planner and a new Calendar:** terms, classes, activities and events, tasks with estimates, a cushion that shows how much free time is left before each deadline, Auto-Plan, a study
   timer, dragging on the schedule (with the repeating-event questions), and a **Task List** with **Import From Syllabus**.
 - **Courses:** a course page with what is coming up, grades and the syllabus; **All Disciplines**, your courses as a tree whose bubbles you can drag (they never overlap); **Merge Courses**.
-- **Library:** sort by type, course or date added; Cards, Tiles or Details; Import a Zip, Update From Folder and **Tidy Up**; and **Prompt for Claude** (now **Prompt for AI**, for Claude, ChatGPT and Gemini), which writes the prompt that makes your own
+- **Library:** sort by type, course or date added; Cards, Tiles or Details; Import a Zip, Update From Folder and **Tidy Up**; and **Prompt for AI** (for Claude, ChatGPT and Gemini), which writes the prompt that makes your own
   AI assistant produce study guides, helpers, grade explanations and exam pages in the format the app reads. A graded Gradescope paper is read for its grade report by the app itself.
 - **Study Assistant for macOS** (Apple silicon and Intel): a disk image to drag into Applications; files in `~/Library/Application Support/Study Assistant`.
 - **New setup wizard** for Windows: sharp on high-resolution screens, with a welcome page, the choice to update, uninstall first or keep both when it finds an installed version,
