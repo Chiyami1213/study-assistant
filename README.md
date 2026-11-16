@@ -53,7 +53,7 @@ Questions about installing, antivirus warnings, your files, backups, shortcuts a
 ## What's new
 
 **1.1.0**
-- **Getting started and calendars:** a short **Getting Started** checklist for new students (it can be skipped), and **Import From Calendar**: the assignments and events of Canvas, Brightspace and Google
+- **Getting started and calendars:** a **Getting Started** check chain and a guided tour for new students (a box and an arrow show where to click; it can be skipped and started again), and **Import From Calendar**: the assignments and events of Canvas, Brightspace and Google
   Calendar from a calendar link (kept up to date) or an `.ics` file.
 - **A study planner and a new Calendar:** terms, classes, activities and events, tasks with estimates, a cushion that shows how much free time is left before each deadline, Auto-Plan, a study
   timer, dragging on the schedule (with the repeating-event questions), and a **Task List** with **Import From Syllabus**.

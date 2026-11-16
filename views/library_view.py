@@ -1097,10 +1097,11 @@ def render():
     if open_book:
         _viewer(open_book); return
 
-    if st.session_state.pop("_tut_add_file", False):                          # the tutorial opens these windows
+    from views import tutorial
+    if tutorial.wants("add_file"):                                           # the guided tour opens these windows
         _reset_add_boxes()
         _add_dialog(None)
-    elif st.session_state.pop("_tut_prompt", False):
+    elif tutorial.wants("prompt"):
         from views import prompt_dialog
         prompt_dialog.prompt_dialog()
     all_books = crud.list_books()

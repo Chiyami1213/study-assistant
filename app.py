@@ -8,6 +8,7 @@ import json
 import sys
 
 from views import icons
+from views import tutorial
 
 # The dev server caches imported modules between reruns; reload ours so edits apply without a restart.
 # (exportfiles and dataimport are not reloaded: their running job and its progress live in the module.)
@@ -207,7 +208,17 @@ section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-h
 
 /* Merge Courses and Add Course: two outlined buttons of the same size, side by side at the top right */
 .st-key-course_actions {{gap: 0.6rem !important; justify-content: flex-end !important;}}
-/* Getting Started (Home): a number or a tick in a circle in front of each step */
+/* Getting Started (Home): the check chain (a tick in a green circle, the next step in blue, the rest grey, joined by lines) and the number or tick in front of each step */
+.tut-chain {{display: flex; align-items: flex-start; margin: 0.4rem 0 0.2rem; overflow-x: auto; padding: 4px 2px 8px;}}
+.tc-step {{display: flex; flex-direction: column; align-items: center; gap: 6px; flex: 0 0 auto; min-width: 76px;}}
+.tc-dot {{width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 1rem; border: 2px solid var(--border); color: var(--text); opacity: 0.55; box-sizing: border-box;}}
+.tc-done .tc-dot {{background: #2c9a5a; border-color: #2c9a5a; color: #fff; opacity: 1;}}
+.tc-now .tc-dot {{background: #2f6fe0; border-color: #2f6fe0; color: #fff; opacity: 1; width: 40px; height: 40px; margin: -3px 0; box-shadow: 0 0 0 5px rgba(47, 111, 224, 0.25);}}
+.tc-name {{font-size: 0.78rem; opacity: 0.6; text-align: center; white-space: nowrap;}}
+.tc-now .tc-name {{opacity: 1; font-weight: 700; color: #6fb0ff;}}
+.tc-done .tc-name {{opacity: 0.9;}}
+.tc-line {{flex: 1 1 24px; height: 2px; background: var(--border); margin: 16px 2px 0; min-width: 16px;}}
+.tc-line.tc-done {{background: #2c9a5a;}}
 .tut-mark {{width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 0.85rem; font-weight: 700; opacity: 0.85;}}
 .tut-mark.tut-done {{background: #2c7a4b; border-color: #2c7a4b; color: #fff; opacity: 1;}}
 .tut-why {{font-size: 0.85rem; opacity: 0.72;}}
@@ -272,7 +283,7 @@ section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-h
     pointer-events: none;}}
 
 /* Course outline: hidden box that carries a clicked point to the app */
-.st-key-outline_sink, .st-key-lib_sink, .st-key-lib_link_sink, .st-key-cal_sink, .st-key-tree_sink {{position: absolute !important; width: 1px; height: 1px; overflow: hidden; opacity: 0; pointer-events: none;}}
+.st-key-outline_sink, .st-key-lib_sink, .st-key-lib_link_sink, .st-key-cal_sink, .st-key-tree_sink, .st-key-tour_sink {{position: absolute !important; width: 1px; height: 1px; overflow: hidden; opacity: 0; pointer-events: none;}}
 
 /* Home: term stats */
 .home-stats {{display: flex; gap: 12px; margin: 2px 0 18px;}}
@@ -2410,6 +2421,7 @@ if st.query_params.get("detached"):          # a Note Reader window dragged out 
     st.stop()
 
 st.session_state.setdefault("page", "Home")
+tutorial.tour_before()                          # the guided tour: its Back / Next / Skip, and the page of its step (before the menu is drawn)
 st.session_state.setdefault("mode", "Detailed")
 st.session_state.setdefault("pdf_page", 1)
 
@@ -2515,3 +2527,4 @@ if st.session_state["page"] not in PAGES:           # a page that no longer exis
 navigation.record_view()
 
 PAGES[st.session_state["page"]][1]()
+tutorial.tour_after()                           # the guided tour: the dim, the box, the arrow and the helper card of the present step

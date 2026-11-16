@@ -8,9 +8,11 @@
 
 ### Getting started and calendars
 
-- **Getting Started tutorial.** A new student (no course yet) sees a welcome window and a checklist at the top of Home: add courses, set up the term, add class times, add files, make study guides
-  with an AI assistant, add tasks, build the schedule. Each step has a button that goes to the right page and opens the right window, and ticks itself off from what you have done. **Skip
-  Tutorial** hides it; a **Show the Tutorial** button stays on Home (and in Settings > Help) so it can be opened again at any time. Someone who already has courses never sees it.
+- **Getting Started tutorial.** A new student (no course yet) gets a welcome window, a **check chain** of seven steps at the top of Home (a green tick for each one done, the next in blue; the app counts
+  them from your own data) and a **guided tour**. The tour takes you to the page, opens the window, dims everything except the thing to click or fill, points at it with a glowing box and an arrow, and
+  explains it in a helper card in the corner that is farthest from it, with Back, Next and Skip Tutorial. It moves on by itself when you do what a step asks (a course saved, a term added ...). It covers
+  adding a course, setting up the term, class times, adding files, making study guides with an AI assistant, importing tasks and Auto-Plan. **Skip Tutorial** closes it at any time; a **Show the Tutorial**
+  button stays at the right of the Home title (and in Settings > Help) so it can be started again whenever you like.
 - **Import From Calendar** (Task List). Bring the assignments and events of **Canvas**, **Brightspace** and **Google Calendar** into the planner: paste the private calendar link of the service (it is
   read again to keep things up to date: **Sync Now**, and when the app opens, at most every 3 hours) or import an `.ics` file once. You check a table first (task or event, course found from the
   course number in the title, category); repeating events and time zones are handled; an item is never added twice, a changed one is updated, and one you deleted is not brought back. The link is

@@ -11,7 +11,7 @@ from core import crud
 from study import eqsheet
 from core import settings
 from library import syllabus
-from views import icons
+from views import icons, tutorial
 from library import photos
 from views import course_tree, library_view, quiz_view
 
@@ -239,7 +239,7 @@ def render():
     with actions.container(horizontal=True, horizontal_alignment="right", key="course_actions"):      # two buttons of one fixed size, together at the right edge
         if st.button("Merge Courses", key="merge_courses_open", icon=":material/merge:", help="make two or more courses one (MA 266 / MA 303), with each part's files, homework and exams kept apart by a tag"):
             _merge_dialog()
-        if st.button("Add Course", key="add_course_open", icon=":material/add:") or st.session_state.pop("_tut_add_course", False):          # the tutorial opens it too
+        if st.button("Add Course", key="add_course_open", icon=":material/add:") or tutorial.wants("add_course"):          # the tour opens it too
             _add_course_dialog()
     # The filter, category and sort are remembered apart from their widgets (a widget's value is dropped while a course or a file is open), so Back
     # from a course, or from a file opened in it, returns to the same tab, for example Completed.

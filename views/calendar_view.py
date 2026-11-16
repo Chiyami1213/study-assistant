@@ -8,6 +8,7 @@ import streamlit as st
 
 from core import crud
 from core import settings
+from views import tutorial
 from planner import commit_store, service, session_store, store as planner_store, task_store, timeutil, track_store
 from views import plan_grid, planner_ui, tasklist_view
 
@@ -305,8 +306,10 @@ def render():
     head, tog, btn = st.columns([2.2, 2.6, 1.6], vertical_alignment="center")
     page = tog.segmented_control("Page", PAGES, key="cal_page", label_visibility="collapsed") or "Calendar"
     head.title(page)
-    if page == "Calendar" and (btn.button("Edit Schedule", key="edit_schedule_open") or st.session_state.pop("_tut_schedule", False)):          # the tutorial opens it too
+    if page == "Calendar" and (btn.button("Edit Schedule", key="edit_schedule_open") or tutorial.wants("schedule")):          # the tour opens it too
         _schedule_dialog()
+    elif tutorial.wants("new_term"):                                                                                     # the tour opens the window to add a term
+        planner_ui.new_term_dialog()
 
     sink = st.text_input("Calendar Actions", key="cal_sink", label_visibility="collapsed")          # a drag or click in the grid writes here (see app.py)
     if sink and sink != st.session_state.get("_cal_sink_done"):
