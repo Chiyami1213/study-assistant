@@ -34,7 +34,10 @@ side, and let the app keep track of deadlines, grades and outlines. It runs enti
 
 ## Get it
 
-- **Windows 10 and 11** and **macOS** (Apple silicon and Intel): download from the [Releases](https://github.com/Chiyami1213/study-assistant/releases) page and follow [Install](docs/INSTALL.md).
+- **Choose your computer** and follow its steps (the download is on the [Releases](https://github.com/Chiyami1213/study-assistant/releases) page):
+  - **Windows 10 or 11:** [install on Windows](docs/INSTALL.md#install-on-windows-10-or-11)
+  - **Mac with Apple silicon** (M1 or newer) or **Mac with an Intel processor:** [install on a Mac](docs/INSTALL.md#install-on-a-mac), which also shows how to tell which Mac you have
+  - Not sure? [Choose your device](docs/INSTALL.md#choose-your-device)
 - Your antivirus, Windows SmartScreen or macOS may warn about the app: **Study Assistant does not contain a virus** (see the note on the Install tab).
 - **Check your download (optional):** every release has a `SHA256SUMS.txt` with the fingerprint of the file. In PowerShell run `Get-FileHash <file>` (on a Mac `shasum -a 256 <file>`); if the result equals the
   line in the checksum file, the file is exactly the one published here. The Windows zip is checked against `SHA256SUMS.txt`; each Mac disk image has its own file,
