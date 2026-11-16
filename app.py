@@ -1467,6 +1467,45 @@ if (!win.__treeDragV1) {
     if (info.some((i, k) => i.moved && Math.hypot(i.x - start[k][0], i.y - start[k][1]) > MAX_MOVE) || info.some(i => !isFinite(i.x) || !isFinite(i.y))) return;     // a push that runs away is not applied
     info.forEach(i => { if (i.moved) offsets[i.key] = [i.x - i.b.x, i.y - i.b.y]; });
   };
+  // How many bubbles overlap another bubble, and how many lines cross a bubble that is not at their ends.
+  const violations = svg => {
+    const nodes = [...svg.querySelectorAll('.mm-node')].filter(n => !n.classList.contains('mm-hidden')).map(n => {
+      const b = base(n), o = offsets[keyOf(n)] || [0, 0]; return {x: b.x + o[0], y: b.y + o[1], r: b.r, id: n.dataset.id, par: n.dataset.parent};
+    });
+    const by = new Map(nodes.map(i => [i.id, i]));
+    let v = 0;
+    for (let a = 0; a < nodes.length; a++) for (let c = a + 1; c < nodes.length; c++) if (Math.hypot(nodes[a].x - nodes[c].x, nodes[a].y - nodes[c].y) < nodes[a].r + nodes[c].r) v++;
+    nodes.forEach(L => {
+      const P = by.get(L.par); if (!P) return;
+      const sx = P.x - L.x, sy = P.y - L.y, l2 = sx * sx + sy * sy; if (l2 < 1) return;
+      nodes.forEach(C => {
+        if (C === L || C === P) return;
+        const u = Math.max(0, Math.min(1, ((C.x - L.x) * sx + (C.y - L.y) * sy) / l2));
+        if (Math.hypot(C.x - (L.x + sx * u), C.y - (L.y + sy * u)) < C.r) v++;
+      });
+    });
+    return v;
+  };
+  // One step of a drag. The held bubbles go to the wanted place only when nothing overlaps there; else they stop at the furthest place on the way where nothing does (what was wrong
+  // before the drag began is not held against it).
+  const tryMove = (tx, ty) => {
+    const group = new Set(hold.group), from = hold.last || [0, 0], keyH = keyOf(hold.node);
+    if (hold.viol === undefined) hold.viol = violations(hold.svg);
+    for (const f of [1, 0.66, 0.4, 0.2, 0.08, 0]) {
+      const snap = JSON.parse(JSON.stringify(offsets));
+      const cx = from[0] + (tx - from[0]) * f, cy = from[1] + (ty - from[1]) * f;
+      hold.start.forEach((o, k) => { offsets[k] = [o[0] + cx, o[1] + cy]; });
+      repel(hold.svg, group, hold.node);
+      const v = violations(hold.svg);
+      if (v <= hold.viol || f === 0) {
+        hold.viol = Math.min(hold.viol, v);
+        const o = offsets[keyH], s = hold.start.get(keyH); hold.last = [o[0] - s[0], o[1] - s[1]];
+        break;
+      }
+      Object.keys(offsets).forEach(k => delete offsets[k]); Object.assign(offsets, snap);
+    }
+    place(hold.svg);
+  };
   const subtree = (svg, root) => {
     const nodes = [...svg.querySelectorAll('.mm-node')], out = new Set([root.dataset.id]);
     let grew = true;
@@ -1497,9 +1536,7 @@ if (!win.__treeDragV1) {
       hold.svg.appendChild(hold.node);                                                   // the held bubble is drawn over the others
       hold.svg.classList.add('mm-holding');
     }
-    hold.start.forEach((o, k) => { offsets[k] = [o[0] + dx / hold.scale, o[1] + dy / hold.scale]; });
-    repel(hold.svg, new Set(hold.group), hold.node);
-    place(hold.svg);
+    tryMove(dx / hold.scale, dy / hold.scale);
   }, true);
   const drop = () => {
     if (!hold) return;
