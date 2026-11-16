@@ -74,8 +74,7 @@ def panel_html(tasks, courses, activities, report, usage_left, term_name=None, h
     names, colors = names or {}, colors or {}
     in_term = dict(in_saved_order(list(term_courses(courses, term_name).items()), lambda kv: f"course:{kv[0]}", order))
     activities = in_saved_order(activities, lambda a: f"activity:{a['id']}", order)
-    out = ['<div class="pl-title">Drag a block into the schedule. Drag the Custom Event block to add an event of your own.</div>',
-           '<div class="pl-item pl-event" data-drag="event:0" title="drag it onto the calendar to add an event of your own"><span class="pl-grip">&#10303;</span>Custom Event</div>']
+    out = ['<div class="pl-item pl-event" data-drag="event:0" title="drag it onto the calendar to add an event of your own"><span class="pl-grip">&#10303;</span>Custom Event</div>']
 
     def course_color(c):
         return colors.get(f"course:{c['id']}") or crud.course_color(c)

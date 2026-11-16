@@ -10,10 +10,10 @@ from datetime import date, datetime, timedelta
 from . import timeutil
 from .models import PlannerError
 
-CATEGORIES = ("Homework", "Exam", "Quiz", "Reading", "Project", "Other")
+CATEGORIES = ("Homework", "Exam", "Quiz", "Reading", "Project", "Lab", "Other")
 TODO, DONE = "todo", "done"
 # The built-in estimates (minutes) used when a course has no default for a category: typical figures for a university course.
-DEFAULT_ESTIMATES = {"Homework": 120, "Exam": 600, "Quiz": 45, "Reading": 60, "Project": 600, "Other": 60}
+DEFAULT_ESTIMATES = {"Homework": 120, "Exam": 600, "Quiz": 45, "Reading": 60, "Project": 600, "Lab": 120, "Other": 60}
 ESTIMATE_RANGE = (5, 6000)             # minutes: 5 minutes to 100 hours
 MAX_START_AHEAD = 120                  # days
 START_SOON_DAYS = 3

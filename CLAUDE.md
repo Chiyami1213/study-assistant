@@ -125,6 +125,10 @@ Number (or "Midterm 1", "Final" in the title) pair it with the problem file and 
   the hour height and the fold state next to it. Terms are `settings.list_terms()` etc.; `planner_ui.term_select` / `terms_dialog` is the only place they are managed. A personal task
   (`tasks.personal`) has no course and may be planned in a break and outside the term. Everything the grid and the panel report goes through the hidden box `cal_sink` (also on the Task List).
 - Library (`views/library_view.py`): the usual sort is Type (tiles), Course (tiles), Date Added (timeline) or Title; what is open is kept in `st.session_state["_lib"]`.
+- Task categories are `planner.tasks.CATEGORIES` (Homework, Exam, Quiz, Reading, Project, Lab, Other); the `tasks` and `task_defaults` tables carry the list in a CHECK, so a new category needs the schema text in `database.py` AND a start-up widening of older databases (`_allow_task_category_lab` edits the stored table text; never copy or drop `tasks`, other tables point at it).
+- The Courses tree (`views/course_tree.py`) grows upward from the root "All Disciplines" at the bottom (angles -pi..0); a field whose only topic is General has no General bubble (its courses hang on the field). Bubbles are dragged by the script `__treeDragV1` in app.py (offsets kept in `window.__mmOffsets` per bubble key; a drag moves the bubble's branches too; double-click on the map resets).
+- Buttons at the top of every page share one look (outlined, 40 px, icon and text centered) through the key list in the `app.py` CSS block "The buttons at the top of every page"; a new top button needs its key added there.
+- README gallery images (`docs/gallery/`) are made with made-up courses only (never the real data folder); update them with the demo data scripts in the scratchpad pattern: scratch `STUDY_ASSISTANT_DATA`, fictional courses, Playwright screenshots.
 - Tests: `python -m pytest` (`tests/`, a temporary data folder is set up by `tests/conftest.py`; never the real one). Write tests with every phase.
 
 ## The GitHub pages

@@ -234,12 +234,13 @@ def render():
         return
 
     st.session_state.pop("_recent_touched", None)
-    head, merge_col, btn = st.columns([5, 1.5, 1.3], vertical_alignment="center")
+    head, actions = st.columns([1, 1], vertical_alignment="center")
     head.title("Courses")
-    if merge_col.button("Merge Courses", key="merge_courses_open", icon=":material/merge:", help="make two or more courses one (MA 266 / MA 303), with each part's files, homework and exams kept apart by a tag"):
-        _merge_dialog()
-    if btn.button("Add Course", key="add_course_open"):
-        _add_course_dialog()
+    with actions.container(horizontal=True, horizontal_alignment="right", key="course_actions"):      # two buttons of one fixed size, together at the right edge
+        if st.button("Merge Courses", key="merge_courses_open", icon=":material/merge:", help="make two or more courses one (MA 266 / MA 303), with each part's files, homework and exams kept apart by a tag"):
+            _merge_dialog()
+        if st.button("Add Course", key="add_course_open", icon=":material/add:"):
+            _add_course_dialog()
     # The filter, category and sort are remembered apart from their widgets (a widget's value is dropped while a course or a file is open), so Back
     # from a course, or from a file opened in it, returns to the same tab, for example Completed.
     for key in ("courses_filter", "courses_category", "courses_sort"):

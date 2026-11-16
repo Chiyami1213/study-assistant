@@ -197,10 +197,28 @@ section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-h
 .book-badge.status.active {{border-color: #2f9e5f; color: #2f9e5f; background: rgba(47, 158, 95, 0.12); opacity: 1;}}
 .book-badge.status.completed {{border-color: #6a77dd; color: #6a77dd; background: rgba(106, 119, 221, 0.12); opacity: 1;}}
 
-/* Add Course button: plain outlined button at the top right */
-.st-key-add_course_open {{width: 100% !important;}}
-.st-key-add_course_open [data-testid="stButton"] {{width: 100%; display: flex; justify-content: flex-end;}}
-.st-key-add_course_open button {{min-height: 0; padding: 0.3rem 0.8rem; width: auto !important;}}
+/* Merge Courses and Add Course: two outlined buttons of the same size, side by side at the top right */
+.st-key-course_actions {{gap: 0.6rem !important; justify-content: flex-end !important;}}
+.st-key-add_course_open, .st-key-merge_courses_open {{width: 10.5rem !important; flex: 0 0 10.5rem !important;}}
+.st-key-add_course_open [data-testid="stButton"], .st-key-merge_courses_open [data-testid="stButton"] {{width: 100% !important;}}
+/* The buttons at the top of every page look like Update Files: an outlined 40 px button with the icon and the text in the middle, on one line (the Import menu of the Library is the same). */
+.stApp :is(.st-key-merge_courses_open, .st-key-add_course_open, .st-key-course_back, .st-key-course_update_files, .st-key-edit_schedule_open, .st-key-cal_autoplan, .st-key-tk_add_open,
+           .st-key-lab_full_close, .st-key-quiz_notes_close, [class*="st-key-lab_dock_"], [class*="st-key-quiz_save_"], [class*="st-key-quiz_back_"]) button {{
+  min-height: 40px !important; height: 40px; min-width: 10.5rem; padding: 0 16px !important; border-radius: 8px !important; white-space: nowrap; width: auto;
+  display: flex !important; align-items: center !important; justify-content: center !important; text-align: center !important;}}
+.stApp :is(.st-key-merge_courses_open, .st-key-add_course_open) button {{width: 100% !important;}}
+.stApp :is(.st-key-merge_courses_open, .st-key-add_course_open, .st-key-course_back, .st-key-course_update_files, .st-key-edit_schedule_open, .st-key-lab_full_close, .st-key-quiz_notes_close,
+           [class*="st-key-lab_dock_"], [class*="st-key-quiz_save_"], [class*="st-key-quiz_back_"]) button:not([data-testid="stBaseButton-primary"]) {{border: 1px solid var(--border) !important; background: var(--input) !important;}}
+.stApp :is(.st-key-merge_courses_open, .st-key-add_course_open, .st-key-course_back, .st-key-course_update_files, .st-key-edit_schedule_open, .st-key-lab_full_close, .st-key-quiz_notes_close) button:hover {{border-color: var(--accent) !important;}}
+/* inside: button > div > span (the row) > icon + text; every level is centered, and the text has no extra line height or margin that would sit it lower than the icon */
+.stApp :is(.st-key-merge_courses_open, .st-key-add_course_open, .st-key-course_back, .st-key-course_update_files, .st-key-edit_schedule_open, .st-key-cal_autoplan, .st-key-tk_add_open,
+           .st-key-lab_full_close, .st-key-quiz_notes_close, [class*="st-key-lab_dock_"], [class*="st-key-quiz_save_"], [class*="st-key-quiz_back_"]) button :is(div, span):not([data-testid="stIconMaterial"]) {{
+  display: flex !important; align-items: center !important; justify-content: center !important; gap: 8px; margin: 0 !important; padding: 0 !important; line-height: 1.4 !important; overflow: visible !important; width: auto !important;}}
+.stApp :is(.st-key-merge_courses_open, .st-key-add_course_open, .st-key-course_back, .st-key-course_update_files, .st-key-edit_schedule_open, .st-key-cal_autoplan, .st-key-tk_add_open,
+           .st-key-lab_full_close, .st-key-quiz_notes_close, [class*="st-key-lab_dock_"], [class*="st-key-quiz_save_"], [class*="st-key-quiz_back_"]) button p {{
+  font-size: 0.9rem !important; font-weight: 400 !important; line-height: 1.4 !important; overflow: visible !important; margin: 0 !important; padding: 0 !important; text-align: center !important;}}
+.stApp :is(.st-key-merge_courses_open, .st-key-add_course_open, .st-key-course_back, .st-key-course_update_files, .st-key-edit_schedule_open, .st-key-cal_autoplan, .st-key-tk_add_open,
+           .st-key-lab_full_close, .st-key-quiz_notes_close, [class*="st-key-lab_dock_"], [class*="st-key-quiz_save_"]) [data-testid="stIconMaterial"] {{font-size: 1.2rem !important; line-height: 1 !important; display: block;}}
 
 /* Course summary tiles */
 .course-tile {{aspect-ratio: 1 / 1; border-radius: 14px; padding: 16px; display: flex; flex-direction: column;
@@ -541,7 +559,7 @@ div[data-testid="stColumn"]:has(.pl-wrap) + div[data-testid="stColumn"] {{flex: 
 .wk-block.wk-openable {{cursor: pointer;}}
 .wk-moved {{position: absolute; right: 4px; top: 3px; font-size: 0.62rem; background: #0007; border-radius: 3px; padding: 0 4px;}}
 .wk-block[data-edit] {{cursor: grab; user-select: none; touch-action: none;}}
-.wk-block.dragging {{opacity: 0.85; z-index: 6; box-shadow: 0 8px 18px #0007; cursor: grabbing;}}
+.wk-block.dragging {{opacity: 0.9; z-index: 6; box-shadow: none; outline: 2px solid #ffffffaa; outline-offset: -2px; cursor: grabbing;}}
 .wk-del {{position: absolute; right: 5px; top: 4px; z-index: 3; cursor: pointer; opacity: 0; padding: 2px; border-radius: 6px; line-height: 0; transition: opacity .12s, background .12s;}}
 .wk-block:hover .wk-del {{opacity: 0.85;}}
 .wk-del:hover {{opacity: 1 !important; background: #ffffff26;}}
@@ -645,6 +663,9 @@ div[data-testid="stColumn"]:has(.pl-wrap) + div[data-testid="stColumn"] {{flex: 
 .st-key-backup_db_pop [data-testid="stPopover"] button {{border: 1px solid var(--border) !important; background: var(--bg) !important;
     padding: 0.25rem 0.75rem; min-height: 2.5rem; justify-content: center;}}
 .st-key-backup_db_pop [data-testid="stPopover"] button p {{font-size: 0.875rem; font-weight: 400; letter-spacing: 0; line-height: 1.4;}}
+/* The Remove buttons of the class times and the holidays (a popover with a word, not the three dots): normal text */
+[class*="st-key-meeting_pop_"] [data-testid="stPopover"] button p, [class*="st-key-hol_pop_"] [data-testid="stPopover"] button p {{font-size: 0.9rem; font-weight: 400; letter-spacing: 0; line-height: 1.4;}}
+[class*="st-key-meeting_pop_"] [data-testid="stPopover"] button > div, [class*="st-key-hol_pop_"] [data-testid="stPopover"] button > div {{gap: 6px !important; align-items: center;}}
 .lab-tab.dragging {{opacity: 0.45;}}
 .lab-tab.drop-target {{box-shadow: inset 0 -3px 0 var(--accent);}}
 [class*="st-key-lab_pane_"] {{flex: none; height: calc(100vh - 62px); overflow-y: auto; overflow-x: hidden; padding: 0 12px; background: var(--bg);}}
@@ -748,6 +769,16 @@ svg.mm {{width: 100%; height: calc(100vh - 330px); min-height: 520px; display: b
 .tk-zoom button {{min-width: 34px; background: var(--input); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 4px 10px; cursor: pointer; font-size: 0.95rem; line-height: 1.2;}}
 .tk-zoom button:hover {{border-color: var(--accent); color: var(--accent);}}
 svg.mm {{cursor: grab; touch-action: none;}}
+/* Dragging a bubble: it follows the pointer at once (no slide), lifts with a shadow while it is held, and settles back with a small bounce when it is dropped. */
+.mm-node.mm-moving {{transition: opacity .4s ease !important;}}
+.mm-node:not([data-parent=""]) {{cursor: grab;}}
+svg.mm.mm-holding, svg.mm.mm-holding .mm-node {{cursor: grabbing;}}
+.mm-node > circle, .mm-node > text, .mm-node > image {{transition: transform .2s cubic-bezier(.3, 1.4, .5, 1), filter .2s;}}
+.mm-node.mm-dragging > circle, .mm-node.mm-dragging > text, .mm-node.mm-dragging > image {{transform: scale(1.14);}}
+.mm-node.mm-dragging > circle {{filter: drop-shadow(0 14px 14px #000b) brightness(1.18);}}
+.mm-node.mm-settle > circle, .mm-node.mm-settle > text, .mm-node.mm-settle > image {{animation: mm-settle .4s cubic-bezier(.3, 1.5, .5, 1);}}
+@keyframes mm-settle {{0% {{transform: scale(1.14);}} 45% {{transform: scale(0.93);}} 100% {{transform: scale(1);}}}}
+html.lite .mm-node.mm-dragging > circle {{filter: none; stroke-width: 4px;}}
 svg.mm.panning {{cursor: grabbing;}}
 /* Library, by course: the tiles of the Courses page */
 .lib-ctiles {{display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 1rem; margin: 0.5rem 0 1.2rem;}}
@@ -1022,6 +1053,24 @@ if (!win.__calDragV1) {
     e.preventDefault(); e.stopPropagation(); sendCal('delete|' + bin.dataset.del);
   }, true);
   let drag = null;
+  // A block that was dragged or resized keeps its new place on the screen until the page is drawn again. When the change is cancelled in the dialog (or refused), the page is not
+  // drawn again, so the block is put back by hand: as soon as the dialog is gone and the same block is still there, it gets its old place, size and time back.
+  const bounceBack = d => {
+    const tm = d.block.querySelector('.wk-time'), orig = d.orig; let seen = false; const t0 = Date.now();
+    const timer = win.setInterval(() => {
+      if (!d.block.isConnected || Date.now() - t0 > 30000) { win.clearInterval(timer); return; }
+      const open = !!doc.querySelector('[role="dialog"], [data-testid="stDialog"]');
+      if (open) { seen = true; return; }
+      if (seen || Date.now() - t0 > 2500) {
+        win.clearInterval(timer);
+        const col = d.block.closest('.wk-col');
+        if (+d.block.dataset.start !== d.start || +d.block.dataset.end !== d.end || !col || col.dataset.day !== d.day) return;       // the change was made: the page shows the new place itself
+        if (orig.style === null) d.block.removeAttribute('style'); else d.block.setAttribute('style', orig.style);
+        d.block.classList.remove('dragging');
+        if (tm && orig.time !== null) tm.textContent = orig.time;
+      }
+    }, 150);
+  };
   const snapMin = (grid, px) => { const per = +grid.dataset.hourPx / 60, s = +grid.dataset.snap; return Math.round(px / per / s) * s; };
   doc.addEventListener('pointerdown', e => {
     if (e.target.closest && e.target.closest('.wk-del')) return;                  // the trash bin is a button, not a place to drag from
@@ -1030,7 +1079,8 @@ if (!win.__calDragV1) {
     const block = e.target.closest('.wk-block');
     if (block && block.dataset.edit) {
       drag = {mode: e.target.closest('.wk-resize-top') ? 'resizetop' : e.target.closest('.wk-resize') ? 'resize' : 'move', block, grid, col, startX: e.clientX, startY: e.clientY, moved: false,
-              start: +block.dataset.start, end: +block.dataset.end, day: col.dataset.day, dMin: 0};
+              start: +block.dataset.start, end: +block.dataset.end, day: col.dataset.day, dMin: 0,
+              orig: {style: block.getAttribute('style'), time: block.querySelector('.wk-time') ? block.querySelector('.wk-time').textContent : null}};
     } else if (block && block.dataset.open) {
       drag = {mode: 'open', block, grid, col, startX: e.clientX, startY: e.clientY, moved: false};
     } else if (!block && e.target === col) {
@@ -1080,6 +1130,7 @@ if (!win.__calDragV1) {
     }
     if (d.mode === 'open') { if (!d.moved) sendCal('click|' + d.block.dataset.open); return; }
     if (!d.moved) { sendCal('click|' + d.block.dataset.ref); return; }
+    bounceBack(d);
     if (d.mode === 'move') sendCal('move|' + d.block.dataset.ref + '|' + (d.target || d.col).dataset.day + '|' + (d.start + d.dMin));
     else if (d.mode === 'resizetop') sendCal('resizetop|' + d.block.dataset.ref + '|' + d.day + '|' + (d.newStart === undefined ? d.start : d.newStart));
     else sendCal('resize|' + d.block.dataset.ref + '|' + d.day + '|' + (d.newEnd || d.end));
@@ -1245,6 +1296,7 @@ if (!win.__treeV4) {
   };
   doc.addEventListener('click', e => {
     const t = e.target.closest && e.target.closest('[data-mm-toggle], [data-tree-course], [data-mm-all]'); if (!t) return;
+    if (win.__mmDragged) { e.stopPropagation(); e.preventDefault(); return; }                  // the end of a drag of a bubble is not a click on it
     if (t.dataset.treeCourse) {
       const inp = doc.querySelector('.st-key-tree_sink input'); if (!inp) return;
       const set = Object.getOwnPropertyDescriptor(win.HTMLInputElement.prototype, 'value').set;
@@ -1299,6 +1351,76 @@ if (!win.__treeZoomV2) {
     setBox(pan.svg, [pan.box[0] - (e.clientX - pan.x) * k, pan.box[1] - (e.clientY - pan.y) * k, pan.box[2], pan.box[3]], false);
   }, true);
   doc.addEventListener('pointerup', () => { if (pan) { pan.svg.classList.remove('panning'); pan = null; } }, true);
+}
+// Courses > All > Tree: drag a bubble to move it (the branches and courses that hang on it move with it, its line stretches). The bubble lifts while it is held and settles when it is dropped. The
+// places are kept while the page is redrawn (not after a reload); a double-click on the empty map puts every bubble back.
+if (!win.__treeDragV1) {
+  win.__treeDragV1 = true;
+  const offsets = win.__mmOffsets = win.__mmOffsets || {};
+  const keyOf = n => n.dataset.treeCourse ? 'c' + n.dataset.treeCourse : 'b' + (n.querySelector('.mm-label') ? n.querySelector('.mm-label').textContent : n.dataset.id) + n.className.baseVal.match(/mm-l[0-9]/);
+  const base = n => {
+    if (!n.__b) {
+      const s = n.style, f = v => parseFloat(s.getPropertyValue(v)) || 0, ln = n.querySelector('.mm-line');
+      n.__b = {x: f('--x'), y: f('--y'), px: f('--px'), py: f('--py'), lx: ln ? parseFloat(ln.getAttribute('x2')) : 0, ly: ln ? parseFloat(ln.getAttribute('y2')) : 0};
+    }
+    return n.__b;
+  };
+  const place = svg => {
+    const nodes = [...svg.querySelectorAll('.mm-node')], byId = new Map(nodes.map(n => [n.dataset.id, n]));
+    nodes.forEach(n => {
+      const b = base(n), o = offsets[keyOf(n)] || [0, 0], par = byId.get(n.dataset.parent), po = par ? (offsets[keyOf(par)] || [0, 0]) : [0, 0];
+      n.style.setProperty('--x', (b.x + o[0]) + 'px'); n.style.setProperty('--y', (b.y + o[1]) + 'px');
+      n.style.setProperty('--px', (b.px + po[0]) + 'px'); n.style.setProperty('--py', (b.py + po[1]) + 'px');
+      const ln = n.querySelector('.mm-line'); if (ln) { ln.setAttribute('x2', b.lx + po[0] - o[0]); ln.setAttribute('y2', b.ly + po[1] - o[1]); }
+    });
+  };
+  const subtree = (svg, root) => {
+    const nodes = [...svg.querySelectorAll('.mm-node')], out = new Set([root.dataset.id]);
+    let grew = true;
+    while (grew) { grew = false; nodes.forEach(n => { if (!out.has(n.dataset.id) && out.has(n.dataset.parent)) { out.add(n.dataset.id); grew = true; } }); }
+    return nodes.filter(n => out.has(n.dataset.id));
+  };
+  let hold = null;
+  doc.addEventListener('pointerdown', e => {
+    const node = e.target.closest && e.target.closest('.mm-node'); if (!node || e.button !== 0 || node.classList.contains('mm-hidden') || node.dataset.parent === '') return;
+    const svg = node.closest('svg.mm'); if (!svg) return;
+    const v = svg.viewBox.baseVal, r = svg.getBoundingClientRect();
+    hold = {svg, node, x: e.clientX, y: e.clientY, scale: Math.min(r.width / v.width, r.height / v.height), moved: false, group: null, start: null};
+  }, true);
+  doc.addEventListener('pointermove', e => {
+    if (!hold) return;
+    const dx = e.clientX - hold.x, dy = e.clientY - hold.y;
+    if (!hold.moved) {
+      if (Math.abs(dx) < 5 && Math.abs(dy) < 5) return;
+      hold.moved = true; hold.group = subtree(hold.svg, hold.node);
+      hold.start = new Map(hold.group.map(n => [keyOf(n), (offsets[keyOf(n)] || [0, 0]).slice()]));
+      hold.group.forEach(n => n.classList.add('mm-moving'));
+      hold.node.classList.add('mm-dragging'); hold.node.classList.remove('mm-settle');
+      hold.svg.appendChild(hold.node);                                                   // the held bubble is drawn over the others
+      hold.svg.classList.add('mm-holding');
+    }
+    hold.start.forEach((o, k) => { offsets[k] = [o[0] + dx / hold.scale, o[1] + dy / hold.scale]; });
+    place(hold.svg);
+  }, true);
+  const drop = () => {
+    if (!hold) return;
+    const h = hold; hold = null;
+    if (!h.moved) return;
+    win.__mmDragged = true; win.setTimeout(() => { win.__mmDragged = false; }, 80);
+    h.svg.classList.remove('mm-holding');
+    h.node.classList.remove('mm-dragging'); h.node.classList.add('mm-settle');
+    win.setTimeout(() => { h.group.forEach(n => n.classList.remove('mm-moving')); h.node.classList.remove('mm-settle'); }, 420);
+  };
+  doc.addEventListener('pointerup', drop, true);
+  doc.addEventListener('pointercancel', drop, true);
+  doc.addEventListener('dblclick', e => {
+    const svg = e.target.closest && e.target.closest('svg.mm'); if (!svg || e.target.closest('.mm-node')) return;
+    Object.keys(offsets).forEach(k => delete offsets[k]); place(svg);
+  }, true);
+  // a page that is drawn again (a filter, a switch of the view) gets the places the bubbles were given
+  new win.MutationObserver(() => {
+    doc.querySelectorAll('svg.mm').forEach(svg => { if (svg.__placed || !Object.keys(offsets).length) { svg.__placed = true; return; } svg.__placed = true; place(svg); });
+  }).observe(doc.body, {childList: true, subtree: true});
 }
 // Calendar: drag the splitter at the right edge of the left panel to change its width (double-click: back to the usual width), drag the line next to the hours to
 // zoom the time scale (double-click: back to the usual height), and a click on a block of the Task List bar picks that course.

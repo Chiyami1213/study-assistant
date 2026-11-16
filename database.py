@@ -282,7 +282,7 @@ CREATE TABLE IF NOT EXISTS tasks (
     id               INTEGER PRIMARY KEY AUTOINCREMENT,
     title            TEXT NOT NULL,
     course_id        INTEGER REFERENCES courses(id) ON DELETE SET NULL,
-    category         TEXT NOT NULL DEFAULT 'Homework' CHECK (category IN ('Homework','Exam','Quiz','Reading','Project','Other')),
+    category         TEXT NOT NULL DEFAULT 'Homework' CHECK (category IN ('Homework','Exam','Quiz','Reading','Project','Lab','Other')),
     due_utc          TEXT,                                  -- '2026-11-20T04:59:00Z' or NULL (no due date)
     estimate_minutes INTEGER NOT NULL,
     start_ahead_days INTEGER,                               -- NULL: no limit; n: start working n days before the due date
@@ -296,7 +296,7 @@ CREATE TABLE IF NOT EXISTS tasks (
 CREATE INDEX IF NOT EXISTS idx_tasks_due ON tasks(state, due_utc);
 CREATE TABLE IF NOT EXISTS task_defaults (
     course_id        INTEGER NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
-    category         TEXT NOT NULL CHECK (category IN ('Homework','Exam','Quiz','Reading','Project','Other')),
+    category         TEXT NOT NULL CHECK (category IN ('Homework','Exam','Quiz','Reading','Project','Lab','Other')),
     estimate_minutes INTEGER NOT NULL,
     PRIMARY KEY (course_id, category)
 );
@@ -370,6 +370,21 @@ def get_conn() -> sqlite3.Connection:
     return conn
 
 
+def _allow_task_category_lab(conn) -> None:
+    """Databases made before the category Lab existed: widen the CHECK of tasks and task_defaults by editing the stored table text (no rows are copied or dropped, so nothing that points at a
+    task can be lost). This is the way SQLite documents for a CHECK that only gets looser."""
+    old = "'Quiz','Reading','Project','Other')"
+    rows = [r for r in conn.execute("SELECT name, sql FROM sqlite_master WHERE type='table' AND name IN ('tasks', 'task_defaults')") if r["sql"] and old in r["sql"]]
+    if not rows:
+        return
+    version = conn.execute("PRAGMA schema_version").fetchone()[0]
+    conn.execute("PRAGMA writable_schema=ON")
+    for r in rows:
+        conn.execute("UPDATE sqlite_master SET sql=? WHERE type='table' AND name=?", (r["sql"].replace(old, "'Quiz','Reading','Project','Lab','Other')"), r["name"]))
+    conn.execute(f"PRAGMA schema_version={version + 1}")
+    conn.execute("PRAGMA writable_schema=OFF")
+
+
 def init_db() -> None:
     with get_conn() as conn:
         had_links = conn.execute("SELECT 1 FROM sqlite_master WHERE name='book_courses'").fetchone()
@@ -419,6 +434,7 @@ def init_db() -> None:
             conn.execute("ALTER TABLE lab_notes ADD COLUMN course_id INTEGER")
         if "covers" not in [r["name"] for r in conn.execute("PRAGMA table_info(events)")]:
             conn.execute("ALTER TABLE events ADD COLUMN covers TEXT")
+        _allow_task_category_lab(conn)
         if "personal" not in [r["name"] for r in conn.execute("PRAGMA table_info(tasks)")]:
             conn.execute("ALTER TABLE tasks ADD COLUMN personal INTEGER NOT NULL DEFAULT 0")
         if "part" not in [r["name"] for r in conn.execute("PRAGMA table_info(course_outline)")]:

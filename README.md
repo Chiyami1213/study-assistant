@@ -37,15 +37,19 @@ side, and let the app keep track of deadlines, grades and outlines. It runs enti
 <table>
   <tr>
     <td><img src="docs/gallery/home.png" alt="Home: what is due next and the week of the term"><br><sub><b>Home</b>: what is due next and the week of the term</sub></td>
-    <td><img src="docs/gallery/calendar.png" alt="Calendar: the weekly class schedule with deadlines and exams"><br><sub><b>Calendar</b>: the class schedule with deadlines and exams</sub></td>
+    <td><img src="docs/gallery/calendar.png" alt="Calendar: classes, deadlines and the study sessions placed around them"><br><sub><b>Calendar</b>: classes, deadlines and study sessions, with your courses on the left</sub></td>
   </tr>
   <tr>
-    <td><img src="docs/gallery/courses.png" alt="Courses: one card for each course"><br><sub><b>Courses</b>: one card for each course, by status</sub></td>
-    <td><img src="docs/gallery/course-page.png" alt="A course page with its homework, grades and tabs"><br><sub><b>Course page</b>: homework and grades, exams, outline, resources and a quiz</sub></td>
+    <td><img src="docs/gallery/task-list.png" alt="Task List: tasks by due date, category or course"><br><sub><b>Task List</b>: every task by due date, category or course, with its cushion</sub></td>
+    <td><img src="docs/gallery/courses.png" alt="Courses: one card for each course"><br><sub><b>Courses</b>: one card for each course, by status (or as a map of fields)</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/gallery/course-page.png" alt="A course page with what is coming up, grades and tabs"><br><sub><b>Course page</b>: what is coming up, grades, syllabus and understanding</sub></td>
+    <td><img src="docs/gallery/course-homework.png" alt="A course page: homework with its helper and solution"><br><sub><b>Homework</b>: each problem set with its solution, graded paper and helper</sub></td>
   </tr>
   <tr>
     <td><img src="docs/gallery/note-reader.png" alt="Note Reader: an interactive note beside the slide its equation comes from"><br><sub><b>Note Reader</b>: click an equation and its source slide opens beside the note</sub></td>
-    <td><img src="docs/gallery/library.png" alt="Library: lecture slides, notes and textbooks sorted by course"><br><sub><b>Library</b>: slides, notes and textbooks sorted by course</sub></td>
+    <td><img src="docs/gallery/library.png" alt="Library: lecture slides, notes and textbooks by type"><br><sub><b>Library</b>: slides, notes and textbooks by type, course or date added</sub></td>
   </tr>
   <tr>
     <td><img src="docs/gallery/course-outline.png" alt="A course outline built from the lecture titles"><br><sub><b>Course outline</b>: built from the syllabus or the lecture titles, and editable</sub></td>

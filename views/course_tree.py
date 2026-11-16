@@ -105,10 +105,10 @@ def _hue(i, n):
 # ---------------------------------------------------------------- the mind map: a bubble in the middle, bubbles for the branches around it, and a white bubble for each course
 RADII = {0: 112, 1: 96, 2: 82, 3: 70, 4: 60}            # center, domain, field, topic, course
 MIN_WEIGHT = {1: 3.4, 2: 3.0, 3: 2.5}
-STRETCH = 1.9                                           # how much wider than tall the map is drawn                    # room a branch takes on its ring, in courses (so a branch with one course is not squeezed)
+STRETCH = 1.15                                          # how much wider than tall the map is drawn (a fan that opens upward is already wide)                    # room a branch takes on its ring, in courses (so a branch with one course is not squeezed)
 
 
-def _lines(text, width):
+def _lines(text, width, limit=3):
     """Break a label into lines of about `width` characters (a long word stays whole; the last line ends with ... when the text is too long for 3 lines)."""
     words, out, cur = (text or "").split(), [], ""
     for w in words:
@@ -119,8 +119,8 @@ def _lines(text, width):
             cur = f"{cur} {w}".strip()
     if cur:
         out.append(cur)
-    if len(out) > 3:
-        out = out[:3]
+    if len(out) > limit:
+        out = out[:limit]
         out[-1] = out[-1][:max(1, width - 3)] + "..."
     return out
 
@@ -138,7 +138,7 @@ def layout(courses):
         nodes.append(node)
         return node
 
-    root = make(0, None, "All Courses", count=len(courses))
+    root = make(0, None, "All Disciplines", count=len(courses))
 
     def build(level, parent_node, items, hue_base):
         """The children of a node as [(node, [their children])] and the room they need."""
@@ -157,7 +157,10 @@ def layout(courses):
                 sub, w = build(4, node, children, hue)
             elif level == 2:
                 node = make(2, parent_node["id"], label, hue=hue, count=count(children))
-                sub, w = build(3, node, children, hue)
+                if len(children) == 1 and children[0][0] == GENERAL:         # a field with only the unnamed topic: its courses hang on the field itself (no "General" bubble)
+                    sub, w = build(4, node, children[0][1], hue)
+                else:
+                    sub, w = build(3, node, children, hue)
             else:
                 node = make(1, parent_node["id"], label, hue=hue, count=sum(count(t) for _, t in children))
                 sub, w = build(2, node, children, hue)
@@ -170,7 +173,7 @@ def layout(courses):
     top, total = build(1, root, tree, 210)
     root["kids"] = len(top)
     unit = 2 * RADII[4] + 12
-    base4 = max(980.0, max(1.0, total) * unit * 1.12 / (2 * math.pi))
+    base4 = max(980.0, max(1.0, total) * unit * 1.12 / math.pi)              # the courses share a half circle (the tree grows upward from its root)
 
     def shares(weights, span, min_share):
         """Angles for siblings: proportional to their weights, none below min_share (water-filling); None when they cannot all fit in the span."""
@@ -194,13 +197,14 @@ def layout(courses):
 
     def place(entries, a0, a1, level, rings):
         """Put the siblings on their ring inside the arc a0..a1; False when they do not fit there (the rings are then moved outward)."""
-        angles = shares([e[0]["weight"] for e in entries], a1 - a0, (2 * RADII[level] + 30) / rings[level])
+        radius = RADII[entries[0][0]["level"]]                              # a course keeps its own size, also on the ring next to its field
+        angles = shares([e[0]["weight"] for e in entries], a1 - a0, (2 * radius + 30) / rings[level])
         if angles is None:
             return False
         angle = a0
         for (node, sub), share in zip(entries, angles):
             mid = angle + share / 2
-            node["x"], node["y"], node["r"] = rings[level] * math.cos(mid), rings[level] * math.sin(mid), RADII[level]
+            node["x"], node["y"], node["r"] = rings[level] * math.cos(mid), rings[level] * math.sin(mid), radius
             if sub and not place(sub, angle, angle + share, level + 1, rings):
                 return False
             angle += share
@@ -209,18 +213,22 @@ def layout(courses):
     for extra in range(0, 4000, 40):                                  # the rings move outward until every bubble has room
         ring4 = base4 + extra
         rings = {1: max(ring4 - 680, RADII[0] + RADII[1] + 90), 2: ring4 - 400, 3: ring4 - 200, 4: ring4}
-        if place(top, -math.pi / 2, 3 * math.pi / 2, 1, rings):
+        if place(top, -math.pi, 0.0, 1, rings):                       # from the left, over the top, to the right: the root is at the bottom, the branches stem upward
             break
     root.update(x=0.0, y=0.0, r=RADII[0], hue=210)
     for n in nodes:
         n["x"] *= STRETCH                                                    # a window is wider than tall: the rings become ellipses, the bubbles stay circles (and move apart, never closer)
+    low, high = min(n["y"] - n["r"] for n in nodes), max(n["y"] + n["r"] for n in nodes)
+    mid = (low + high) / 2
+    for n in nodes:
+        n["y"] -= mid                                                        # the map is centered in its box; the root ends up at the bottom
     where = {n["id"]: (n["x"], n["y"]) for n in nodes}
     for n in nodes:
         n["px"], n["py"] = where.get(n["parent"], (0.0, 0.0))
     return nodes, (max(abs(n["x"]) + n["r"] for n in nodes) + 30, max(abs(n["y"]) + n["r"] for n in nodes) + 30)
 
 
-def tree_html(courses, status_of, color_of, selected=None, root_label="All Courses", photo_of=None):
+def tree_html(courses, status_of, color_of, selected=None, root_label="All Disciplines", photo_of=None):
     """The mind map as one SVG. A bubble with branches folds them into itself when clicked (CSS animates every bubble to its parent and back, see app.py); a white bubble is a course and
     a click on it opens the course. `status_of(course)` / `color_of(course)`: the status text and the color of a course; `selected`: the id of the course to mark."""
     if not courses:
@@ -235,9 +243,9 @@ def tree_html(courses, status_of, color_of, selected=None, root_label="All Cours
         if level == 4:
             c = n["course"]
             raw = crud.show_code(c.get("code") or c.get("name") or "Course")
-            code_lines = [s.strip() + (" /" if i < raw.count(" / ") else "") for i, s in enumerate(raw.split(" / "))] if " / " in raw else [_lines(raw, 11)[0]]    # a merged course: every part
+            code_lines = [s.strip() + (" /" if i < raw.count(" / ") else "") for i, s in enumerate(raw.split(" / "))] if " / " in raw else _lines(raw, 11, 3)    # a merged course: every part; a course with only a name (Tonal Harmony) shows all of it
             name = "" if (not c.get("code") or c.get("name") == c.get("code")) else c.get("name") or ""
-            name_lines = _lines(name, 14)[:max(0, 4 - len(code_lines)) if len(code_lines) > 1 else 2]
+            name_lines = _lines(name, 14, 3)[:max(0, 4 - len(code_lines))]
             total = len(code_lines) + len(name_lines)
             first = -(total - 1) * 7 + 4
             text = "".join(f'<tspan x="0" dy="{14 if i else first}" class="mm-code">{html.escape(s)}</tspan>' for i, s in enumerate(code_lines))
@@ -258,7 +266,7 @@ def tree_html(courses, status_of, color_of, selected=None, root_label="All Cours
                  else f'<text class="mm-count" y="{r - 22}" text-anchor="middle">{n.get("count", 0)} courses</text>')
         parts.append(f'<g class="mm-node mm-l{level}" data-id="{n["id"]}" data-parent="{n["parent"] or ""}" data-mm-toggle="{n["id"]}" style="{style};--h:{n["hue"]}">{line}<circle r="{r}"/>'
                      f'<text class="mm-label" text-anchor="middle" style="font-size:{size}px">{text}</text>{badge}<text class="mm-plus" y="{-r + 24}" text-anchor="middle">+</text></g>')
-    return (f'<div class="mm-wrap"><div class="tk-top"><span class="tk-note">Click a bubble to fold or unfold its branches; click a course to open it. Scroll to zoom, drag to move.</span>'
+    return (f'<div class="mm-wrap"><div class="tk-top"><span class="tk-note">Click a bubble to fold or unfold its branches; click a course to open it. Drag a bubble to move it (double-click the map to put them back). Scroll to zoom, drag the map to move it.</span>'
             f'<span class="tk-zoom"><button type="button" data-mm-zoom="out" title="zoom out">&minus;</button><button type="button" data-mm-zoom="in" title="zoom in">+</button>'
             f'<button type="button" data-mm-zoom="fit" title="show the whole map">Fit</button></span>'
             f'<button type="button" class="tk-btn" data-mm-all="close">Collapse All</button></div>'

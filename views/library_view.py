@@ -162,6 +162,16 @@ def _auto(name, value):
     return key
 
 
+def _kind_picker(seed, default_kind):
+    """The Type boxes of the Add File and Edit File windows: the general types first (Homework and Exam are one choice each); only when Homework or Exam is chosen, its own types
+    (helper, solution, graded paper, grade explanation ...) appear in a second row. `seed(name, value)` gives the session key of a box that starts at `value`."""
+    top = st.segmented_control("Type", FILTERS, key=seed("kind_top", filter_for(default_kind))) or filter_for(default_kind)
+    group = FILTER_KINDS.get(top)
+    if not group:
+        return top
+    return st.segmented_control(f"{top} Type", group, key=seed(f"kind_{top}", default_kind if default_kind in group else group[0])) or group[0]
+
+
 def _reset_add_boxes():
     """A fresh Add File window: nothing typed before is kept."""
     for k in [k for k in st.session_state if str(k).startswith("bk_")] + ["_bk_auto"]:
@@ -184,7 +194,7 @@ def _add_dialog(default_course=None):
         st.caption("Detected " + (", ".join(found) if found else "nothing") +
                    f" from {info['source']} - edit anything that looks wrong.")
     kind_guess = detect_kind(up.name, info["title"]) if up else None
-    kind = st.segmented_control("Type", KINDS, key=_auto("kind", kind_guess or "Textbook")) or "Textbook"
+    kind = _kind_picker(_auto, kind_guess or "Textbook")
     if kind_guess:
         st.caption(f"Type detected from the file name: {kind_guess}")
     is_hw = kind in HW_KINDS
@@ -744,8 +754,10 @@ def _homework_helper(book):
 @st.dialog("Edit File", width="large")
 def _edit_dialog(book):
     st.caption(f"Stored File: {book['pdf_path']}")
-    kind = st.segmented_control("Type", KINDS, default=book["kind"] if book["kind"] in KINDS else "Textbook",
-                                key=f"ek_{book['id']}") or book["kind"]
+    def seed(name, value):
+        st.session_state.setdefault(f"ek_{book['id']}_{name}", value)
+        return f"ek_{book['id']}_{name}"
+    kind = _kind_picker(seed, book["kind"] if book["kind"] in KINDS else "Textbook")
     title = st.text_input("Title", value=book["title"], key=f"et_{book['id']}")
     lecture = ""
     if kind in ("Lecture Notes", "Notes") + HW_KINDS:

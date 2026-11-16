@@ -6,129 +6,88 @@
 
 ## 1.1.0 (not released yet)
 
-- **Study Assistant for macOS.** A `.dmg` for Apple silicon and one for Intel Macs: open it, drag Study Assistant into Applications, and approve it once (right-click > Open). The
-  files live in `~/Library/Application Support/Study Assistant`; an export from Windows imports on a Mac and the other way round (stored paths are read with either kind of slash).
-  F2 screenshots use macOS `screencapture`, the folder and file pickers use macOS dialogs, and the Mac app is built and checked by GitHub (`.github/workflows/build-macos.yml`,
-  `build_mac.py`) because a Mac app cannot be built on Windows.
-- **A new setup wizard (Windows).** Drawn at the screen's real resolution (no blurry text), with a picture panel and Back / Next / Cancel like the usual installers: welcome page,
-  existing-version page, shortcuts, ready to install, progress bar with percentage, and a finish page.
-- **The installer finds an installed version.** It says which version is installed and offers **Update (overwrite)** (the old program is only removed after the new one is in place), **Uninstall
-  the older version first** (shortcuts and the installed-apps entry go too), or **Keep both** (its own folder, shortcut and Settings > Apps entry, with a warning that the two share one
-  data folder and one address). A newer installed version is warned about, and a folder that was not made by the installer is only renamed, never deleted. Your files are never replaced.
-- **Shortcut options.** A Desktop shortcut and / or a Start menu entry, as chosen; the uninstaller removes both.
-- **Antivirus heads-up and fewer false alarms.** The installer says up front that an antivirus or SmartScreen may warn and that Study Assistant contains no virus. The exes now carry
-  version information (product, publisher, version) and are not compressed with UPX, and every release publishes its SHA-256 checksum.
-- **The GitHub page has tabs.** The README is now a short overview with a row of tabs (Overview, Install, Your Files, Shortcuts, Help, Changelog); each tab is its own page in `docs/`, and every page
-  repeats the tab row. The installer and the app link to the Help tab.
-- **The last page of the installer** links to the GitHub project page, to the new Help section and to the issue page.
-- **Loading screen with a progress bar.** The start-up screen keeps its look and adds a bar from 0% to 100% that takes at least two seconds (and waits near the end if the server is slow).
-- **Help and Report an Issue in Settings.** Help answers the common questions (installing, antivirus warnings, where files are, backups, connection problems, shortcuts, uninstalling). Report an
-  Issue opens a ready-made GitHub issue in the browser (kind, summary, details, optional steps and technical details; an optional log excerpt with your name and folders replaced); the
-  app sends nothing by itself and keeps no e-mail address. **Screenshots can be attached:** pick pictures (or the newest ones F2 saved); on Open on GitHub the app copies them into one folder, opens it,
-  and you drop them into the report's text box (GitHub takes pictures that way). The README has the same Help section, and issue templates are added.
-- **Phase 1 of the study planner: setup and data model.** A new pure, tested `planner` package (`models.py`, `timeutil.py`) holds the term (first day, last day of classes, last day of exams,
-  time zone, named breaks), the wake and bed time of each weekday and the minimum study block (30 minutes by default); an invalid setup cannot be built. Times are stored in UTC and shown in the term's
-  zone (daylight-saving days included). `planner/store.py` keeps it in the database (new tables `planner_settings` and `planner_awake`), the term dates in the settings the Calendar already uses and the
-  breaks as the existing holidays. **Settings > Study Planner** sets the time zone, the awake times and the minimum block. Run the tests with `python -m pytest`.
-- **Phase 2 of the study planner: recurring commitments and events (data and logic; the screens come in phase 6).** Courses and **activities** (office hours, work, gym, me-time) have weekly
-  meetings with weekdays, times, a place and an optional last day; an activity can be non-busy (shown but not blocking) and can run through breaks. A recurring meeting can be changed for
-  **this occurrence only** (skipped, or moved to another time or place) or for the **whole series**. **Events** have a start and end in UTC, an all-day flag, a place, travel minutes before
-  and after (counted as busy) and a busy flag; the older dated events (exams) are read as before. `planner/commitments.py` (pure) turns it all into the sorted busy blocks of a date range,
-  `planner/commit_store.py` keeps it in the database (new tables `activities`, `activity_meetings`, `meeting_exceptions`; new columns on `events` and `class_meetings`; an older database is
-  upgraded without losing a row), and the Calendar already honors the new end dates and exceptions.
-- **Phase 3 of the study planner: tasks (data and logic; the screens come in phase 6).** A task has a title, an optional course, a category (Homework, Exam, Quiz, Reading, Project, Other),
-  an optional due moment (UTC), an estimate in minutes, optional start-ahead days (start that many days before the due date), a state (todo or done) and the minutes logged. A new task
-  inherits the **course's default estimate for its category** (else a built-in one: homework 2 h, exam 10 h, quiz 45 min, reading 1 h, project 10 h, other 1 h) unless an estimate is given;
-  changing a default later does not change tasks that exist. The lists are plain functions: **to-do** (by due date), **overdue**, **start soon** (start date within three days, nothing logged yet),
-  **no due date** and **completed**. `planner/tasks.py` is pure, `planner/task_store.py` keeps it in the new tables `tasks` and `task_defaults`; a deleted course leaves its tasks (without a course).
-- **Phase 4 of the study planner: the free-time engine and the cushion (logic; the screens come in phase 6).** `planner/freetime.py` (pure) computes the **free study time** of any date range: awake time minus
-  classes, activities, busy events and their travel time, breaks and sessions already planned, nothing before now, and no piece shorter than the minimum block. The **cushion** of a task is the free time left
-  before its deadline after the work that is due by then (earliest deadline first); a task with a start-ahead date cannot use the time before it, so the engine reports the tightest window, which is the exact slack.
-  A **negative cushion** means the schedule is impossible (red; under 2 hours is yellow, else green); a deadline that has passed counts as due now. It also gives the **cushion timeline** (the tightest
-  cushion of each deadline day) and `planner/service.py` reads it all from the saved setup. Checked against an independent earliest-deadline-first simulation on random cases (about 100) and by hand.
-- **Phase 5 of the study planner: study sessions (logic; the screens come in phase 6).** The **auto-planner** fills the free time earliest deadline first, from each task's start-ahead date to its deadline, in
-  sessions of at least the minimum block (a task is split across sessions when it has to be, never into a piece shorter than the minimum; a task that needs less than the minimum gets one short session); the
-  same input always gives the same plan. Re-planning replaces only the automatic sessions that have not started: **manual sessions and sessions already begun stay** and count as planned time; an overdue task is
-  placed as soon as there is room and reported; what does not fit is reported per task. **Manual sessions** can be created, moved, resized, deleted, and all of a task's sessions can be unplanned. Every placement
-  is checked: outside the term, in a break or over another session is never allowed; outside the awake hours, over a class or event, or shorter than the minimum block is refused unless forced. Every change
-  returns the **new cushion** (`planner/service.py`); a task's own sessions count as work done, so planning its work does not change its cushion, while it does use up free time for the others. New table
-  `study_sessions`; `planner/sessions.py` is pure, `planner/session_store.py` keeps them.
-- **Phase 6 of the study planner: the Calendar screens.** The Calendar page now has **Week, 2 Days, Day and Month** views with Prev, Today and Next buttons (and a sideways swipe over the day names on a
-  touch screen). The time grid shows classes (colored by course, with changed occurrences marked), activities, events with their **travel time** (hatched) and the **study sessions** (dashed, light; solid when
-  you placed them), each with a dot for its task's cushion. **Drag** a study session or an event to move it (to another time or day), drag its bottom edge to change its length, drag over empty time to add a
-  study session or an event, or click one to open it; a move that only breaks a soft rule (a class, the awake hours) asks first ("Place It Anyway?"), one that breaks a hard rule just says why. **Auto-Plan**
-  fills the free time with sessions. Below the grid, **Tasks** lists what is due with a green, yellow or red **cushion badge** (how much free time is left before the deadline), an **Add Task** form (the
-  estimate defaults to the course's and the category's), **Default Estimates** per course, and buttons to mark done, unplan or delete; a **warning banner** appears when any cushion is negative. The Add Event
-  form can set a place, travel time and whether the event blocks study time. Drawing code is `views/plan_grid.py` (tested), dialogs and the task list are `views/planner_ui.py`.
-- **Blocks on the left, dragged into the schedule.** Beside the grid is a panel with a **Drag a custom event** block, your **tasks** (colored by course, with their cushion dot and the time left to plan),
-  your **courses** and your **activities**. Drag a task onto the calendar to place a study session there (as long as what is left to plan, 30 minutes to 2 hours); drag the custom event block to open the
-  new-event form at that time; drag a course or an activity to add a weekly time on that day. **+ Task** and **+ Activity** add new ones. Free time is shaded in the grid with its length written on it
-  (**Show Free Time** switches it off).
-- **Phase 7 of the study planner: tracking.** A **study timer** can be started on a task (the play button in the task list) or on one of its sessions; a bar above the calendar shows what you are
-  studying and the running time, and **Stop and Log** adds the minutes to the task (rounded to the minute, under half a minute is not logged, a timer left running is cut at 12 hours; it survives closing the
-  app). Time can also be logged by hand, and every log can be removed. **Logged time is work done**, so it raises the cushion. A session shows **planned against used** (a bar along its bottom and a line in its
-  dialog: done, partly used, not used), and the task list shows the time used. **Suggested estimates:** when you add a task, the form suggests the typical time of your finished tasks of that category (the
-  median of the time logged, from the same course when it has at least two, rounded to 5 minutes). `planner/tracking.py` is pure, `planner/track_store.py` keeps the timer and the logs (new tables
-  `time_logs` and `study_timer`).
-- **Change a class or an activity for one day, or for every week.** Click a class or an activity in the grid to open it. **This Day Only:** change that day's time or place, skip it, or go back to the usual
-  (the rest of the weeks stay as they are; a changed day is marked *moved*). **Every Week:** change the weekdays, the time, the place and the last day of the whole series, or remove the weekly time; an activity's
-  name, color, place, whether it blocks study time and whether it also happens in breaks can be edited, or the activity deleted. The old Calendar code, the planner and the free time all follow these changes.
-- **Settings: a bar to jump to a section.** The top of Settings has a link for each section (Appearance, Eye Rest, Study Planner, Backup, Keyboard Shortcuts, Help, Report an Issue, Danger Zone, About); it
-  stays in view while you scroll and the heading it jumps to is lined up under it.
-- **The time zone list shows UTC offsets.** Each zone reads like `America/New_York (UTC-05:00, EST)` (the offset in force today), the list runs from west to east, and typing `utc-5` finds a group.
+### Study planner and Calendar
 
-- **Calendar: Day, Week, Month.** The two-day view is gone and Week is the usual view. The Calendar page now has two pages, Calendar and Task List, and the old Tasks, Add Event and This
-  Month sections under the grid are gone: their functions moved into the Calendar (every event, also the older dated ones such as exams, opens with a click and can be changed or deleted,
-  and a new event can be all day) and the Task List.
-- **Terms (semesters).** A term list above the calendar (and on the Task List) switches the active term; its last entry, Manage Terms, adds, changes and deletes terms. The left bars
-  show the courses of the active term on top and the other courses in a folded section.
-- **Left panel of the Calendar.** Blocks have a grip to drag them into a new order, a ⋯ menu (Details, Rename, Change Color, Hide, Delete) with icons, and a name that renames on double-click.
-  A hidden block waits in a Hidden section. Delete asks first (a course is deleted only after the database is copied to `Backups\Before Delete <time>`). The panel folds and opens with
-  an animation, its right border is dragged to change the width (double-click: usual width), and a dragged block shows a preview of where it lands (an hour tall, a task as long as its
-  session). The line next to the hours zooms the time scale (drag; double-click resets). Auto-Plan lines up with Edit Schedule.
-- **Task List page.** Every task in one table, filtered by course (the same blocks as the Calendar panel), grouped by course, category or due week, sorted by due date, category, course, title
-  or time left (ascending or descending), searched, edited (all fields), made done, timed, logged or deleted. Personal tasks (no course) can be planned in a break and outside the term.
-- **Import From Syllabus.** One button reads each course of the term: the homework and exams already in its course page, and the dated work and class times of its syllabus file in the
-  Library. Every new task is added at once (a graded homework or a past exam as finished, exams also on the Calendar); a task already in the list is never added twice. One course can be
-  checked row by row first, with any row changed, added or unchecked.
-- **Library: sort by type first.** The usual view is a tile for each type; click one to see its files and sort them by course, date added or title. Sort by course shows a tile for each course,
-  Date Added a timeline by day (newest or oldest first), Title the plain grid. The row of type buttons is gone.
-- **The loading screen waits at least 1 second** (it was 2).
-- **Library: Import menu.** Import a Zip lists every pdf and html file in a zip (folders included) on a confirmation page, where the type, title, lecture and course of each can be changed and
-  files unchecked, and nothing is imported until you press Import. Update From Folder (also on every course page as Update Files) reads the folder your files are kept in: new files and files that
-  changed since they were imported are listed for confirmation, an updated file replaces the stored copy, and files already imported are not listed again. The folder is only read, never changed.
-- **The Calendar panel lists courses and activities only.** Tasks are in the Task List.
-- **Calendar tiles.** Classes and activities can be dragged on the schedule too (the time changes for that day only; drag the top or bottom edge to change the start or the end). A tile shows a map
-  pin before its location and a trash bin at its top right. Deleting a repeating class or activity asks what to delete: this event, this and the following events on this weekday, this and all
-  following events, or all events. An event or a study session asks before it is deleted. The warning about work that does not fit has an x to dismiss it.
-- **Courses tree** is now a tree from left to right (a pill for each branch and course, no fill, larger text) that fits the window, folds one bubble at a time with a click (everything slides into place
-  and the view fits what is left), has one Collapse All / Expand All button, zoom with + / - or the wheel, and drag to move. Self-study courses grow on the branch of their own field with a dashed
-  outline and a hover note. A merged course's number is written out (MA 266 / MA 303).
-- **Course page.** The Overview is in a fixed order of foldable sections (a row of numbers, Coming Up, Grades, Syllabus, How Well You Know the Material). Add Syllabus reads a syllabus pdf (grading, letter
-  grades, instructor, outline) and Edit Syllabus changes any of it. The Resources tab starts with Links and every section folds. Edit Outline can be written lecture by lecture or chapter by chapter in a
-  table (number and title), as free text, or pasted from somewhere else.
-- **Tidy Up (Library > Import).** Finds files that are in the Library twice (same content) and lets you remove the extra ones (the book that stays takes over their courses), and suggests titles in the
-  Library's own form (HW 5 Solution, Midterm 1, a note's topic with its lecture number); both after a confirmation, and the database is copied to Backups first.
-- **Merge Courses (Courses page).** Make two or more courses one (MA 266 / MA 303): choose the course that stays and a tag for each part; files, homework and exams are tagged, everything of the other
-  courses moves over, the others are deleted, and a copy of the database and settings is kept in Backups\Before Merge.
-- **Import From Syllabus** can also write the homework and the exams on the course pages (on by default); what a page has already is not added twice.
-- **Holidays and breaks** are managed in Manage Terms (those of the chosen term); removing a holiday or a class time asks first. The "work does not fit" warning has Don't Show Again (and a switch
-  in Settings > Study Planner).
-- **Speed on slower devices.** Settings > Speed and Effects: Light turns off animations, shadows and blur; Automatic does it by itself when the screen draws slowly (and remembers it); long Library lists
-  are drawn 120 files at a time. The Windows setup wizard's check boxes are larger and easier to see.
-- **Changing a repeating class.** After a class or an activity is dragged, the app asks: this event, this and the following events on that weekday, this and all following events, or all events; the
-  new time shows while dragging, and there is no "moved" label.
-- **Imported files are named the Library's way** by default (HW 5, HW 5 Solution, Midterm 1 Practice, a note's topic with its number in the lecture field, Syllabus), and the confirmation page lists
-  homework and exam documents first. The loading screen shows the app icon.
-- **Library views and timeline.** Files can be shown as Cards, Tiles (a small cover with the details beside it) or a Details table. Date Added is a chain of bullets by day, month or year;
-  every group folds up. The sort box and the Newest First button sit in the title row.
-- **Courses: a tree of knowledge.** Courses > All > Tree is a mind map: a bubble in the middle, large bubbles for the branches (domain, field, topic) with similar fields on the same branch, and a
-  white bubble for each course. A click on a bubble folds its branches into it (and they slide out again), and a click on a course opens it. A course page's Overview starts with what is coming up (homework, exams and tasks).
-- **Edit dialogs.** Clicking a class, an activity, an event or a study session opens a compact dialog: a title bar in the course color, the date and times in one row, repeat and until, location,
-  Free, and Delete, Cancel, Save.
+- **A study planner.** Set up a term (first day, last day of classes and exams, time zone, wake and bed time, the shortest study block) and the planner knows how much free study time you have. The
+  **cushion** of a task is the free time left before its deadline after the work due by then; red means the work cannot fit, yellow is under 2 hours, green is more. Everything is stored in UTC and
+  shown in the term's time zone (daylight-saving days included); the time zone list shows UTC offsets such as `America/New_York (UTC-05:00, EST)`.
+- **Courses, activities, events.** Courses and activities (office hours, work, gym, me-time) have weekly times with weekdays, place and an optional last day; an activity can be non-busy and can run
+  through breaks. Events have a start and an end, an all-day switch, a place, travel time before and after (counted as busy) and a busy switch; exams and other dated events open the same way.
+- **Tasks.** A task has a title, a course (or none: a personal task that can also be planned in a break), a category (Homework, Exam, Quiz, Reading, Project, **Lab**, Other), a due moment, an estimate,
+  optional start-ahead days, a state and the minutes logged. A new task takes the course's default estimate for its category (Default Estimates per course), or a built-in one.
+- **Study sessions and Auto-Plan.** Auto-Plan fills the free time, earliest deadline first, with sessions of at least the shortest block; running it again replaces only the automatic sessions that have not
+  started. Manual sessions stay. A placement that breaks a hard rule (outside the term, in a break, over another session) is refused; a soft one (over a class, outside the awake hours) asks "Place It
+  Anyway?". Work that does not fit is reported, with an x to dismiss the warning, **Don't Show Again** and a switch in Settings > Study Planner.
+- **Tracking.** A study timer starts on a task or a session (Stop and Log adds the minutes, and it survives closing the app); time can be logged by hand. Logged time counts as work done, a session
+  shows planned against used, and the Add Task form suggests an estimate from your finished tasks of that category.
+- **The Calendar page.** Day, Week (the usual view) and Month, with Prev, Today and Next (and a swipe on a touch screen). The grid shows classes (colored by course), activities, events with their
+  travel time and the study sessions, with free time shaded and its length written on it (Show Free Time switches it off). The line next to the hours zooms the time scale (drag; double-click resets).
+- **Drag and click on the schedule.** Drag a session, an event, a class or an activity to move it (the new time shows while you drag, and a cancelled change bounces back at once); drag its top or bottom
+  edge to change the start or the end; drag over empty time to add a session or an event. A tile shows a map pin before its place and a trash bin. Click one for a compact dialog (title bar in the course
+  color, date and times in one row, repeat and until, place, Free; Delete, Cancel, Save).
+- **Repeating classes and activities.** After a drag, or from the dialog, the app asks what to change: this event, this and the following events on that weekday, this and all following events, or all
+  events. Deleting asks the same; an event or a study session asks before it is deleted. A day can be changed or skipped without touching the other weeks.
+- **The left panel.** Your courses and activities as blocks (a custom event block, too) to drag onto the schedule: a course or an activity adds a weekly time, the custom event block opens the new-event
+  form. Blocks have a grip to drag them into a new order, a ⋯ menu (Details, Rename, Change Color, Hide, Delete), rename on double-click, and a Hidden section. Delete asks first; a course is deleted only
+  after the database is copied to `Backups\Before Delete <time>`. The panel folds, and its border is dragged to change the width (double-click: usual width). Tasks are in the Task List.
+- **Terms.** A term list above the calendar (and on the Task List) switches the active term; Manage Terms adds, changes and deletes terms, with the wake-up time, the start and end dates and the holidays
+  and breaks of that term. The panels show the active term's courses first and the others in a folded section. Removing a holiday or a class time asks first.
+
+### Task List
+
+- **Every task in one table,** filtered by course (the same blocks as the Calendar panel), grouped by course, category or due week, searched, and sorted by clicking any column head (up, down, or both
+  arrows when not sorted by it). A picked course shows its tasks under its name in its color, with its Completed tasks below. Edit all fields, mark done, time, log or delete.
+- **Import From Syllabus.** One button reads each course of the term: the homework and exams already on its course page, and the dated work and class times of its syllabus file. New tasks are added at
+  once (a graded homework or a past exam as finished, exams also on the Calendar) and never twice. One course can be checked row by row first. It can also write the homework and exams on the course pages
+  (on by default).
+
+### Courses
+
+- **Course page.** The Overview is a fixed order of foldable sections: a row of numbers, Coming Up (homework, exams, tasks), Grades, Syllabus and How Well You Know the Material. Add Syllabus reads a
+  syllabus pdf (grading, letter grades, instructor, outline); Edit Syllabus changes any of it. Resources starts with Links and every section folds. Edit Outline is written lecture by lecture or chapter
+  by chapter in a table, as free text, or pasted.
+- **Courses tree.** Courses > All > Tree is a tree that grows upward from **All Disciplines** at the bottom: branches for domains, fields and topics (similar fields on the same branch) and a bubble for each
+  course, with its photo as the background. Click a bubble to fold or unfold its branches, click a course to open it, **drag any bubble** to move it (it lifts while held, settles when dropped, its branches
+  and courses follow, and double-clicking the map puts everything back), zoom with + / - or the wheel, drag the map to move it, Fit and Collapse All. Self-study courses sit on the branch of their
+  own field with a dashed outline. A field with only one topic has no extra "General" bubble, and a course's whole title is shown.
+- **Merge Courses.** Make two or more courses one (MA 266 / MA 303): choose the course that stays and a tag for each part. Files, homework and exams get the tag, everything of the other courses moves
+  over, they are deleted, and a copy of the database and settings is kept in `Backups\Before Merge`. A merged course's number is written out.
+
+### Library
+
+- **Sort and views.** Sort by Type (a tile for each type, the usual view), Course (a tile for each course, like the Courses page), Date Added (a chain of bullets by day, month or year, newest or oldest
+  first; every group folds) or Title. Files show as Cards, Tiles or a Details table. Long lists are drawn 120 files at a time.
+- **Import menu.** Add a File, Import a Zip (every pdf and html file of a zip, folders included, on a confirmation page where the type, title, lecture and course of each can be changed and files unchecked)
+  and Update From Folder (also on every course page as Update Files): new and changed files are listed for confirmation, files already in the Library (same content) are recognized, homework and exam
+  documents come first. Your folders are only read, never changed.
+- **Imported files are named the Library's way:** HW 5, HW 5 Solution, Midterm 1 Practice, a note's topic with its number in the lecture field, Syllabus. The Type box of Add File and Edit File shows
+  the general types first; Homework and Exam show their own types (helper, solution, graded paper, grade explanation, preparation ...) only when chosen.
+- **Tidy Up.** Finds files that are in the Library twice and lets you remove the extra ones (the book that stays takes over their courses), and suggests titles in the Library's own form. Both ask
+  first, and the database is copied to Backups.
+
+### Windows, macOS and the GitHub pages
+
+- **Study Assistant for macOS.** A `.dmg` for Apple silicon and one for Intel Macs: open it, drag the app into Applications and approve it once (right-click > Open). The files live in
+  `~/Library/Application Support/Study Assistant`; an export from Windows imports on a Mac and the other way round. Screenshots (F2), the folder and file pickers use the macOS tools. The Mac app is built
+  and checked by GitHub (`.github/workflows/build-macos.yml`, `build_mac.py`).
+- **A new setup wizard (Windows),** drawn at the screen's real resolution with a picture panel and Back / Next / Cancel: welcome, existing version, shortcuts, ready, progress with percentage, finish
+  (with links to the project page, Help and the issue page). Larger check boxes.
+- **The installer finds an installed version** and offers Update (the old program is removed only after the new one is in place), Uninstall the older version first, or Keep both (own folder, shortcut and
+  Settings > Apps entry, with a warning that both share one data folder and one address). A newer installed version is warned about, and a folder not made by the installer is only renamed. Your files
+  are never replaced. A Desktop shortcut and a Start menu entry are options; the uninstaller removes both.
+- **Fewer antivirus false alarms.** The installer says up front that an antivirus or SmartScreen may warn; the exes carry version information and are not compressed with UPX; every release publishes
+  its SHA-256 checksum.
+- **The GitHub page has tabs** (Overview, Install, Your Files, Shortcuts, Help, Changelog), each its own page in `docs/`; the README has a gallery of the current screens (with made-up courses and files).
+
+### Settings, speed and small things
+
+- **Help and Report an Issue in Settings.** Help answers the common questions; Report an Issue opens a ready-made GitHub issue in the browser (optional steps, technical details, a log excerpt with your
+  name and folders replaced, screenshots you pick or the newest F2 ones). The app sends nothing by itself and keeps no e-mail address.
+- **Settings has a bar to jump to a section** (Appearance, Eye Rest, Study Planner, Backup, Keyboard Shortcuts, Help, Report an Issue, Danger Zone, About), styled like the tabs of a course page.
+- **Speed on slower devices.** Settings > Speed and Effects: Light turns off animations, shadows and blur; Automatic does it by itself when the screen draws slowly and remembers it.
+- **Buttons at the top of every page look alike** (outlined, one size, icon and text centered), and the Remove buttons in Edit Schedule and Manage Terms use normal text.
 - **Back and Forward** return to the same place inside a page (the Task List, a Library tile and its sort), in the order the places were visited.
-- **Task List.** Every column head sorts (up, down, or both arrows when not sorted by it); a picked course shows only its tasks under its name in its color, with its Completed tasks in a section below.
-- **Fixes.** The line under the Settings jump bar no longer crosses its links (the bar looks like the tabs of a course page); a dragged block shows only its preview on the schedule.
+- **The loading screen** shows the app icon with a bar from 0 to 100% and waits at least 1 second.
 
 ## 1.0.1 (2026-11-15)
 
