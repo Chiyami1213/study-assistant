@@ -69,3 +69,15 @@ def test_the_steps_are_ticked_off_from_what_the_student_has_done():
     assert got["courses"] == 1 and tutorial.done_flags(got)["courses"] and not tutorial.done_flags(got)["files"]
     assert tutorial.done_flags({**f, "courses": 2, "terms": 1, "meetings": 1, "books": 3, "guides": 1, "tasks": 4, "sessions": 5}) == {k: True for k, *_ in tutorial.STEPS}
     assert [k for k, *_ in tutorial.STEPS] == ["courses", "term", "meetings", "files", "guides", "tasks", "schedule"]
+
+
+def test_the_tutorial_can_be_opened_again_from_home_after_it_was_skipped_or_finished():
+    at = home()
+    at.button(key="tut_skip").click().run()
+    assert at.button(key="tut_reopen") is not None and not any(s.value == "Getting Started" for s in at.subheader)
+    at.button(key="tut_reopen").click().run()
+    assert settings.get_tutorial()["mode"] == "active" and any(s.value == "Getting Started" for s in at.subheader) and not at.exception
+    crud.add_course("AE 1", "A", "Fall 2026", 0, "Active")                                       # a student who has data and never saw it can open it too
+    settings.set_tutorial(mode="dismissed")
+    again = home()
+    assert again.button(key="tut_reopen") is not None

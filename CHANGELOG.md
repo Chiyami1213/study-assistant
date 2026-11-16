@@ -10,7 +10,7 @@
 
 - **Getting Started tutorial.** A new student (no course yet) sees a welcome window and a checklist at the top of Home: add courses, set up the term, add class times, add files, make study guides
   with an AI assistant, add tasks, build the schedule. Each step has a button that goes to the right page and opens the right window, and ticks itself off from what you have done. **Skip
-  Tutorial** hides it for good; Settings > Help > Show the Tutorial Again brings it back. Someone who already has courses never sees it.
+  Tutorial** hides it; a **Show the Tutorial** button stays on Home (and in Settings > Help) so it can be opened again at any time. Someone who already has courses never sees it.
 - **Import From Calendar** (Task List). Bring the assignments and events of **Canvas**, **Brightspace** and **Google Calendar** into the planner: paste the private calendar link of the service (it is
   read again to keep things up to date: **Sync Now**, and when the app opens, at most every 3 hours) or import an `.ics` file once. You check a table first (task or event, course found from the
   course number in the title, category); repeating events and time zones are handled; an item is never added twice, a changed one is updated, and one you deleted is not brought back. The link is

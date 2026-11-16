@@ -14,7 +14,7 @@ time, bedtime and holidays).
 Brightspace: Calendar > Subscribe; Google Calendar: Settings > the calendar > Integrate calendar > Secret address in iCal format), paste it, read it, check the table and add. The link is kept on this
 computer and read again to keep your tasks and events up to date (**Sync Now**, or when the app opens). Without a link, import an `.ics` file (Google Calendar: Settings > Import & export > Export).
 
-**How do I see the getting-started tutorial again?** Settings > Help > **Show the Tutorial Again**.
+**How do I see the getting-started tutorial again?** Click **Show the Tutorial** under the title of the Home page (it is there once you skipped or finished it), or use Settings > Help > **Show the Tutorial Again**.
 
 **How do I get study guides, helpers and grade pages made by an AI assistant into the app?** Library > Import > **Prompt for AI**: choose the course, the kind of page and its number, and your assistant
 (**Claude**, **ChatGPT** or **Gemini**), copy the prompt into a chat with it and attach your course files (the prompt lists which). The assistant writes one HTML page in the format the app reads; download it, keep the file name the prompt gave, and import it with
