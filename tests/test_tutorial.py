@@ -118,3 +118,12 @@ def test_a_step_that_waits_for_the_student_moves_on_when_it_is_done():
     crud.add_course("AE 1", "A", "Fall 2026", 0, "Active")                                       # the student saved the course in the window
     at.run()
     assert at.session_state["_tour"]["i"] == i + 1 and at.session_state["page"] == "Calendar" and not at.exception
+
+
+def test_the_overlay_is_taken_away_when_the_tour_ends():
+    at = home()
+    at.button(key="tut_tour").click().run()
+    at.text_input(key="tour_sink").input("next|1").run()
+    assert at.session_state["_tour_drawn"] is True
+    at.text_input(key="tour_sink").input("done|2").run()
+    assert "_tour" not in at.session_state and "_tour_drawn" not in at.session_state and not at.exception                  # the run that ends the tour sent the clean-up script

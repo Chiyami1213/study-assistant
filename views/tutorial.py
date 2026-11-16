@@ -158,7 +158,10 @@ def tour_after():
     """Called by app.py after the page is drawn: the overlay for the present step."""
     tour = active_tour()
     if not tour:
+        if st.session_state.pop("_tour_drawn", False):                          # the tour ended (Skip, Finish): take its overlay away
+            components.html("<script>(function(){var o=window.parent.document.getElementById('sa-tour');if(o){if(o.__stop)o.__stop();o.remove();}})();</script>", height=0)
         return
+    st.session_state["_tour_drawn"] = True
     i = tour["i"]
     step = TOUR[i]
     cfg = {"i": i, "n": len(TOUR), "last": i == len(TOUR) - 1, "title": step["title"], "text": step["text"], "target": step.get("target", ""), "chain": _chain(step), "where": "Getting Started"}
