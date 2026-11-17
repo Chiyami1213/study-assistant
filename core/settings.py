@@ -198,7 +198,7 @@ DEFAULT_KEYS = {
 }
 
 
-FEED_KINDS = ("Canvas", "Brightspace", "Google Calendar", "Other")
+FEED_KINDS = ("Canvas", "Brightspace", "Google Calendar", "Shovel", "Other")
 
 
 def list_feeds():

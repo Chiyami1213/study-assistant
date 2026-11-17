@@ -10,8 +10,8 @@ optional), and the app reads what is already in each course page and in its syll
 **How do I change the term, the dates or the wake-up time?** The term list above the calendar switches the term; its last entry, Manage Terms, changes the dates and has Add New Term (with its wake-up
 time, bedtime and holidays).
 
-**How do I bring in my Canvas, Brightspace or Google Calendar?** Calendar > Task List > **Import From Calendar**. Copy the private calendar link of your service (Canvas: Calendar > Calendar Feed;
-Brightspace: Calendar > Subscribe; Google Calendar: Settings > the calendar > Integrate calendar > Secret address in iCal format), paste it, read it, check the table and add. The link is kept on this
+**How do I bring in my Canvas, Brightspace, Google Calendar or Shovel?** Calendar > Task List > **Import From Calendar**. Copy the private calendar link of your service (Canvas: Calendar > Calendar Feed;
+Brightspace: Calendar > Subscribe; Google Calendar: Settings > the calendar > Integrate calendar > Secret address in iCal format; Shovel: Calendar tab > the share icon > copy the .ics link), paste it, read it, check the table and add. The link is kept on this
 computer and read again to keep your tasks and events up to date (**Sync Now**, or when the app opens). Without a link, import an `.ics` file (Google Calendar: Settings > Import & export > Export).
 
 **Can I change the colors?** Settings > Appearance: choose Light, Dark or your device's setting, and a color theme (Graphite, Ocean, Forest or Plum).

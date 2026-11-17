@@ -1,4 +1,4 @@
-"""Import From Calendar (Task List): the assignments and events of Canvas, Brightspace or Google Calendar come into the planner, from an .ics file or from a feed (the private calendar link of
+"""Import From Calendar (Task List): the assignments and events of Canvas, Brightspace, Google Calendar or Shovel come into the planner, from an .ics file or from a feed (the private calendar link of
 the service) that the app reads again to keep up to date. The student reviews the rows first (task or event, course, category); what a feed brought in is updated by the next reading and
 never added twice (see planner/calsync.py). A feed address is private: it is kept only in the settings file of this computer, and the app only reads it."""
 import uuid
@@ -14,6 +14,7 @@ HELP = {
     "Canvas": "Canvas: open **Calendar**, then **Calendar Feed** (at the bottom right) and copy the link.",
     "Brightspace": "Brightspace: open **Calendar**, then **Subscribe** (or the settings of the calendar) and copy the link of the feed.",
     "Google Calendar": "Google Calendar (a computer): **Settings** > the calendar > **Integrate calendar** > **Secret address in iCal format**. To import without a link: **Settings** > **Import & export** > **Export**, then use Import a File.",
+    "Shovel": "Shovel: open the **Calendar** tab, press the **share** icon at the top, choose what to include (events, planned tasks, or both) and copy the .ics link. For one course: its settings > share. Timed items come in as events on your Calendar, so Shovel's planned study time is not turned into a second task.",
     "Other": "Any calendar service that gives an iCalendar address (a link ending in .ics, or starting with webcal://).",
 }
 AUTO_HOURS = 3
@@ -117,7 +118,7 @@ def auto_sync():
 
 @st.dialog("Import From Calendar", width="large")
 def import_dialog():
-    st.caption("Bring the assignments and events of Canvas, Brightspace or Google Calendar into the planner. A calendar link keeps them up to date; a file is a one-time import.")
+    st.caption("Bring the assignments and events of Canvas, Brightspace, Google Calendar or Shovel into the planner. A calendar link keeps them up to date; a file is a one-time import.")
     _saved_feeds()
     feed_tab, file_tab = st.tabs(["Add a Calendar Link", "Import a File"])
     with feed_tab:
@@ -132,7 +133,7 @@ def import_dialog():
         if st.button("Read the Calendar", key="cal_read", icon=":material/cloud_download:", disabled=not url.strip()):
             try:
                 text = calsync.fetch(url)
-                st.session_state["cal_feed_rows"] = calsync.rows(text, feed_id, courses=_courses())
+                st.session_state["cal_feed_rows"] = calsync.rows(text, feed_id, courses=_courses(), source=kind)
             except Exception as e:
                 st.session_state.pop("cal_feed_rows", None)
                 st.error(f"The calendar could not be read: {str(e)[:160]}")
@@ -148,7 +149,7 @@ def import_dialog():
             _review(found, feed_id, "cal_feed", after=keep)
             st.caption("Adding also saves the link, so Sync Now (and the reading when the app opens) keeps these items up to date.")
     with file_tab:
-        up = st.file_uploader("Calendar File (.ics)", type=["ics"], key="cal_file", help="Google Calendar: Settings > Import & export > Export. Canvas and Brightspace: save the feed link's file.")
+        up = st.file_uploader("Calendar File (.ics)", type=["ics"], key="cal_file", help="Google Calendar: Settings > Import & export > Export. Canvas, Brightspace and Shovel: save the feed link's file.")
         if up is not None:
             try:
                 st.session_state["cal_file_rows"] = calsync.rows(up.getvalue().decode("utf-8", errors="replace"), "file", courses=_courses())

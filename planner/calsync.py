@@ -1,4 +1,4 @@
-"""Bringing calendars into the planner: an .ics file, or a feed (the private calendar link of Canvas, Brightspace or Google Calendar) that is read again to keep the planner up to date.
+"""Bringing calendars into the planner: an .ics file, or a feed (the private calendar link of Canvas, Brightspace, Google Calendar or Shovel) that is read again to keep the planner up to date.
 
 `rows(...)` turns the text of a calendar into the rows a student reviews (a task or an event, its course and category, new or already there); `apply(...)` saves the chosen rows. Every item
 that comes in is saved with a source `ical:<feed id>:<key>`, so reading the same calendar again updates what is there and never adds it twice; the keys of everything a feed has brought
@@ -57,9 +57,9 @@ def _event_times(occ, zone):
     return start, end
 
 
-def rows(text, feed_id, *, courses, now=None, include_past=False, seen=()):
+def rows(text, feed_id, *, courses, now=None, include_past=False, seen=(), source=None):
     """The rows to review for a calendar text: [{key, source, kind ("Task" or "Event"), title, start, end, all_day, due, category, course_id, location, url, done, exists, changed, new}].
-    `courses`: [{id, code, name}]; `seen`: the keys this feed brought in before."""
+    `courses`: [{id, code, name}]; `seen`: the keys this feed brought in before; `source`: the service ("Shovel" reads its timed items as events, see ical.classify)."""
     now = now or datetime.now(UTC)
     zone = store.get_term().zone
     items = ical.parse(text, zone)
@@ -70,7 +70,7 @@ def rows(text, feed_id, *, courses, now=None, include_past=False, seen=()):
     events = commit_store.events_by_source(prefix)
     out = []
     for occ in occs:
-        kind, category = ical.classify(occ)
+        kind, category = ical.classify(occ, source)
         source = prefix + occ["key"]
         row = {"key": occ["key"], "source": source, "kind": "Task" if kind == "task" else "Event", "title": occ["title"], "all_day": occ["all_day"], "category": category,
                "course_id": ical.match_course(occ, courses), "location": occ["location"], "url": occ["url"], "done": occ["done"], "description": occ["description"]}
@@ -136,7 +136,7 @@ def sync_feed(feed, courses, text=None, now=None):
     """Read a saved feed again and keep the planner up to date without asking: what the feed has brought in before is updated, new items of the kinds the feed is set to bring in are added
     (a deleted one stays deleted). Returns the counts of `apply`; raises when the feed cannot be read."""
     text = text if text is not None else fetch(feed["url"])
-    found = rows(text, feed["id"], courses=courses, now=now, seen=feed.get("seen") or [])
+    found = rows(text, feed["id"], courses=courses, now=now, seen=feed.get("seen") or [], source=feed.get("kind"))
     wanted = []
     for r in found:
         if r["exists"]:

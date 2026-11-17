@@ -30,7 +30,7 @@ if "_backed_up" not in st.session_state:             # a safety copy of the data
     from datafiles import backup
     backup.run()
     st.session_state["_backed_up"] = True
-if "_cal_synced" not in st.session_state:                        # the saved calendar feeds (Canvas, Brightspace, Google Calendar) are read again, at most every few hours
+if "_cal_synced" not in st.session_state:                        # the saved calendar feeds (Canvas, Brightspace, Google Calendar, Shovel) are read again, at most every few hours
     st.session_state["_cal_synced"] = True
     try:
         from views import calendar_import

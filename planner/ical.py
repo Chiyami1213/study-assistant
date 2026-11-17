@@ -295,11 +295,15 @@ def category_of(text):
     return "Other"
 
 
-def classify(occ):
-    """("task" or "event", category): a to-do, an assignment of Canvas, an item with a due date or a short item that names homework, a quiz or an exam is a task; the rest is an event."""
+def classify(occ, source=None):
+    """("task" or "event", category): a to-do, an assignment of Canvas, an item with a due date or a short item that names homework, a quiz or an exam is a task; the rest is an event.
+    `source` is the service the calendar comes from. A Shovel calendar holds the student's classes and the study time Shovel planned (for a task named "Homework 4", say): a timed item there is
+    time on the calendar, an event, never a second copy of the task; only a to-do or an all-day item (a due date) can be a task."""
     title, uid = occ["title"], (occ.get("uid") or "").lower()
     if occ["kind"] == "todo":
         return "task", category_of(title)
+    if source == "Shovel" and not occ["all_day"]:
+        return "event", category_of(title)
     start, end = occ["start"], occ["end"]
     short = occ["all_day"] or end is None or (isinstance(start, datetime) and isinstance(end, datetime) and end - start <= timedelta(minutes=60))
     if "assignment" in uid or "quiz" in uid or uid.startswith("event-assignment"):

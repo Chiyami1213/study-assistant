@@ -30,6 +30,34 @@ Not sure which Mac you have? Click the Apple menu, then **About This Mac**. If i
    - The last page links to this page and its [Help](HELP.md) section.
 5. Open Study Assistant from the shortcut or the Start menu.
 
+### The setup wizard, page by page
+
+The pictures show an update from an older version; on a first install the second page is left out.
+
+**1. Welcome.** Press **Next**.
+
+<p align="center"><img src="install/wizard-1-welcome.png" alt="The welcome page of the setup wizard" width="640"></p>
+
+**2. Study Assistant is already installed** (only when an older version is found). **Update (overwrite)** is the recommended choice; your files are kept in every case.
+
+<p align="center"><img src="install/wizard-2-existing.png" alt="The page that offers to update, uninstall first or keep both versions" width="640"></p>
+
+**3. Shortcuts.** Choose a Desktop shortcut and / or a Start menu entry.
+
+<p align="center"><img src="install/wizard-3-shortcuts.png" alt="The shortcuts page" width="640"></p>
+
+**4. Ready to install.** It lists where the program goes and where your files are kept. Press **Install**.
+
+<p align="center"><img src="install/wizard-4-ready.png" alt="The ready to install page" width="640"></p>
+
+**5. Installing.** A progress bar shows the copying; it takes a minute or less.
+
+<p align="center"><img src="install/wizard-5-installing.png" alt="The installing page with its progress bar" width="640"></p>
+
+**6. Setup complete.** Press **Finish**. The page also links to this Help section; tick **Open Study Assistant now** if you want it to start at once.
+
+<p align="center"><img src="install/wizard-6-finish.png" alt="The last page of the setup wizard" width="640"></p>
+
 ## Install on a Mac
 
 1. On the [Releases](https://github.com/Chiyami1213/study-assistant/releases) page, download the `.dmg` for your Mac (see [Choose Your Device](#choose-your-device)) from the newest release.

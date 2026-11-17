@@ -32,6 +32,52 @@ OPTIONS = {
 }
 
 
+_LIVE_THEME_JS = """
+(function () {
+  var P = window.parent, D = P.document;
+  P.__saThemeMap = __MAP__; P.__saThemeKeys = __KEYS__;
+  if (P.__saThemeLive) return;
+  P.__saThemeLive = true;
+  var timer = null;
+  function serverStyle() {
+    var all = D.querySelectorAll('style');
+    for (var i = 0; i < all.length; i++) if (all[i].id !== 'sa-theme-live' && (all[i].textContent || '').trim().indexOf(':root{--bg') === 0) return all[i];
+    return null;
+  }
+  D.addEventListener('click', function (e) {
+    var b = e.target && e.target.closest && e.target.closest('[class*="st-key-theme_"]');
+    var m = b && /st-key-theme_([a-z0-9_]+)/.exec(b.className || '');
+    if (!m || !P.__saThemeMap || !P.__saThemeMap[m[1]]) return;
+    var live = D.getElementById('sa-theme-live');
+    if (!live) { live = D.createElement('style'); live.id = 'sa-theme-live'; }
+    live.textContent = P.__saThemeMap[m[1]];
+    D.body.appendChild(live);                                   // after the page's own style, so it wins at once
+    var cards = D.querySelectorAll('.st-key-color_themes .theme-card');
+    P.__saThemeKeys.forEach(function (k, i) { if (cards[i]) cards[i].classList.toggle('on', k === m[1]); });
+    var s0 = serverStyle(), before = s0 && s0.textContent, t0 = Date.now();
+    if (timer) clearInterval(timer);
+    timer = setInterval(function () {                           // the page has run again with the saved theme: the quick copy is not needed
+      var s = serverStyle();
+      if ((s && s.textContent !== before) || Date.now() - t0 > 8000) {
+        clearInterval(timer); timer = null;
+        setTimeout(function () { if (live.parentNode) live.remove(); }, 150);
+      }
+    }, 60);
+  });
+})();
+"""
+
+
+def _live_theme():
+    """A click on a theme card shows the new colors at once in the browser; the page then runs and saves the choice (the quick copy of the colors is taken away when it has)."""
+    import json
+    import streamlit.components.v1 as components
+    appearance = settings.get_appearance()
+    css = {k: settings.css_vars(appearance, k) for k in settings.COLOR_THEMES}
+    script = _LIVE_THEME_JS.replace("__MAP__", json.dumps(css).replace("</", "<\/")).replace("__KEYS__", json.dumps(list(settings.COLOR_THEMES)))
+    components.html("<script>" + script + "</script>", height=0)
+
+
 def render():
     st.title("Settings")
     _jump_bar()
@@ -50,6 +96,7 @@ def render():
             tiles = [palette.split(f"--{name_}:")[1].split(";")[0] for name_ in ("bg", "active", "accent")] + [primary if key != "graphite" else "#ff9a3c"]      # the page, a chosen item, the accent, the buttons (Graphite: the accent's complement, an orange): four equal tiles
             col.markdown(f"<div class='theme-card{' on' if key == theme else ''}'>" + "".join(f"<span style='background:{c}'></span>" for c in tiles) + "</div>", unsafe_allow_html=True)
             col.button(name, key=f"theme_{key}", type="tertiary", on_click=settings.set_color_theme, args=(key,))      # saved before the page runs, so one run shows the new colors (not two)
+    _live_theme()
     st.caption("Graphite is the original look. The theme changes the colors of the surfaces and of the buttons you press; Light, Dark or the device's setting stay as chosen above.")
 
     modes = {"auto": "Automatic", "light": "Light (Faster)", "full": "Full Effects"}

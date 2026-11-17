@@ -146,3 +146,31 @@ def test_a_feed_address_is_checked_and_stored_privately(planner):
     assert feed["url"] == "webcal://canvas.example/feed.ics" and settings.list_feeds()[0]["id"] == "x1"
     settings.remove_feed("x1")
     assert settings.list_feeds() == [] and settings.get_auto_sync() is True
+
+
+SHOVEL = """BEGIN:VCALENDAR
+BEGIN:VEVENT
+UID:plan-1@shovelapp.io
+SUMMARY:Homework 4
+DTSTART;TZID=America/New_York:20261112T190000
+DTEND;TZID=America/New_York:20261112T200000
+END:VEVENT
+BEGIN:VEVENT
+UID:due-1@shovelapp.io
+SUMMARY:Homework 5 due
+DTSTART;VALUE=DATE:20261118
+END:VEVENT
+END:VCALENDAR
+"""
+
+
+def test_a_shovel_calendar_reads_planned_study_time_as_events_and_a_due_date_as_a_task(planner):
+    cid, courses = planner
+    other = {r["title"]: r["kind"] for r in calsync.rows(SHOVEL, "x", courses=courses, now=NOW)}
+    shovel = {r["title"]: r["kind"] for r in calsync.rows(SHOVEL, "x", courses=courses, now=NOW, source="Shovel")}
+    assert other["Homework 4"] == "Task"                                                         # a short item that names homework is a task for the other services
+    assert shovel == {"Homework 4": "Event", "Homework 5 due": "Task"}                           # in Shovel it is study time on the calendar
+    assert "Shovel" in settings.FEED_KINDS
+    feed = settings.add_feed("s1", "Shovel", "Shovel", "https://calendar.example/shovel.ics")
+    out = calsync.sync_feed(feed, courses, text=SHOVEL, now=NOW)
+    assert out["added"] == 2 and [t.title for t in ts.list_tasks() if t.source and t.source.startswith("ical:s1:")] == ["Homework 5 due"]

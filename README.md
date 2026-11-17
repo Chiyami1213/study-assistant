@@ -26,8 +26,8 @@ side, and let the app keep track of deadlines, grades and outlines. It runs enti
   chosen and managed from the list above the calendar, and Home shows what is due next.
 - **Study planner.** Tasks have a due date and a time estimate, and the Calendar shows how much free time is left before each deadline (a green, yellow or red cushion), warns when work does not fit, and
   places study sessions for you around classes, activities and events (with travel time); drag sessions and events to change them. Personal tasks can be planned in a break too.
-- **Getting started and calendars.** New students get a short checklist on Home (it can be skipped). **Import From Calendar** brings in the assignments and events of Canvas, Brightspace and
-  Google Calendar from a calendar link (kept up to date) or an `.ics` file.
+- **Getting started and calendars.** New students get a short checklist on Home (it can be skipped). **Import From Calendar** brings in the assignments and events of Canvas, Brightspace,
+  Google Calendar and Shovel from a calendar link (kept up to date) or an `.ics` file.
 - **Prompts for your own AI.** Library > Import > **Prompt for AI** writes a ready-to-paste prompt for **Claude, ChatGPT or Gemini** for a study guide, a homework
   helper, a grade explanation, an exam reflection or an exam preparation page, with the format this app reads built in; download the page the assistant makes and import it.
 - **Quizzes and eye rest.** Quizzes from your notes with scores kept per chapter, and a reminder to rest your eyes every 20 minutes.

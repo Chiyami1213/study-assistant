@@ -70,3 +70,16 @@ def test_every_theme_card_shows_four_color_tiles():
 @pytest.mark.parametrize("theme", list(settings.COLOR_THEMES))
 def test_the_off_switch_has_a_visible_track_in_every_appearance_and_theme(mode, theme):
     assert settings.SWITCH_CSS in settings.css_vars(mode, theme)
+
+
+def test_the_settings_page_hands_the_browser_every_theme_for_an_instant_repaint():
+    import json
+    at = AppTest.from_file(APP, default_timeout=90)
+    at.session_state["page"] = "Settings"
+    at.run()
+    assert not at.exception
+    from views import settings_view
+    script = settings_view._LIVE_THEME_JS
+    assert "sa-theme-live" in script and "__MAP__" in script and "__KEYS__" in script
+    css = {k: settings.css_vars(settings.get_appearance(), k) for k in settings.COLOR_THEMES}
+    assert len(json.dumps(css)) < 60000 and len(set(css.values())) == 4                                      # four different looks, a small script
