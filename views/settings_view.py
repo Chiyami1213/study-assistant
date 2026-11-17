@@ -92,8 +92,8 @@ def render():
     theme = settings.get_color_theme()
     with st.container(key="color_themes"):
         for col, (key, (name, dark, light, primary)) in zip(st.columns(4), settings.COLOR_THEMES.items()):
-            palette = dark or settings.PALETTES["dark"]
-            tiles = [palette.split(f"--{name_}:")[1].split(";")[0] for name_ in ("bg", "active", "accent")] + [primary if key != "graphite" else "#ff9a3c"]      # the page, a chosen item, the accent, the buttons (Graphite: the accent's complement, an orange): four equal tiles
+            shades = settings.theme_colors(key, "light" if settings.get_appearance() == "light" else "dark")                  # the card shows the theme as it looks now
+            tiles = [shades["bg"], shades["active"], shades["accent"], primary if key != "graphite" else "#ff9a3c"]      # the page, a chosen item, the accent, the buttons (Graphite: the accent's complement, an orange): four equal tiles
             col.markdown(f"<div class='theme-card{' on' if key == theme else ''}'>" + "".join(f"<span style='background:{c}'></span>" for c in tiles) + "</div>", unsafe_allow_html=True)
             col.button(name, key=f"theme_{key}", type="tertiary", on_click=settings.set_color_theme, args=(key,))      # saved before the page runs, so one run shows the new colors (not two)
     _live_theme()

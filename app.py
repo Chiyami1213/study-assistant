@@ -212,9 +212,14 @@ section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-h
 .theme-card {{display: flex; height: 62px; border-radius: 12px; overflow: hidden; border: 1px solid rgba(160, 170, 190, 0.35); margin: 0 0 8px;}}
 .theme-card span {{flex: 1 1 0; display: block;}}
 .theme-card.on {{outline: 3px solid var(--accent); outline-offset: 3px;}}
-.st-key-color_themes [data-testid="stButton"] {{width: 100%;}}
-.st-key-color_themes button {{justify-content: flex-start !important; padding: 0 !important; min-height: 0 !important; background: transparent !important; border: 0 !important;}}
-.st-key-color_themes button p {{font-size: 1rem; font-weight: 700; text-align: left;}}
+/* the whole card (the colors and the name) is the button: a click on the colors chooses the theme too */
+.st-key-color_themes [data-testid="stColumn"], .st-key-color_themes [data-testid="column"] {{position: relative; padding-bottom: 42px;}}
+.st-key-color_themes [class*="st-key-theme_"] {{position: absolute !important; inset: 0; width: auto !important; margin: 0 !important;}}
+.st-key-color_themes [data-testid="stButton"] {{width: 100%; height: 100%;}}
+.st-key-color_themes button {{width: 100% !important; height: 100% !important; align-items: flex-end !important; justify-content: flex-start !important; padding: 0 !important; min-height: 0 !important; background: transparent !important; border: 0 !important; cursor: pointer;}}
+.st-key-color_themes button > div {{width: 100%; justify-content: flex-start !important;}}
+.st-key-color_themes button p {{font-size: 1rem; font-weight: 700; text-align: left !important; width: 100%;}}
+.st-key-color_themes [data-testid="stColumn"]:hover .theme-card:not(.on), .st-key-color_themes [data-testid="column"]:hover .theme-card:not(.on) {{outline: 2px solid var(--border); outline-offset: 3px;}}
 /* Getting Started (Home): the check chain (a tick in a green circle, the next step in blue, the rest grey, joined by lines) and the number or tick in front of each step */
 .tut-chain {{display: flex; align-items: flex-start; margin: 0.4rem 0 0.2rem; overflow-x: auto; padding: 4px 2px 8px;}}
 .tc-step {{display: flex; flex-direction: column; align-items: center; gap: 6px; flex: 0 0 auto; min-width: 76px;}}

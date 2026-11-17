@@ -83,3 +83,17 @@ def test_the_settings_page_hands_the_browser_every_theme_for_an_instant_repaint(
     assert "sa-theme-live" in script and "__MAP__" in script and "__KEYS__" in script
     css = {k: settings.css_vars(settings.get_appearance(), k) for k in settings.COLOR_THEMES}
     assert len(json.dumps(css)) < 60000 and len(set(css.values())) == 4                                      # four different looks, a small script
+
+
+@pytest.mark.parametrize("key", ["ocean", "forest", "plum"])
+def test_a_theme_is_visible_in_light_too_not_only_in_its_accent(key):
+    base = settings.theme_colors("graphite", "light")
+    mine = settings.theme_colors(key, "light")
+    assert mine["bg"] != base["bg"] and mine["card"] != base["card"] and mine["accent"] != base["accent"]        # the page and the cards are tinted
+    assert settings.theme_colors(key, "dark")["bg"] != settings.theme_colors("graphite", "dark")["bg"]
+    assert settings.theme_colors("graphite", "light")["bg"] == "#ffffff"                                          # Graphite stays as it was
+
+
+def test_the_whole_theme_card_is_the_button_not_only_its_name():
+    css = (Path(APP).parent / "app.py").read_text(encoding="utf-8")
+    assert '.st-key-color_themes [class*="st-key-theme_"] {{position: absolute !important; inset: 0;' in css      # the button covers the card: a click on the colors chooses the theme

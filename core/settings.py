@@ -24,16 +24,17 @@ PALETTES = {
 }
 
 # Color themes: Graphite is the original look (dark surfaces in neutral grey, the blue accent). The others change the dark surfaces, the accent and the color of the primary buttons; in the light
-# appearance only the accent changes. `COLOR_THEMES[key] = (name, dark surfaces, light accent variables, primary color)`.
+# appearance the surfaces take a light tint of the theme (the page, the cards, the fields, the lines) and the accent changes, so a theme can be seen in Light too (it was only the accent, and
+# choosing a theme looked like nothing happened). `COLOR_THEMES[key] = (name, dark surfaces, light variables, primary color)`.
 _S = ("--s1:#3987e5;--s2:#d95926;--s3:#199e70;--s4:#c98500;--s5:#9b6bdf;--s6:#d6458f;--s7:#3fb8c9;--s8:#8fa34a;")
 COLOR_THEMES = {
     "graphite": ("Graphite", None, "", "#ff4b4b"),
     "ocean": ("Ocean", "--bg:#0a1624;--bg2:#112238;--input:#172e4a;--border:#1f3a5c;--text:#e6eef8;--hover:#15293f;--active:#1b3a63;--active-text:#fff;--card:#12253b;--accent:#38a6ff;--qcard:#0e2036;--qline:#26466e;",
-              "--accent:#1a7fd1;--active:#d9ecfb;", "#2f8cff"),
+              "--bg:#f3f8fe;--bg2:#e6f0fb;--input:#e1ecf9;--border:#c3d8ee;--hover:#dbe8f6;--card:#e8f1fb;--qcard:#e7f0fb;--qline:#bdd3ec;--accent:#1a7fd1;--active:#cfe3f8;", "#2f8cff"),
     "forest": ("Forest", "--bg:#0c1511;--bg2:#14241c;--input:#1b3126;--border:#243f31;--text:#e6f0ea;--hover:#172a21;--active:#1f4331;--active-text:#fff;--card:#13241b;--accent:#3ec28a;--qcard:#0f1d16;--qline:#2a4d3b;",
-               "--accent:#1f9d6b;--active:#dff2e8;", "#2fae78"),
+               "--bg:#f2f9f5;--bg2:#e3f1e9;--input:#ddeee4;--border:#bfdcca;--hover:#d8eadf;--card:#e6f3ec;--qcard:#e5f2eb;--qline:#b9d9c7;--accent:#1f9d6b;--active:#cdebdb;", "#2fae78"),
     "plum": ("Plum", "--bg:#130f1c;--bg2:#1e1730;--input:#271e3d;--border:#35294f;--text:#efe9f8;--hover:#231a38;--active:#3a2a63;--active-text:#fff;--card:#1d1530;--accent:#b07cff;--qcard:#181226;--qline:#3b2d5c;",
-             "--accent:#7d4fd6;--active:#ebe2fb;", "#9b5de5"),
+             "--bg:#f8f4fd;--bg2:#eee7f9;--input:#e9e0f7;--border:#d5c8ec;--hover:#e5daf5;--card:#efe8fa;--qcard:#eee7f9;--qline:#cfc0ea;--accent:#7d4fd6;--active:#e0d3f7;", "#9b5de5"),
 }
 
 COLOR_THEMES = {k: (n, (d + _S) if d else None, light, primary) for k, (n, d, light, primary) in COLOR_THEMES.items()}          # every theme has the chart colors too
@@ -125,6 +126,16 @@ def css_vars(choice, theme="graphite"):
         return (f":root{{{palettes['dark']}}}"
                 f"@media (prefers-color-scheme: light){{:root{{{palettes['light']}}}}}" + (OVERRIDE if theme in COLOR_THEMES and theme != "graphite" else "") + extra)       # Graphite leaves the surfaces to Streamlit, as it always did
     return f":root{{{palettes[choice]}color-scheme:{choice};}}" + OVERRIDE + extra
+
+
+def theme_colors(key, mode="dark"):
+    """The variables of a theme in Light or Dark as a dict (without the leading --): the base palette with the theme's own values over it."""
+    import re
+    name, dark, light, primary = COLOR_THEMES.get(key) or COLOR_THEMES["graphite"]
+    text = (dark or PALETTES["dark"]) if mode == "dark" else PALETTES["light"] + light
+    colors = {k: v.strip() for k, v in re.findall(r"--([a-z0-9-]+):([^;]+);", text)}
+    colors["primary"] = primary
+    return colors
 
 
 def get_color_theme():

@@ -18,6 +18,7 @@
 - **Fixes after the release:** choosing a color theme (or Light, Dark, Device) is quick again (the Settings page no longer recalculates 600 time zones on every click, and one run instead of two); each theme card shows four color tiles (Graphite's fourth is orange); the off switch is visible in Light.
 - **Shovel in Import From Calendar:** choose **Shovel** as the service and paste its share link (Calendar tab > share icon > .ics link). Shovel's classes and the study time it planned come in as events
   (not as a second copy of the task); a to-do or an all-day due date still becomes a task. The Type column of the review table can change any row.
+- **Color theme cards:** a click anywhere on a card (the colors, not only the name) chooses the theme, and in Light each theme tints the page, cards and fields, so the change can be seen.
 - **Smaller download:** the build leaves out libraries the app never uses (OpenCV, SciPy, ONNX Runtime, Matplotlib), about 40 MB less than the first 1.1.0 package.
 
 ## 1.1.0 (2026-11-15)
