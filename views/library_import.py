@@ -35,6 +35,7 @@ class Candidate:
     lecture: str = ""
     course_ids: list = field(default_factory=list)
     reader: object = None       # a function that returns the bytes of the file (read only when it is imported)
+    picked: bool = None         # ticked in the confirmation page (None = not decided: everything not in the Library yet)
 
 
 # ---------------------------------------------------------------- finding files
@@ -279,6 +280,12 @@ def import_all(candidates, remember=False, default_course=None):
 
 
 # ---------------------------------------------------------------- the confirmation page
+def select(candidates, which):
+    """Tick (all), untick (none) or tick only the changed files (changed) of the list."""
+    for c in candidates:
+        c.picked = True if which == "all" else False if which == "none" else c.status == "Changed"
+
+
 def _table(candidates, key):
     """The page where the student confirms: every file found, with its guessed type, title, lecture and course, all editable; unchecked files are not imported. Returns the checked candidates
     (with what was edited)."""
@@ -287,7 +294,20 @@ def _table(candidates, key):
     from views import library_view as L
     courses = {c["id"]: crud.label(c) for c in crud.list_courses(section=None)}
     labels = ["(none)"] + list(courses.values())
-    frame = pd.DataFrame([{"Import": c.status != "In Library", "File": c.key if len(c.key) < 90 else "..." + c.key[-87:], "Status": c.status, "Type": c.kind, "Title": c.title, "Lecture": c.lecture,
+    version = st.session_state.get(f"{key}_v", 0)
+    if len(candidates) > 1:                                                  # tick or untick many files at once (the table is drawn anew with the new ticks; edits to titles are kept)
+        a, b, c3, _ = st.columns([1, 1, 1.2, 4], vertical_alignment="center")
+        clicks = {"all": a.button("Select All", key=f"{key}_all", icon=":material/select_all:", type="tertiary", help="ticks every file in the list"),
+                  "none": b.button("Deselect All", key=f"{key}_none", icon=":material/deselect:", type="tertiary", help="unticks every file in the list")}
+        if any(c.status == "Changed" for c in candidates):
+            clicks["changed"] = c3.button("Changed Only", key=f"{key}_chg", icon=":material/update:", type="tertiary", help="ticks only the files that changed since they were imported")
+        which = next((w for w, hit in clicks.items() if hit), None)
+        if which:
+            select(candidates, which)
+            version += 1
+            st.session_state[f"{key}_v"] = version
+    key = f"{key}_{version}"
+    frame = pd.DataFrame([{"Import": c.picked if c.picked is not None else c.status != "In Library", "File": c.key if len(c.key) < 90 else "..." + c.key[-87:], "Status": c.status, "Type": c.kind, "Title": c.title, "Lecture": c.lecture,
                            "Course": courses.get(c.course_ids[0], "(none)") if c.course_ids else "(none)"} for c in candidates])
     edited = st.data_editor(frame, key=key, hide_index=True, width="stretch", num_rows="fixed",
                             column_config={"Import": st.column_config.CheckboxColumn("Import"), "File": st.column_config.TextColumn("File", disabled=True), "Status": st.column_config.TextColumn("Status", disabled=True),
@@ -296,6 +316,7 @@ def _table(candidates, key):
     by_label = {v: k for k, v in courses.items()}
     chosen = []
     for c, row in zip(candidates, edited.to_dict("records")):
+        c.picked = bool(row["Import"])
         if not row["Import"]:
             continue
         c.kind, c.title, c.lecture = row["Type"], (row["Title"] or "").strip() or c.title, (row["Lecture"] or "").strip()
@@ -310,9 +331,17 @@ def _summary(added, replaced, problems):
     st.session_state["lib_toast"] = text + (f" Not imported: {'; '.join(problems[:3])}" if problems else "")
 
 
+def _scans():
+    """What the open window has read (a folder, a zip): every click in its table runs the window again, and reading again each time made the table jump (a line above it came and went) and
+    the click miss. The reading is kept here until the window is opened again or the student asks for it again."""
+    import streamlit as st
+    return st.session_state.setdefault("_imp_scans", {})
+
+
 def zip_dialog(default_course=None):
     """Import a zip of pdf and html files: choose it, check what it holds on the confirmation page, then import."""
     import streamlit as st
+    _scans().clear()
 
     @st.dialog("Import a Zip", width="large")
     def dialog():
@@ -321,7 +350,10 @@ def zip_dialog(default_course=None):
         if not up:
             return
         try:
-            cands = zip_candidates(up.getvalue(), default_course)
+            key = ("zip", up.file_id)
+            if key not in _scans():
+                _scans()[key] = zip_candidates(up.getvalue(), default_course)
+            cands = _scans()[key]
         except ValueError as e:
             st.error(str(e))
             return
@@ -340,6 +372,7 @@ def zip_dialog(default_course=None):
 def folder_dialog(course_id=None):
     """Update the Library from the chosen folder: the new and the changed files are listed for confirmation; files imported before are not listed again."""
     import streamlit as st
+    _scans().clear()                                                         # a window opened anew reads the folder anew
 
     @st.dialog("Update From Folder", width="large")
     def dialog():
@@ -364,8 +397,11 @@ def folder_dialog(course_id=None):
         if not Path(folder).is_dir():
             st.warning("That folder can not be found. Choose it again.", icon=":material/warning:")
             return
-        with st.spinner("Reading the folder..."):
-            cands = folder_candidates(folder, course_id)
+        scan_key = ("folder", course_id, folder)
+        if scan_key not in _scans():                                         # read once: the table below must not move while the student ticks files
+            with st.spinner("Reading the folder..."):
+                _scans()[scan_key] = folder_candidates(folder, course_id)
+        cands = _scans()[scan_key]
         fresh = [c for c in cands if c.status != "In Library"]
         st.caption(f"{len(cands)} pdf and html files in the folder: {sum(c.status == 'New' for c in cands)} new, {sum(c.status == 'Changed' for c in cands)} changed since they were imported, "
                    f"{sum(c.status == 'In Library' for c in cands)} already in the Library.")
@@ -376,7 +412,11 @@ def folder_dialog(course_id=None):
                     settings.remember_import_source(c.key, c.size, c.mtime, c.book_id)
             return
         chosen = _table(fresh, f"imp_table_{course_id}_{len(fresh)}")
-        if st.button(f"Import {len(chosen)} File{'s' if len(chosen) != 1 else ''}", key="imp_go", type="primary", disabled=not chosen):
+        go, again, _ = st.columns([1, 1.3, 4], vertical_alignment="center")
+        if again.button("Read the Folder Again", key="imp_reread", icon=":material/refresh:", type="tertiary", help="reads the folder again, for files you added to it just now"):
+            _scans().pop(scan_key, None)
+            st.rerun(scope="fragment")
+        if go.button(f"Import {len(chosen)} File{'s' if len(chosen) != 1 else ''}", key="imp_go", type="primary", disabled=not chosen):
             for c in cands:
                 if c.status == "In Library" and c.book_id:
                     settings.remember_import_source(c.key, c.size, c.mtime, c.book_id)

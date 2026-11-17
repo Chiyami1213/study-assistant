@@ -266,3 +266,21 @@ def test_the_overview_has_add_and_edit_syllabus_and_an_edit_keeps_the_students_c
     data["manual"] = True
     syllabus.save(cid, data)                                                                                          # what the edit dialog saves
     assert syllabus.load(cid)["rows"][0]["percent"] == 35 and syllabus.load(cid)["manual"] is True
+
+
+def test_bulk_select_ticks_unticks_or_keeps_only_the_changed_files():
+    cands = [LI.Candidate(key=f"f{i}", name=f"f{i}.pdf", size=1, mtime=0.0, status=s) for i, s in enumerate(["New", "Changed", "New", "Changed"])]
+    LI.select(cands, "none")
+    assert [c.picked for c in cands] == [False] * 4
+    LI.select(cands, "all")
+    assert [c.picked for c in cands] == [True] * 4
+    LI.select(cands, "changed")
+    assert [c.picked for c in cands] == [False, True, False, True]
+
+
+def test_the_folder_is_read_once_and_kept_while_the_window_is_used(monkeypatch):
+    """Every click in the table runs the window again; the folder must not be read (and the "Reading the folder" line shown above the table) again."""
+    source = Path(LI.__file__).read_text(encoding="utf-8")
+    body = source.split("def folder_dialog", 1)[1]
+    assert "_scans()" in body and body.index("if scan_key not in _scans()") < body.index("folder_candidates(")
+    assert "Read the Folder Again" in body
