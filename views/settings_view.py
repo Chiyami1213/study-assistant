@@ -40,21 +40,16 @@ def render():
     current = settings.get_appearance()
     with st.container(key="appearance"):
         for col, (key, (icon, label)) in zip(st.columns(3), OPTIONS.items()):
-            if col.button(label, icon=icon, key=f"appearance_{key}", width="stretch",
-                          type="primary" if key == current else "secondary"):
-                settings.set_appearance(key)
-                st.rerun()
+            col.button(label, icon=icon, key=f"appearance_{key}", width="stretch", type="primary" if key == current else "secondary", on_click=settings.set_appearance, args=(key,))
 
     st.markdown("**Color Theme**")
     theme = settings.get_color_theme()
     with st.container(key="color_themes"):
         for col, (key, (name, dark, light, primary)) in zip(st.columns(4), settings.COLOR_THEMES.items()):
             palette = dark or settings.PALETTES["dark"]
-            tiles = [palette.split(f"--{name_}:")[1].split(";")[0] for name_ in ("bg", "active", "accent")]          # the page, a chosen item, the accent: three equal tiles
+            tiles = [palette.split(f"--{name_}:")[1].split(";")[0] for name_ in ("bg", "active", "accent")] + [primary if key != "graphite" else "#ff9a3c"]      # the page, a chosen item, the accent, the buttons (Graphite: the accent's complement, an orange): four equal tiles
             col.markdown(f"<div class='theme-card{' on' if key == theme else ''}'>" + "".join(f"<span style='background:{c}'></span>" for c in tiles) + "</div>", unsafe_allow_html=True)
-            if col.button(name, key=f"theme_{key}", type="tertiary"):
-                settings.set_color_theme(key)
-                st.rerun()
+            col.button(name, key=f"theme_{key}", type="tertiary", on_click=settings.set_color_theme, args=(key,))      # saved before the page runs, so one run shows the new colors (not two)
     st.caption("Graphite is the original look. The theme changes the colors of the surfaces and of the buttons you press; Light, Dark or the device's setting stay as chosen above.")
 
     modes = {"auto": "Automatic", "light": "Light (Faster)", "full": "Full Effects"}
@@ -444,9 +439,18 @@ def _planner_save():
         s["planner_msg"] = ("error", str(e))
 
 
+@st.cache_data(ttl=3600, show_spinner=False)
+def _zone_choices():
+    """The time zones from west to east with their labels ('America/New_York (UTC-05:00, EST)'). Working these out for the 600 zones took most of a second on every run of the page (a click on a
+    theme or any other control), so the list is kept for an hour (the offsets only change with daylight saving time)."""
+    import zoneinfo
+    from planner import timeutil
+    zones = timeutil.zones_by_offset(zoneinfo.available_timezones())
+    return zones, {z: timeutil.zone_label(z) for z in zones}
+
+
 def _planner_section():
     """Study planner setup: time zone, awake hours for each weekday and the shortest study block. The term dates and breaks are the Calendar's."""
-    import zoneinfo
     from planner import store
     from planner.models import MIN_BLOCK_RANGE, WEEKDAYS
     _section("Study Planner")
@@ -459,9 +463,7 @@ def _planner_section():
                + (f" · Breaks: {', '.join(b.name for b in term.breaks)}" if term.breaks else " · No breaks"))
     st.toggle("Warn When Work Does Not Fit", settings.get_fit_warning(), key="planner_fit_warning", on_change=lambda: settings.set_fit_warning(st.session_state["planner_fit_warning"]),
               help="the warning above the Calendar when a task cannot be finished before its deadline; its Don't Show Again button turns it off")
-    from planner import timeutil
-    zones = timeutil.zones_by_offset(zoneinfo.available_timezones())
-    labels = {z: timeutil.zone_label(z) for z in zones}                      # 'America/New_York (UTC-05:00, EST)'
+    zones, labels = _zone_choices()
     with st.container(key="planner_setup"):
         c1, c2 = st.columns(2)
         c1.selectbox("Time Zone", zones, index=zones.index(term.tz) if term.tz in zones else 0, key="planner_tz", format_func=labels.get,

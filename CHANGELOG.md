@@ -15,6 +15,7 @@
 - **Guided tour:** the left and right arrow keys move between the steps (not while you are typing in a field), and the blue box follows what it points at on every frame, so it no longer lags when a
   window opens or the page scrolls.
 - **Update From Folder and Import a Zip:** the folder is read once when the window opens, so the "Reading the folder..." line no longer pushes the table down while you tick files (new Read the Folder Again button); Select All, Deselect All and Changed Only tick many files at once.
+- **Fixes after the release:** choosing a color theme (or Light, Dark, Device) is quick again (the Settings page no longer recalculates 600 time zones on every click, and one run instead of two); each theme card shows four color tiles (Graphite's fourth is orange); the off switch is visible in Light.
 - **Smaller download:** the build leaves out libraries the app never uses (OpenCV, SciPy, ONNX Runtime, Matplotlib), about 40 MB less than the first 1.1.0 package.
 
 ## 1.1.0 (2026-11-15)

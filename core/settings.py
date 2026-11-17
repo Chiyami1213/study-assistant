@@ -100,6 +100,11 @@ OVERRIDE = """
 """
 
 
+# Switches: the off track was a faint grey on white in Light (almost invisible); it gets a track that shows on the page and a thumb with an edge, in every appearance and theme.
+SWITCH_CSS = (".stApp label:has(input[role='switch']:not(:checked)) > div:first-of-type {background-color: color-mix(in srgb, var(--text) 38%, var(--bg)) !important;}"
+              ".stApp label:has(input[role='switch']) > div:first-of-type > div {box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.18), 0 1px 2px rgba(0, 0, 0, 0.3) !important;}")
+
+
 def _primary_css(color):
     """The color of the primary buttons, the chosen pills, switches and tabs for a theme other than Graphite (Graphite keeps Streamlit's own red)."""
     return (f":root{{--primary:{color};}}"
@@ -107,7 +112,7 @@ def _primary_css(color):
             f".stApp button[data-variant='segmented_control'][aria-checked='true'] {{border-color: {color} !important;}}"
             f".stApp button[data-variant='segmented_control'][aria-checked='true'] p {{color: {color} !important;}}"
             f".stApp [data-baseweb='tab-highlight'] {{background-color: {color} !important;}}"
-            f".stApp label[data-baseweb='checkbox']:has(input:checked) > div:first-child {{background-color: {color} !important; border-color: {color} !important;}}"
+            f".stApp label:has(input[role='switch']:checked) > div:first-of-type {{background-color: {color} !important;}}"
             f".stApp .stProgress [data-testid='stProgressBarFill'], .stApp [data-testid='stProgressBar'] > div > div {{background-color: {color} !important;}}")
 
 
@@ -115,7 +120,7 @@ def css_vars(choice, theme="graphite"):
     """The CSS of the appearance (light, dark or the device's) in a color theme."""
     name, dark, light, primary = COLOR_THEMES.get(theme) or COLOR_THEMES["graphite"]
     palettes = {"dark": dark or PALETTES["dark"], "light": PALETTES["light"] + light}
-    extra = _primary_css(primary) if theme in COLOR_THEMES and theme != "graphite" else ""
+    extra = SWITCH_CSS + (_primary_css(primary) if theme in COLOR_THEMES and theme != "graphite" else "")
     if choice == "device":
         return (f":root{{{palettes['dark']}}}"
                 f"@media (prefers-color-scheme: light){{:root{{{palettes['light']}}}}}" + (OVERRIDE if theme in COLOR_THEMES and theme != "graphite" else "") + extra)       # Graphite leaves the surfaces to Streamlit, as it always did

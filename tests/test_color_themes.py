@@ -31,9 +31,9 @@ def test_four_themes_graphite_first_and_a_bad_choice_is_graphite():
 
 
 def test_graphite_renders_exactly_as_it_always_did():
-    assert settings.css_vars("dark", "graphite") == ":root{" + settings.PALETTES["dark"] + "color-scheme:dark;}" + settings.OVERRIDE
-    assert settings.css_vars("light") == ":root{" + settings.PALETTES["light"] + "color-scheme:light;}" + settings.OVERRIDE
-    assert settings.css_vars("device") == ":root{" + settings.PALETTES["dark"] + "}@media (prefers-color-scheme: light){:root{" + settings.PALETTES["light"] + "}}"
+    assert settings.css_vars("dark", "graphite") == ":root{" + settings.PALETTES["dark"] + "color-scheme:dark;}" + settings.OVERRIDE + settings.SWITCH_CSS
+    assert settings.css_vars("light") == ":root{" + settings.PALETTES["light"] + "color-scheme:light;}" + settings.OVERRIDE + settings.SWITCH_CSS
+    assert settings.css_vars("device") == ":root{" + settings.PALETTES["dark"] + "}@media (prefers-color-scheme: light){:root{" + settings.PALETTES["light"] + "}}" + settings.SWITCH_CSS      # only the off switch's track is new
 
 
 @pytest.mark.parametrize("key", ["ocean", "forest", "plum"])
@@ -56,3 +56,17 @@ def test_the_settings_page_offers_the_four_themes_and_a_click_chooses_one():
     at.button(key="theme_plum").click().run()
     assert settings.get_color_theme() == "plum" and not at.exception
     assert any("theme-card on" in m.value for m in at.markdown)                                                  # the chosen card has its ring
+
+
+def test_every_theme_card_shows_four_color_tiles():
+    at = AppTest.from_file(APP, default_timeout=90)
+    at.session_state["page"] = "Settings"
+    at.run()
+    cards = [m.value for m in at.markdown if "<div class='theme-card" in m.value]
+    assert len(cards) == len(settings.COLOR_THEMES) and all(c.count("<span") == 4 for c in cards)
+
+
+@pytest.mark.parametrize("mode", ["light", "dark", "device"])
+@pytest.mark.parametrize("theme", list(settings.COLOR_THEMES))
+def test_the_off_switch_has_a_visible_track_in_every_appearance_and_theme(mode, theme):
+    assert settings.SWITCH_CSS in settings.css_vars(mode, theme)
