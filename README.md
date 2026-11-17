@@ -4,7 +4,7 @@
 
 ---
 
-Version 1.1.0. See the [changelog](CHANGELOG.md) for what changed in each release.
+Version 1.1.1. See the [changelog](CHANGELOG.md) for what changed in each release.
 
 **A personal study desk for university coursework.** Keep a course's textbooks, lecture slides, notes, homework and exams in one library, read them side by
 side, and let the app keep track of deadlines, grades and outlines. It runs entirely on your computer, in its own desktop window; nothing is sent anywhere.
@@ -51,6 +51,13 @@ side, and let the app keep track of deadlines, grades and outlines. It runs enti
 Questions about installing, antivirus warnings, your files, backups, shortcuts and connection problems are answered on the [Help tab](docs/HELP.md).
 
 ## What's new
+
+**1.1.1**
+- **Color themes** (Settings > Appearance): Graphite (the original look), Ocean, Forest and Plum.
+- **Clear Auto-Plan** removes the study sessions Auto-Plan made that have not started; **Safety Copies Folder** (Settings > Backup) lets you keep the app's own copies elsewhere, for example in OneDrive.
+- **Smoother tour and imports:** the guided tour works with the arrow keys and its box no longer lags; Update From Folder and Import a Zip no longer shift the table while you tick files, and have
+  Select All, Deselect All and Changed Only.
+- A smaller download (about 40 MB less).
 
 **1.1.0**
 - **Getting started and calendars:** a **Getting Started** check chain and a guided tour for new students (a box and an arrow show where to click; it can be skipped and started again), and **Import From Calendar**: the assignments and events of Canvas, Brightspace and Google

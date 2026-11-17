@@ -4,7 +4,7 @@
 
 ---
 
-## 1.1.1 (not released yet)
+## 1.1.1 (2026-11-16)
 
 - **Color themes** (Settings > Appearance > Color Theme): four themes shown as cards of three equal color tiles, with the name under each: **Graphite** (the original look, unchanged), **Ocean**,
   **Forest** and **Plum**. A theme recolors the dark surfaces, the accent and the primary buttons, chosen pills, tabs and switches; in the light appearance only the accent changes.
