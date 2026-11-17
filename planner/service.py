@@ -72,6 +72,12 @@ def delete_session(session_id, now=None):
     return cushion_report(now)
 
 
+def clear_auto_plan(now=None):
+    """Remove the sessions of the last Auto-Plan that have not started (the student's own sessions stay). Returns (how many, new CushionReport)."""
+    removed = session_store.clear_auto(_now(now))
+    return removed, cushion_report(now)
+
+
 def unplan_task(task_id, now=None, include_past=False):
     """Remove a task's sessions that have not started. Returns (how many, new CushionReport)."""
     removed = session_store.unplan_task(task_id, _now(now), include_past)

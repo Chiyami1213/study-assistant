@@ -388,7 +388,7 @@ def delete_block(ref):
             import sqlite3
             from datetime import datetime as _dt
             from core import database
-            target = database.DATA_DIR / "Backups" / f"Before Delete {_dt.now():%Y-%m-%d %H-%M-%S}"
+            target = database.backups_dir() / f"Before Delete {_dt.now():%Y-%m-%d %H-%M-%S}"
             target.mkdir(parents=True, exist_ok=True)
             src = sqlite3.connect(database.DB_PATH)
             dst = sqlite3.connect(target / "study.db")

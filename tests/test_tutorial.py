@@ -127,3 +127,9 @@ def test_the_overlay_is_taken_away_when_the_tour_ends():
     assert at.session_state["_tour_drawn"] is True
     at.text_input(key="tour_sink").input("done|2").run()
     assert "_tour" not in at.session_state and "_tour_drawn" not in at.session_state and not at.exception                  # the run that ends the tour sent the clean-up script
+
+
+def test_the_arrow_keys_move_the_tour_but_not_while_typing():
+    js = tutorial.OVERLAY.read_text(encoding="utf-8")
+    assert "ArrowRight" in js and "ArrowLeft" in js and "isContentEditable" in js and "INPUT|TEXTAREA|SELECT" in js         # the keys are read, and a field being typed in keeps them
+    assert "removeEventListener('keydown'" in js                                                                           # and the listener goes away with the overlay

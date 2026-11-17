@@ -13,7 +13,8 @@
       #sa-tour[popover] {inset: 0; margin: 0; padding: 0; border: 0; width: 100vw; height: 100vh; max-width: none; max-height: none; background: transparent; overflow: visible; color: inherit;}
       #sa-tour .sa-dim {position: fixed; background: rgba(4, 7, 14, 0.66); pointer-events: auto;}
       #sa-tour.sa-free .sa-dim {pointer-events: none;}
-      #sa-tour .sa-hole {position: fixed; border: 3px solid #5aa2ff; border-radius: 10px; box-shadow: 0 0 0 4px rgba(90, 162, 255, 0.28), 0 0 22px rgba(90, 162, 255, 0.55); pointer-events: none; animation: sa-pulse 1.6s ease-in-out infinite;}
+      #sa-tour .sa-hole {position: fixed; border: 3px solid #5aa2ff; border-radius: 10px; box-shadow: 0 0 0 4px rgba(90, 162, 255, 0.28), 0 0 22px rgba(90, 162, 255, 0.55); pointer-events: none; will-change: left, top, width, height;}
+      #sa-tour .sa-hole::after {content: ''; position: absolute; inset: -9px; border: 3px solid #5aa2ff; border-radius: 15px; opacity: 0; animation: sa-ring 1.6s ease-out infinite;}
       #sa-tour .sa-arrow {position: fixed; width: 0; height: 0; pointer-events: none; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));}
       #sa-tour .sa-card {position: fixed; width: 372px; max-width: calc(100vw - 32px); box-sizing: border-box; background: var(--card, #1b2230); color: var(--text, #e8ecf4); border: 1px solid var(--border, #33405a);
         border-radius: 14px; padding: 16px 18px 14px; box-shadow: 0 12px 40px rgba(0,0,0,0.55); pointer-events: auto; transition: left .25s ease, top .25s ease;}
@@ -36,7 +37,7 @@
       #sa-tour button[disabled] {opacity: 0.35; cursor: default;}
       #sa-tour .sa-top {display: flex; align-items: center; justify-content: space-between; margin: -4px 0 10px; font-size: 12px; font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase; opacity: 0.85;}
       #sa-tour .sa-skip {border: 0; background: transparent; font-size: 12px; font-weight: 500; opacity: 0.75; padding: 2px 4px; text-transform: none; letter-spacing: 0;}
-      @keyframes sa-pulse {50% {box-shadow: 0 0 0 7px rgba(90, 162, 255, 0.18), 0 0 30px rgba(90, 162, 255, 0.7);}}
+      @keyframes sa-ring {0% {opacity: 0.8; transform: scale(0.98);} 100% {opacity: 0; transform: scale(1.05);}}
       @keyframes sa-bob-r {50% {transform: translateX(7px);}} @keyframes sa-bob-l {50% {transform: translateX(-7px);}}
       @keyframes sa-bob-d {50% {transform: translateY(7px);}} @keyframes sa-bob-u {50% {transform: translateY(-7px);}}
       @media (prefers-reduced-motion: reduce) {#sa-tour * {animation: none !important; transition: none !important;}}`;
@@ -65,7 +66,7 @@
   const esc = s => String(s).replace(/[&<>]/g, m => ({'&': '&amp;', '<': '&lt;', '>': '&gt;'}[m]));
   card.innerHTML = `<div class="sa-top"><span>Getting Started</span><button class="sa-skip" data-a="skip" title="close the tutorial">Skip Tutorial &#10005;</button></div><div class="sa-chain">${chain}</div>`
     + `<div class="sa-where">${now ? esc((cfg.chain.indexOf(now) + 1) + '. ' + now.label) : esc(cfg.where || '')}</div><div class="sa-title">${esc(cfg.title)}</div><div class="sa-text">${esc(cfg.text)}</div>`
-    + `<div class="sa-row"><span class="sa-count">${cfg.i + 1} / ${cfg.n}</span><button data-a="back"${cfg.i === 0 ? ' disabled' : ''}>Back</button>`
+    + `<div class="sa-row"><span class="sa-count" title="the left and right arrow keys move between the steps">${cfg.i + 1} / ${cfg.n} &nbsp;&#8592; &#8594;</span><button data-a="back"${cfg.i === 0 ? ' disabled' : ''}>Back</button>`
     + `<button class="sa-next" data-a="${cfg.last ? 'done' : 'next'}">${cfg.last ? 'Finish' : 'Next'}</button></div>`;
   const send = text => {
     const inp = doc.querySelector('.st-key-tour_sink input'); if (!inp) return;
@@ -75,6 +76,18 @@
     inp.dispatchEvent(new win.KeyboardEvent('keydown', {key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true}));
     inp.blur();
   };
+  // the arrow keys do what Back and Next do (not while the student is typing in a field, where they move the cursor)
+  let lastKey = 0;
+  const onKey = e => {
+    if (e.defaultPrevented || e.repeat || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey || (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft')) return;
+    const a = doc.activeElement;
+    if (a && (a.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) && !root.contains(a)) return;
+    if (Date.now() - lastKey < 450) return;
+    if (e.key === 'ArrowLeft' && cfg.i === 0) return;
+    lastKey = Date.now(); e.preventDefault();
+    send(e.key === 'ArrowRight' ? (cfg.last ? 'done' : 'next') : 'back');
+  };
+  win.addEventListener('keydown', onKey, true);
   card.addEventListener('click', e => { const b = e.target.closest('button[data-a]'); if (b && !b.disabled) { e.stopPropagation(); send(b.dataset.a); } });
   dims.forEach(d => d.addEventListener('wheel', e => {                        // the dim does not stop the page from scrolling
     const sc = doc.querySelector('[data-testid="stMain"]') || doc.querySelector('section.main'); if (sc) sc.scrollBy(0, e.deltaY);
@@ -101,12 +114,24 @@
     }
     return null;
   };
-  let scrolled = false, born = Date.now();
+  let scrolled = false, born = Date.now(), cached = null, lastFind = 0, lastSig = '';
+  const currentTarget = () => {                                             // the element is looked for a few times a second; its place is read on every frame
+    if (cached && cached.isConnected && visible(cached)) return cached;
+    const now = Date.now();
+    if (now - lastFind > 120) { lastFind = now; cached = find(cfg.target); }
+    return cached && cached.isConnected ? cached : null;
+  };
   const place = () => {
     const vw = win.innerWidth, vh = win.innerHeight;
     const nd = doc.querySelectorAll('[data-testid="stDialog"]').length;
-    if (nd !== dialogs) { dialogs = nd; raise(); }                         // a window opened or closed: be on top of it again
-    let target = find(cfg.target);
+    if (nd !== dialogs) { dialogs = nd; raise(); lastSig = ''; }            // a window opened or closed: be on top of it again
+    let target = currentTarget();
+    {                                                                       // nothing moved since the last frame: nothing to draw
+      const rr = target ? target.getBoundingClientRect() : null;
+      const sig = (rr ? [rr.left, rr.top, rr.width, rr.height].map(Math.round).join(',') : 'none') + '|' + vw + 'x' + vh + '|' + (!rr && cfg.target && Date.now() - born > 5000);
+      if (sig === lastSig) return;
+      lastSig = sig;
+    }
     if (target && !scrolled) {                                              // bring it into view once
       const r = target.getBoundingClientRect();
       if (r.top < 70 || r.bottom > vh - 20) target.scrollIntoView({block: 'center'});
@@ -147,7 +172,9 @@
     card.style.left = best[0] + 'px'; card.style.top = best[1] + 'px';
   };
   place();
-  const timer = win.setInterval(place, 220);
+  let frame = 0, stopped = false;
+  const tick = () => { if (stopped) return; place(); frame = win.requestAnimationFrame(tick); };
+  frame = win.requestAnimationFrame(tick);
   win.addEventListener('resize', place);
-  root.__stop = () => { kinds.forEach(k => win.removeEventListener(k, swallow, true)); guard.disconnect(); win.clearInterval(timer); win.removeEventListener('resize', place); };
+  root.__stop = () => { stopped = true; win.cancelAnimationFrame(frame); win.removeEventListener('keydown', onKey, true); kinds.forEach(k => win.removeEventListener(k, swallow, true)); guard.disconnect(); win.removeEventListener('resize', place); };
 })();

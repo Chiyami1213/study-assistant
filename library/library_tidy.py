@@ -51,7 +51,7 @@ def find_duplicates():
 
 def backup(label="Before Tidy"):
     """A copy of the database in Backups; returns the folder."""
-    folder = database.DATA_DIR / "Backups" / f"{label} {datetime.now():%Y-%m-%d %H-%M-%S}"
+    folder = database.backups_dir() / f"{label} {datetime.now():%Y-%m-%d %H-%M-%S}"
     folder.mkdir(parents=True, exist_ok=True)
     src, dst = sqlite3.connect(database.DB_PATH), sqlite3.connect(folder / "study.db")
     with dst:

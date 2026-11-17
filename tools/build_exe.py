@@ -14,6 +14,8 @@ STDLIB = ["base64", "calendar", "colorsys", "csv", "datetime", "difflib", "hashl
           "urllib.request", "uuid", "warnings", "zipfile", "zoneinfo", "collections", "itertools", "functools",
           "dataclasses", "random", "statistics", "time", "string", "mimetypes", "unicodedata", "xml.etree.ElementTree",
           "bisect", "ctypes", "platform", "socket", "threading", "webbrowser", "zlib"]            # everything the program imports at run time (it is not bundled by analysis)
+# Libraries the app does not use but that a build machine may have (PyMuPDF can list onnxruntime and opencv as optional extras; pandas looks for scipy and matplotlib): left out, they add some 250 MB.
+EXCLUDE = ["cv2", "onnxruntime", "scipy", "matplotlib"]
 LIBS = ["pymupdf", "fitz", "pypdf", "PIL", "pillow_heif", "psutil"]      # not the app's own packages (core, library ...): the exe reads those from the project folder
 
 
@@ -40,6 +42,8 @@ def main():
            "--collect-submodules", "pypdf", "--collect-submodules", "PIL"]
     for m in STDLIB + LIBS:
         cmd += ["--hidden-import", m]
+    for m in EXCLUDE:
+        cmd += ["--exclude-module", m]
     cmd += ["--distpath", str(ROOT / "dist"), "--workpath", str(ROOT / "build"), "--specpath", str(ROOT / "build"),
             str(ROOT / "launcher.py")]
     subprocess.run(cmd, check=True, cwd=ROOT)

@@ -52,7 +52,7 @@ def merged_code(courses):
 
 
 def backup():
-    folder = database.DATA_DIR / "Backups" / f"Before Merge {datetime.now():%Y-%m-%d %H-%M-%S}"
+    folder = database.backups_dir() / f"Before Merge {datetime.now():%Y-%m-%d %H-%M-%S}"
     folder.mkdir(parents=True, exist_ok=True)
     src, dst = sqlite3.connect(database.DB_PATH), sqlite3.connect(folder / "study.db")
     with dst:

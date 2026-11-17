@@ -35,6 +35,20 @@ def _data_root():
 
 DATA_DIR = _data_root()
 DB_PATH = DATA_DIR / "study.db"
+
+
+def backups_dir():
+    """Where the safety copies are kept (the snapshots made when the app starts, and the copies made before a restore, an import, a merge or a delete): the folder chosen in Settings > Backup
+    (`backups_dir` in settings.json; the variable STUDY_ASSISTANT_BACKUPS overrides it in tests), else <data folder>\\Backups. Read from the settings file itself so this module needs nothing else."""
+    import json
+    import os
+    if os.environ.get("STUDY_ASSISTANT_BACKUPS"):
+        return Path(os.environ["STUDY_ASSISTANT_BACKUPS"])
+    try:
+        chosen = json.loads((DATA_DIR / "settings.json").read_text(encoding="utf-8")).get("backups_dir")
+    except (OSError, ValueError):
+        chosen = None
+    return Path(chosen) if isinstance(chosen, str) and chosen.strip() else DATA_DIR / "Backups"
 PDF_DIR = DATA_DIR / "pdfs"
 
 

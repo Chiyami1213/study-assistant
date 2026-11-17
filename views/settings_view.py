@@ -4,7 +4,7 @@ from pathlib import Path
 
 import streamlit as st
 
-from core import settings
+from core import database, settings
 
 SECTIONS = ["Appearance", "Eye Rest", "Study Planner", "Backup", "Keyboard Shortcuts", "Help", "Report an Issue", "Danger Zone", "About"]
 
@@ -44,6 +44,18 @@ def render():
                           type="primary" if key == current else "secondary"):
                 settings.set_appearance(key)
                 st.rerun()
+
+    st.markdown("**Color Theme**")
+    theme = settings.get_color_theme()
+    with st.container(key="color_themes"):
+        for col, (key, (name, dark, light, primary)) in zip(st.columns(4), settings.COLOR_THEMES.items()):
+            palette = dark or settings.PALETTES["dark"]
+            tiles = [palette.split(f"--{name_}:")[1].split(";")[0] for name_ in ("bg", "active", "accent")]          # the page, a chosen item, the accent: three equal tiles
+            col.markdown(f"<div class='theme-card{' on' if key == theme else ''}'>" + "".join(f"<span style='background:{c}'></span>" for c in tiles) + "</div>", unsafe_allow_html=True)
+            if col.button(name, key=f"theme_{key}", type="tertiary"):
+                settings.set_color_theme(key)
+                st.rerun()
+    st.caption("Graphite is the original look. The theme changes the colors of the surfaces and of the buttons you press; Light, Dark or the device's setting stay as chosen above.")
 
     modes = {"auto": "Automatic", "light": "Light (Faster)", "full": "Full Effects"}
     chosen = st.segmented_control("Speed and Effects", list(modes), default=settings.get_performance(), format_func=modes.get, key="performance_mode",
@@ -126,9 +138,18 @@ def _backup_section():
     st.caption("Keeps a copy of every Library file, what each one is, the database and the settings in a folder you choose, so the Library can be "
                "brought back quickly if it is ever lost. The folders where you keep the original files are remembered too: files that are missing "
                "can be found again there by their size and content. Nothing in your own folders is ever changed or deleted.")
+    st.session_state.setdefault("safety_dir", str(database.backups_dir()))                     # set before the box exists so a Browse click can change it
+    srow = st.columns([6, 1.3], vertical_alignment="bottom")
+    safety = srow[0].text_input("Safety Copies Folder", key="safety_dir", help="where the app keeps the copies it makes by itself: a snapshot each time it starts, and the copies made before a restore, an import, "
+                                                                                 "a merge or a delete. a folder in onedrive keeps them safe if this computer is lost")
+    srow[1].button("Browse", icon=":material/folder_open:", key="safety_dir_browse", width="stretch", on_click=_browse, args=("safety_dir", False), help="choose the folder in a window")
+    if safety.strip() and safety.strip() != str(database.backups_dir()):
+        settings.set_backups_dir("" if safety.strip() == str(database.DATA_DIR / "Backups") else safety.strip())
+        st.rerun()
+    st.caption("Copies that were made before stay where they were; move that folder yourself if you want them in the new place.")
     cfg = settings.get_backup()
     row = st.columns([6, 1.3], vertical_alignment="bottom")
-    st.session_state.setdefault("backup_dir", cfg.get("dir") or str(libbackup.DEFAULT_DIR))     # set before the box exists so a Browse click can change it
+    st.session_state.setdefault("backup_dir", cfg.get("dir") or str(libbackup.default_dir()))     # set before the box exists so a Browse click can change it
     st.session_state.setdefault("backup_sources", "\n".join(cfg.get("sources", [])))
     folder = row[0].text_input("Backup Folder", key="backup_dir",
                                help="a folder outside the project, such as one on another drive or in onedrive")
@@ -140,7 +161,7 @@ def _backup_section():
     row[1].button("Add Folder", icon=":material/create_new_folder:", key="backup_sources_browse", width="stretch", on_click=_browse, args=("backup_sources", True),
                   help="choose a folder in a window and add it to the list")
     wanted = [s.strip() for s in sources.splitlines() if s.strip()]
-    if folder.strip() != (cfg.get("dir") or str(libbackup.DEFAULT_DIR)) or wanted != cfg.get("sources", []):
+    if folder.strip() != (cfg.get("dir") or str(libbackup.default_dir())) or wanted != cfg.get("sources", []):
         settings.set_backup(dir=folder.strip(), sources=wanted)
         st.rerun()
     bad = [p for p in wanted if not libbackup.Path(p).is_dir()]

@@ -301,6 +301,8 @@ def render():
     st.session_state.setdefault("cal_month", (today.year, today.month))
     st.session_state.setdefault("cal_anchor", today)
     st.session_state.setdefault("cal_view", "Week")
+    if st.session_state.get("lib_toast"):
+        st.toast(st.session_state.pop("lib_toast"))
 
     st.session_state.setdefault("cal_page", "Calendar")
     head, tog, btn = st.columns([2.2, 2.6, 1.6], vertical_alignment="center")
@@ -368,6 +370,16 @@ def render():
         with side:
             _panel(report, courses)
         with main:
-            show_free = st.toggle("Show Free Time", True, key="cal_free", help="shades the time that is free for study and writes how long each stretch is")
+            tcol, ccol = st.columns([3, 2], vertical_alignment="center")
+            show_free = tcol.toggle("Show Free Time", True, key="cal_free", help="shades the time that is free for study and writes how long each stretch is")
+            auto_left = session_store.count_auto()
+            with ccol.popover("Clear Auto-Plan", icon=":material/delete_sweep:", key="clear_plan_pop", disabled=not auto_left,
+                              help="removes the study sessions that auto-plan made and that have not started"):
+                st.caption(f"Remove the {auto_left} study session{'s' if auto_left != 1 else ''} Auto-Plan made that {'have' if auto_left != 1 else 'has'} not started? Sessions you placed or changed yourself stay. "
+                           "You can run Auto-Plan again at any time.")
+                if st.button("Yes, Clear Them", key="clear_plan_go", type="primary"):
+                    removed, _ = service.clear_auto_plan()
+                    st.session_state["lib_toast"] = f"Removed {removed} auto-plan session{'s' if removed != 1 else ''}."
+                    st.rerun()
             st.markdown(_planner_grid(days, today, report, show_free), unsafe_allow_html=True)
             st.caption("Drag a block from the left into the schedule, drag a session or an event to move it, drag its bottom edge to change its length, or drag over empty time to add one. Click one to open it.")

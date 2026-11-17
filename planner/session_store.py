@@ -126,6 +126,22 @@ def unplan_task(task_id, now=None, include_past=False):
         return cur.rowcount
 
 
+def count_auto(now=None):
+    """How many sessions that Auto-Plan made have not started yet (sessions the student placed or changed are not counted: they are manual)."""
+    now = now or _now()
+    with _conn() as conn:
+        return conn.execute("SELECT COUNT(*) FROM study_sessions WHERE source='auto' AND start_utc >= ?", (timeutil.utc_iso(now),)).fetchone()[0]
+
+
+def clear_auto(now=None):
+    """Remove every session Auto-Plan made that has not started. Manual sessions (placed, moved or resized by the student) and sessions already begun stay. Returns how many were removed."""
+    now = now or _now()
+    with _conn() as conn:
+        cur = conn.execute("DELETE FROM study_sessions WHERE source='auto' AND start_utc >= ?", (timeutil.utc_iso(now),))
+        conn.commit()
+        return cur.rowcount
+
+
 def apply_plan(result, now=None):
     """Store an auto-plan in one step: the replaced automatic sessions go, the new ones come."""
     now = now or _now()

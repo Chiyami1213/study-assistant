@@ -14,7 +14,11 @@ time, bedtime and holidays).
 Brightspace: Calendar > Subscribe; Google Calendar: Settings > the calendar > Integrate calendar > Secret address in iCal format), paste it, read it, check the table and add. The link is kept on this
 computer and read again to keep your tasks and events up to date (**Sync Now**, or when the app opens). Without a link, import an `.ics` file (Google Calendar: Settings > Import & export > Export).
 
-**How do I see the getting-started tutorial again?** Click **Show the Tutorial** at the right of the Home title (it is there once you skipped or finished it), or use Settings > Help > **Show the Tutorial Again**. **Start the Tour** on Home shows you where to click, step by step: a box and an arrow point at what to use, a helper card in the corner explains it, and **Skip Tutorial** closes it at any time.
+**Can I change the colors?** Settings > Appearance: choose Light, Dark or your device's setting, and a color theme (Graphite, Ocean, Forest or Plum).
+
+**How do I remove what Auto-Plan placed?** Calendar > **Clear Auto-Plan** removes the sessions it made that have not started (the ones you placed yourself stay), or use the bin on a single tile.
+
+**How do I see the getting-started tutorial again?** Click **Show the Tutorial** at the right of the Home title (it is there once you skipped or finished it), or use Settings > Help > **Show the Tutorial Again**. **Start the Tour** on Home shows you where to click, step by step: a box and an arrow point at what to use, a helper card in the corner explains it, and **Skip Tutorial** closes it at any time. The left and right arrow keys move between the steps (not while you are typing in a field).
 
 **How do I get study guides, helpers and grade pages made by an AI assistant into the app?** Library > Import > **Prompt for AI**: choose the course, the kind of page and its number, and your assistant
 (**Claude**, **ChatGPT** or **Gemini**), copy the prompt into a chat with it and attach your course files (the prompt lists which). The assistant writes one HTML page in the format the app reads; download it, keep the file name the prompt gave, and import it with

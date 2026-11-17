@@ -13,15 +13,20 @@ from datetime import datetime
 from pathlib import Path
 
 from core import crud
+from core import database
 from core import settings
 from core.database import BASE_DIR, DATA_DIR, PDF_DIR, data_path, stored_path
 
-DEFAULT_DIR = DATA_DIR / "Backups" / "Library"
+def default_dir():
+    """The usual folder of the library backup: Library inside the folder chosen for the safety copies."""
+    return database.backups_dir() / "Library"
+
+
 SMALL_FOLDERS = ("syllabus", "grading", "annotations", "equation_sheets", "quiz_progress", "outlines", "course_photos")
 
 
 def backup_dir():
-    return Path(settings.get_backup().get("dir") or DEFAULT_DIR)
+    return Path(settings.get_backup().get("dir") or default_dir())
 
 
 def source_dirs():

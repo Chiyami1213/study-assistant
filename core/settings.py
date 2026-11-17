@@ -23,6 +23,21 @@ PALETTES = {
              "--s1:#2a78d6;--s2:#eb6834;--s3:#1baf7a;--s4:#eda100;--s5:#7a4fc4;--s6:#c2337a;--s7:#1f9db0;--s8:#6f8530;",
 }
 
+# Color themes: Graphite is the original look (dark surfaces in neutral grey, the blue accent). The others change the dark surfaces, the accent and the color of the primary buttons; in the light
+# appearance only the accent changes. `COLOR_THEMES[key] = (name, dark surfaces, light accent variables, primary color)`.
+_S = ("--s1:#3987e5;--s2:#d95926;--s3:#199e70;--s4:#c98500;--s5:#9b6bdf;--s6:#d6458f;--s7:#3fb8c9;--s8:#8fa34a;")
+COLOR_THEMES = {
+    "graphite": ("Graphite", None, "", "#ff4b4b"),
+    "ocean": ("Ocean", "--bg:#0a1624;--bg2:#112238;--input:#172e4a;--border:#1f3a5c;--text:#e6eef8;--hover:#15293f;--active:#1b3a63;--active-text:#fff;--card:#12253b;--accent:#38a6ff;--qcard:#0e2036;--qline:#26466e;",
+              "--accent:#1a7fd1;--active:#d9ecfb;", "#2f8cff"),
+    "forest": ("Forest", "--bg:#0c1511;--bg2:#14241c;--input:#1b3126;--border:#243f31;--text:#e6f0ea;--hover:#172a21;--active:#1f4331;--active-text:#fff;--card:#13241b;--accent:#3ec28a;--qcard:#0f1d16;--qline:#2a4d3b;",
+               "--accent:#1f9d6b;--active:#dff2e8;", "#2fae78"),
+    "plum": ("Plum", "--bg:#130f1c;--bg2:#1e1730;--input:#271e3d;--border:#35294f;--text:#efe9f8;--hover:#231a38;--active:#3a2a63;--active-text:#fff;--card:#1d1530;--accent:#b07cff;--qcard:#181226;--qline:#3b2d5c;",
+             "--accent:#7d4fd6;--active:#ebe2fb;", "#9b5de5"),
+}
+
+COLOR_THEMES = {k: (n, (d + _S) if d else None, light, primary) for k, (n, d, light, primary) in COLOR_THEMES.items()}          # every theme has the chart colors too
+
 # Streamlit has no runtime theme API, so explicit Light/Dark are applied by overriding its surfaces.
 OVERRIDE = """
 .stApp, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {background: var(--bg) !important;}
@@ -85,11 +100,37 @@ OVERRIDE = """
 """
 
 
-def css_vars(choice):
+def _primary_css(color):
+    """The color of the primary buttons, the chosen pills, switches and tabs for a theme other than Graphite (Graphite keeps Streamlit's own red)."""
+    return (f":root{{--primary:{color};}}"
+            f".stApp button[data-testid^='stBaseButton-primary'] {{background: {color} !important; border-color: {color} !important;}}"
+            f".stApp button[data-variant='segmented_control'][aria-checked='true'] {{border-color: {color} !important;}}"
+            f".stApp button[data-variant='segmented_control'][aria-checked='true'] p {{color: {color} !important;}}"
+            f".stApp [data-baseweb='tab-highlight'] {{background-color: {color} !important;}}"
+            f".stApp label[data-baseweb='checkbox']:has(input:checked) > div:first-child {{background-color: {color} !important; border-color: {color} !important;}}"
+            f".stApp .stProgress [data-testid='stProgressBarFill'], .stApp [data-testid='stProgressBar'] > div > div {{background-color: {color} !important;}}")
+
+
+def css_vars(choice, theme="graphite"):
+    """The CSS of the appearance (light, dark or the device's) in a color theme."""
+    name, dark, light, primary = COLOR_THEMES.get(theme) or COLOR_THEMES["graphite"]
+    palettes = {"dark": dark or PALETTES["dark"], "light": PALETTES["light"] + light}
+    extra = _primary_css(primary) if theme in COLOR_THEMES and theme != "graphite" else ""
     if choice == "device":
-        return (f":root{{{PALETTES['dark']}}}"
-                f"@media (prefers-color-scheme: light){{:root{{{PALETTES['light']}}}}}")
-    return f":root{{{PALETTES[choice]}color-scheme:{choice};}}" + OVERRIDE
+        return (f":root{{{palettes['dark']}}}"
+                f"@media (prefers-color-scheme: light){{:root{{{palettes['light']}}}}}" + (OVERRIDE if theme in COLOR_THEMES and theme != "graphite" else "") + extra)       # Graphite leaves the surfaces to Streamlit, as it always did
+    return f":root{{{palettes[choice]}color-scheme:{choice};}}" + OVERRIDE + extra
+
+
+def get_color_theme():
+    v = _load().get("color_theme", "graphite")
+    return v if v in COLOR_THEMES else "graphite"
+
+
+def set_color_theme(key):
+    data = _load()
+    data["color_theme"] = key if key in COLOR_THEMES else "graphite"
+    _save(data)
 
 
 def _read(path):
@@ -203,6 +244,21 @@ def get_auto_sync():
 def set_auto_sync(on):
     data = _load()
     data["calendar_auto_sync"] = bool(on)
+    _save(data)
+
+
+def get_backups_dir():
+    """The folder chosen for the safety copies, or "" for the usual one (<data folder>\\Backups); see database.backups_dir."""
+    value = _load().get("backups_dir")
+    return value.strip() if isinstance(value, str) else ""
+
+
+def set_backups_dir(path):
+    data = _load()
+    if (path or "").strip():
+        data["backups_dir"] = path.strip()
+    else:
+        data.pop("backups_dir", None)
     _save(data)
 
 

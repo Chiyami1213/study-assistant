@@ -4,13 +4,25 @@
 
 ---
 
+## 1.1.1 (not released yet)
+
+- **Color themes** (Settings > Appearance > Color Theme): four themes shown as cards of three equal color tiles, with the name under each: **Graphite** (the original look, unchanged), **Ocean**,
+  **Forest** and **Plum**. A theme recolors the dark surfaces, the accent and the primary buttons, chosen pills, tabs and switches; in the light appearance only the accent changes.
+- **Clear Auto-Plan** (Calendar): removes every study session that Auto-Plan made and that has not started, after a question; sessions you placed, moved or resized yourself, and sessions already begun,
+  stay. A single tile can still be deleted with its bin.
+- **Safety Copies Folder** (Settings > Backup): choose where the app keeps the copies it makes by itself (a snapshot each time it starts, and the copies made before a restore, an import, a merge or a
+  delete), for example a folder in OneDrive. The usual place stays `Backups` in the data folder.
+- **Guided tour:** the left and right arrow keys move between the steps (not while you are typing in a field), and the blue box follows what it points at on every frame, so it no longer lags when a
+  window opens or the page scrolls.
+- **Smaller download:** the build leaves out libraries the app never uses (OpenCV, SciPy, ONNX Runtime, Matplotlib), about 40 MB less than the first 1.1.0 package.
+
 ## 1.1.0 (2026-11-15)
 
 ### Getting started and calendars
 
 - **Getting Started tutorial.** A new student (no course yet) gets a welcome window, a **check chain** of seven steps at the top of Home (a green tick for each one done, the next in blue; the app counts
   them from your own data) and a **guided tour**. The tour takes you to the page, opens the window, dims everything except the thing to click or fill, points at it with a glowing box and an arrow, and
-  explains it in a helper card in the corner that is farthest from it, with Back, Next and Skip Tutorial. It moves on by itself when you do what a step asks (a course saved, a term added ...). It covers
+  explains it in a helper card in the corner that is farthest from it, with Back, Next and Skip Tutorial (the **left and right arrow keys** do the same, except while you are typing in a field). It moves on by itself when you do what a step asks (a course saved, a term added ...). It covers
   adding a course, setting up the term, class times, adding files, making study guides with an AI assistant, importing tasks and Auto-Plan. **Skip Tutorial** closes it at any time; a **Show the Tutorial**
   button stays at the right of the Home title (and in Settings > Help) so it can be started again whenever you like.
 - **Import From Calendar** (Task List). Bring the assignments and events of **Canvas**, **Brightspace** and **Google Calendar** into the planner: paste the private calendar link of the service (it is
@@ -108,6 +120,8 @@
   window it opens, and the Remove buttons in Edit Schedule are right-aligned.
 - **Help and Report an Issue in Settings.** Help answers the common questions; Report an Issue opens a ready-made GitHub issue in the browser (optional steps, technical details, a log excerpt with your
   name and folders replaced, screenshots you pick or the newest F2 ones). The app sends nothing by itself and keeps no e-mail address.
+- **Safety Copies Folder** (Settings > Backup): choose where the app keeps the copies it makes by itself (a snapshot each time it starts, and the copies made before a restore, an import, a merge or a
+  delete), for example a folder in OneDrive. The usual place stays `Backups` in the data folder.
 - **Settings has a bar to jump to a section** (Appearance, Eye Rest, Study Planner, Backup, Keyboard Shortcuts, Help, Report an Issue, Danger Zone, About), styled like the tabs of a course page.
 - **3D views in guides work without the internet.** three.js (r128, which the guides use) is kept with the app (`study/vendor`) and put into a guide's page instead of being fetched, so the 3D
   tools show on a device whose network blocks the CDN. The window also lets WebView2 fall back to software drawing when a graphics driver is on its block list, which is what turns WebGL off.

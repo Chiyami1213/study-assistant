@@ -57,7 +57,7 @@ PAGES = {**NAV_TOP, **NAV_BOTTOM}
 COLLAPSED_W, EXPANDED_W = 76, 270
 CSS = f"""
 <style>
-{settings.css_vars(settings.get_appearance())}
+{settings.css_vars(settings.get_appearance(), settings.get_color_theme())}
 .block-container {{padding-top: 1.5rem; max-width: 100%; padding-left: 2.5rem;}}
 h1, h2, h3 {{letter-spacing: -0.01em;}}
 div[data-testid="stExpander"] {{border: 1px solid var(--border); border-radius: 8px;}}
@@ -208,6 +208,13 @@ section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-h
 
 /* Merge Courses and Add Course: two outlined buttons of the same size, side by side at the top right */
 .st-key-course_actions {{gap: 0.6rem !important; justify-content: flex-end !important;}}
+/* Settings > Color Theme: three small color chips above the name of each theme */
+.theme-card {{display: flex; height: 62px; border-radius: 12px; overflow: hidden; border: 1px solid rgba(160, 170, 190, 0.35); margin: 0 0 8px;}}
+.theme-card span {{flex: 1 1 0; display: block;}}
+.theme-card.on {{outline: 3px solid var(--accent); outline-offset: 3px;}}
+.st-key-color_themes [data-testid="stButton"] {{width: 100%;}}
+.st-key-color_themes button {{justify-content: flex-start !important; padding: 0 !important; min-height: 0 !important; background: transparent !important; border: 0 !important;}}
+.st-key-color_themes button p {{font-size: 1rem; font-weight: 700; text-align: left;}}
 /* Getting Started (Home): the check chain (a tick in a green circle, the next step in blue, the rest grey, joined by lines) and the number or tick in front of each step */
 .tut-chain {{display: flex; align-items: flex-start; margin: 0.4rem 0 0.2rem; overflow-x: auto; padding: 4px 2px 8px;}}
 .tc-step {{display: flex; flex-direction: column; align-items: center; gap: 6px; flex: 0 0 auto; min-width: 76px;}}
@@ -422,7 +429,7 @@ div:has(> .st-key-settings_nav) {{position: sticky; top: 2.75rem; z-index: 60; b
 .set-nav a {{color: var(--text); text-decoration: none; font-size: 1rem; padding: 10px 2px 9px; border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; opacity: 0.85;
   transition: border-color .15s, opacity .15s;}}
 .set-nav a:hover {{opacity: 1; border-bottom-color: #ffffff40;}}
-.set-nav a.on {{opacity: 1; border-bottom-color: #ff4b4b; font-weight: 600;}}
+.set-nav a.on {{opacity: 1; border-bottom-color: var(--primary, #ff4b4b); font-weight: 600;}}
 h2[id], h3[id] {{scroll-margin-top: 7rem;}}
 
 
@@ -691,6 +698,11 @@ div[data-testid="stColumn"]:has(.pl-wrap) + div[data-testid="stColumn"] {{flex: 
 [class*="st-key-meeting_pop_"] [data-testid="stPopover"] button > div, [class*="st-key-hol_pop_"] [data-testid="stPopover"] button > div {{gap: 6px !important; align-items: center;}}
 [class*="st-key-meeting_pop_"], [class*="st-key-hol_pop_"] {{display: flex !important; justify-content: flex-end !important; width: 100% !important;}}
 [class*="st-key-meeting_pop_"] [data-testid="stPopover"], [class*="st-key-hol_pop_"] [data-testid="stPopover"] {{width: auto !important;}}
+/* Clear Auto-Plan (a popover with a word): normal text, at the right of the Show Free Time row */
+.st-key-clear_plan_pop {{display: flex !important; justify-content: flex-end !important; width: 100% !important;}}
+.st-key-clear_plan_pop [data-testid="stPopover"] {{width: auto !important;}}
+.st-key-clear_plan_pop [data-testid="stPopover"] button p {{font-size: 0.9rem; font-weight: 400; letter-spacing: 0; line-height: 1.4;}}
+.st-key-clear_plan_pop [data-testid="stPopover"] button > div {{gap: 6px !important; align-items: center;}}
 .lab-tab.dragging {{opacity: 0.45;}}
 .lab-tab.drop-target {{box-shadow: inset 0 -3px 0 var(--accent);}}
 [class*="st-key-lab_pane_"] {{flex: none; height: calc(100vh - 62px); overflow-y: auto; overflow-x: hidden; padding: 0 12px; background: var(--bg);}}

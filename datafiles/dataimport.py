@@ -15,6 +15,7 @@ import zlib
 from datetime import datetime
 from pathlib import Path
 
+from core import database
 from core.database import DATA_DIR
 
 PREFIX = "payload/data/"
@@ -78,7 +79,7 @@ def import_zip(path, progress=None):
     progress = progress or (lambda f, m: None)
     p = Path(str(path).strip().strip('"'))
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-    backup = DATA_DIR / "Backups" / f"Before Import {stamp}"
+    backup = database.backups_dir() / f"Before Import {stamp}"
     added = replaced = same = 0
     with zipfile.ZipFile(p) as z:
         members = _members(z)

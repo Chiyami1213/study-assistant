@@ -9,16 +9,22 @@ import time
 from datetime import datetime
 from pathlib import Path
 
+from core import database
 from core.database import DATA_DIR
 
 DATA = DATA_DIR
-ROOT = DATA_DIR / "Backups" / "Snapshots"
 FOLDERS = ("syllabus", "grading", "annotations", "equation_sheets", "quiz_progress", "outlines", "course_photos")     # small; covers and pdfs are not copied
 KEEP = 20
 EVERY = 30 * 60
 
 
+def root():
+    """The folder of the snapshots (inside the folder chosen for the safety copies)."""
+    return database.backups_dir() / "Snapshots"
+
+
 def _latest():
+    ROOT = root()
     snaps = sorted(p for p in ROOT.glob("20*") if p.is_dir()) if ROOT.exists() else []
     return snaps[-1] if snaps else None
 
@@ -40,7 +46,7 @@ def run(force=False):
             con.close()
         if not real and last:
             return None
-        dest = ROOT / datetime.now().strftime("%Y%m%d-%H%M%S")
+        dest = root() / datetime.now().strftime("%Y%m%d-%H%M%S")
         dest.mkdir(parents=True, exist_ok=True)
         src, out = sqlite3.connect(db), sqlite3.connect(dest / "study.db")
         try:
@@ -54,7 +60,7 @@ def run(force=False):
         for folder in FOLDERS:
             if (DATA / folder).is_dir():
                 shutil.copytree(DATA / folder, dest / folder, dirs_exist_ok=True)
-        for old in sorted(p for p in ROOT.glob("20*") if p.is_dir())[:-KEEP]:
+        for old in sorted(p for p in root().glob("20*") if p.is_dir())[:-KEEP]:
             shutil.rmtree(old, ignore_errors=True)
         return dest
     except Exception:
