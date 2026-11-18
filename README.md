@@ -47,7 +47,7 @@ side, and let the app keep track of deadlines, grades and outlines. It runs on y
 ## How it was built
 
 It was developed with Claude in VS Code. The project's standing rules for the assistant (what lives where, how to protect the user's data, the file formats the app reads, the interface conventions) are written down in [`CLAUDE.md`](CLAUDE.md),
-and every feature came with tests (see above).
+including writing tests with every phase of work (see above).
 
 ## Get it
 
