@@ -15,7 +15,7 @@ STDLIB = ["base64", "calendar", "colorsys", "csv", "datetime", "difflib", "hashl
           "dataclasses", "random", "statistics", "time", "string", "mimetypes", "unicodedata", "xml.etree.ElementTree",
           "bisect", "ctypes", "platform", "socket", "threading", "webbrowser", "zlib"]            # everything the program imports at run time (it is not bundled by analysis)
 # Libraries the app does not use but that a build machine may have (PyMuPDF can list onnxruntime and opencv as optional extras; pandas looks for scipy and matplotlib): left out, they add some 250 MB.
-EXCLUDE = ["cv2", "onnxruntime", "scipy", "matplotlib"]
+EXCLUDE = ["cv2", "onnxruntime", "scipy", "matplotlib", "PySide6", "shiboken6", "PyQt5", "PyQt6", "qtpy", "numba", "llvmlite", "skimage", "pyqtgraph"]      # whatever else is installed on the developer's computer is not part of the app (a Qt web engine alone is 400 MB)
 LIBS = ["pymupdf", "fitz", "pypdf", "PIL", "pillow_heif", "psutil"]      # not the app's own packages (core, library ...): the exe reads those from the project folder
 
 
