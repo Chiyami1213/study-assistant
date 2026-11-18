@@ -65,7 +65,7 @@ def _render_files(path, mtime, center, total):
     if proc and proc.poll() is None:
         return
     args = [str(path), str(out_dir), str(center), str(SCROLL_WIDTH)]
-    cmd = [sys.executable, "--render", *args] if getattr(sys, "frozen", False)         else [sys.executable, str(BASE_DIR / "pagerender.py"), *args]
+    cmd = [sys.executable, "--render", *args] if getattr(sys, "frozen", False)         else [sys.executable, str(BASE_DIR / "library" / "pagerender.py"), *args]
     flags = (getattr(subprocess, "CREATE_NO_WINDOW", 0) | getattr(subprocess, "BELOW_NORMAL_PRIORITY_CLASS", 0))         if os.name == "nt" else 0
     _inflight[token] = subprocess.Popen(cmd, creationflags=flags, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                                         stdin=subprocess.DEVNULL)

@@ -270,6 +270,7 @@ if __name__ == "__main__":
     if len(sys.argv) > 2 and sys.argv[1] == "--server":
         run_server(int(sys.argv[2]), int(sys.argv[4]) if len(sys.argv) > 4 and sys.argv[3] == "--parent" else None)
     elif len(sys.argv) > 2 and sys.argv[1] == "--render":          # page renderer for the scrolling PDF view
+        sys.path.insert(0, str(find_project()))                    # the program's folders are read from the project folder, as in run_server
         importlib.import_module("library.pagerender").main(sys.argv[2:])
     else:
         main()
