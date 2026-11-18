@@ -7,7 +7,7 @@
 Version 1.1.1. See the [changelog](CHANGELOG.md) for what changed in each release.
 
 **A personal study desk for university coursework.** Keep a course's textbooks, lecture slides, notes, homework and exams in one library, read them side by
-side, and let the app keep track of deadlines, grades and outlines. It runs entirely on your computer, in its own desktop window; nothing is sent anywhere.
+side, and let the app keep track of deadlines, grades and outlines. It runs on your computer, in its own desktop window, and your files, notes and grades stay there. The app goes online only for three things: **Import From Calendar** reads the calendar link you give it (and reads it again when the app opens, which you can turn off), notes with math load the MathJax library from the jsDelivr CDN when you open them, and **Report an Issue** opens a pre-filled GitHub page in your browser, which sends nothing until you press Submit there.
 
 ## Main features
 
