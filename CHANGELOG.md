@@ -19,6 +19,7 @@
 - **Shovel in Import From Calendar:** choose **Shovel** as the service and paste its share link (Calendar tab > share icon > .ics link). Shovel's classes and the study time it planned come in as events
   (not as a second copy of the task); a to-do or an all-day due date still becomes a task. The Type column of the review table can change any row.
 - **Color theme cards:** a click anywhere on a card (the colors, not only the name) chooses the theme, and in Light each theme tints the page, cards and fields, so the change can be seen.
+- **License:** Study Assistant is now released under the GNU Affero General Public License, version 3 (`LICENSE`), with the licenses of the software it uses in `THIRD-PARTY.md`; the Settings > About page says so.
 - **Smaller download:** the build leaves out libraries the app never uses (OpenCV, SciPy, ONNX Runtime, Matplotlib), about 40 MB less than the first 1.1.0 package.
 
 ## 1.1.0 (2026-11-15)

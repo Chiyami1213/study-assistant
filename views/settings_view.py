@@ -154,7 +154,7 @@ def render():
     _section("About")
     from desktop import helpinfo
     from version import VERSION
-    st.caption(f"Study Assistant version {VERSION} · [Project page on GitHub]({helpinfo.REPO_URL})")
+    st.caption(f"Study Assistant version {VERSION} · [Project page on GitHub]({helpinfo.REPO_URL}) · Free software under the [GNU AGPL-3.0]({helpinfo.REPO_URL}/blob/main/LICENSE), made with [these open-source tools]({helpinfo.REPO_URL}/blob/main/THIRD-PARTY.md)")
 
 
 def _browse(key, add):

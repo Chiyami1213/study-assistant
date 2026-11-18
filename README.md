@@ -49,6 +49,11 @@ side, and let the app keep track of deadlines, grades and outlines. It runs on y
 It was developed with Claude in VS Code. The project's standing rules for the assistant (what lives where, how to protect the user's data, the file formats the app reads, the interface conventions) are written down in [`CLAUDE.md`](CLAUDE.md),
 including writing tests with every phase of work (see above).
 
+## License
+
+Copyright (c) 2026 Ethan Lee. Study Assistant is free software under the [GNU Affero General Public License, version 3](LICENSE): you may use, study, change and share it under those terms, and a changed version
+you share must be shared with its source under the same license. The software it is built on, with its licenses, is listed in [THIRD-PARTY.md](THIRD-PARTY.md).
+
 ## Get it
 
 - **Choose your computer** and follow its steps (the download is on the [Releases](https://github.com/Chiyami1213/study-assistant/releases) page):
