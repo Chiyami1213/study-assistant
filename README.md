@@ -34,6 +34,21 @@ side, and let the app keep track of deadlines, grades and outlines. It runs on y
 - **Backup and moving.** Automatic snapshots, a library backup in a folder you choose, and Export My Files / Import to keep a copy or take everything to another
   computer.
 
+## Under the hood
+
+- **Stack:** Python with [Streamlit](https://streamlit.io) for the pages, SQLite for the data, [pywebview](https://pywebview.flowrl.com) for the desktop window, PyMuPDF and pypdf for PDFs, Pillow and pillow-heif for images (`requirements.txt`).
+- **Folders:** `core/` the database, queries and settings; `library/` file details, covers, naming, merge and outlines; `study/` notes, quizzes, equation sheets, errata and the PDF reader; `planner/` the study planner
+  (its scheduling logic is pure Python with no database or UI, so it is easy to test); `views/` every page; `datafiles/` backup, export and import; `desktop/` the screenshot, folder picker and help; `tools/` the build scripts and the installer.
+- **Your data is kept apart from the program:** the database and your files live in a data folder in your user profile, so updating or reinstalling never touches them.
+- **Packaging:** PyInstaller builds the Windows app, and `tools/installer.py` is a tkinter setup wizard (update, uninstall or keep both versions, shortcuts, an uninstaller). On a Mac, `tools/build_mac.py` builds an app and a disk image.
+- **CI:** `.github/workflows/build-macos.yml` builds the Apple Silicon and Intel disk images when a release is published, starts each built app to check it answers, and attaches the images and their SHA-256 files to the release.
+- **Tests:** 743 tests in 40 files (`python -m pytest`), run against a temporary data folder, never the real one.
+
+## How it was built
+
+It was developed with Claude in VS Code. The project's standing rules for the assistant (what lives where, how to protect the user's data, the file formats the app reads, the interface conventions) are written down in [`CLAUDE.md`](CLAUDE.md),
+and every feature came with tests (see above).
+
 ## Get it
 
 - **Choose your computer** and follow its steps (the download is on the [Releases](https://github.com/Chiyami1213/study-assistant/releases) page):
