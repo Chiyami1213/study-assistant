@@ -147,7 +147,7 @@ def _reference(win):
             from views import quiz_view                    # the note's Self-check shows the same questions as the course Quiz tab
             components.html(htmlnotes.safe_html(path.read_text(encoding="utf-8", errors="replace"),
                                                 questions=quiz_view.book_questions(book), errata_source=f"book:{book['id']}",
-                                                resume="reference", slides=book["id"]), height=600, scrolling=True)
+                                                resume="reference", slides=book["id"], book_id=book["id"]), height=600, scrolling=True)
         return
 
     pdf_key = f"lab_{wid}_{book_id}"
@@ -194,7 +194,7 @@ def _show_part(text, book, part):
         own_quiz = 'id="qBox"' in text                       # a note with its own quiz script runs it as it is
         questions = None if own_quiz else quiz_view.book_questions(book)
         components.html(htmlnotes.safe_html(text, part["section"], questions=questions, errata_source=f"book:{book['id']}",
-                                            resume=f"reader:{part['key']}", slides=book["id"], anchor="win"), height=600, scrolling=True)
+                                            resume=f"reader:{part['key']}", slides=book["id"], anchor="win", book_id=book["id"]), height=600, scrolling=True)
 
 
 def _html_notes():
@@ -602,7 +602,7 @@ def _full_screen():
     with st.container(key="lab_full_html"):
         from views import quiz_view
         questions = None if 'id="qBox"' in text else quiz_view.book_questions(book)
-        components.html(htmlnotes.safe_html(text, part["section"] if part else None, questions=questions, resume=f"full:{book['id']}", esc_exit=True, anchor="full"),
+        components.html(htmlnotes.safe_html(text, part["section"] if part else None, questions=questions, resume=f"full:{book['id']}", esc_exit=True, anchor="full", book_id=book["id"]),
                         height=900, scrolling=True)
 
 

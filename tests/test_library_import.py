@@ -284,3 +284,40 @@ def test_the_folder_is_read_once_and_kept_while_the_window_is_used(monkeypatch):
     body = source.split("def folder_dialog", 1)[1]
     assert "_scans()" in body and body.index("if scan_key not in _scans()") < body.index("folder_candidates(")
     assert "Read the Folder Again" in body
+
+
+def test_a_changed_file_can_be_kept_as_it_is_in_the_library_or_replace_it_which_is_the_usual(tmp_path):
+    cid = crud.add_course("AE 6009", "Viscous Fluid Flow", "Fall 2026", 0, "Active")
+    folder = tmp_path / "files"
+    folder.mkdir()
+    source = folder / "Lec 3 Thermal.html"
+    source.write_bytes(HTML)
+    settings.set_import_folder(str(folder), cid)
+    LI.import_all(LI.folder_candidates(str(folder), cid), True, cid)
+    book = crud.list_books()[0]
+    stored = LI.data_path(book["pdf_path"])
+    original = stored.read_bytes()
+    source.write_bytes(HTML + b"<p>newer</p>")
+    os.utime(source, (time.time() + 10, time.time() + 10))
+    cands = [c for c in LI.folder_candidates(str(folder), cid) if c.status != "In Library"]
+    assert [c.existing for c in cands] == ["Replace"]                                                    # replacing is the default
+    LI.select(cands, "keep")
+    kept = []
+    assert LI.import_all(cands, True, cid, kept)[:2] == (0, 0) and kept == ["Lec 3 Thermal.html"]
+    assert stored.read_bytes() == original and len(crud.list_books()) == 1                              # the Library's copy is untouched
+    assert {c.status for c in LI.folder_candidates(str(folder), cid)} == {"In Library"}                  # and the update does not offer the file again
+    source.write_bytes(HTML + b"<p>newest</p>")
+    os.utime(source, (time.time() + 20, time.time() + 20))
+    again = [c for c in LI.folder_candidates(str(folder), cid) if c.status != "In Library"]
+    LI.select(again, "keep")
+    LI.select(again, "replace")
+    assert LI.import_all(again, True, cid)[:2] == (0, 1) and stored.read_bytes().endswith(b"<p>newest</p>")
+
+
+def test_a_zip_file_the_library_has_under_that_name_replaces_the_stored_copy_instead_of_adding_a_second_book():
+    LI.import_all([LI.Candidate(key="a.pdf", name="a.pdf", size=1, mtime=0.0, status="New", kind="Textbook", title="A", reader=lambda: pdf(1))], False)
+    book_id = crud.list_books()[0]["id"]
+    again = LI.zip_candidates(make_zip({"a.pdf": pdf(3)}), None)
+    assert [(c.status, c.book_id) for c in again] == [("In Library", book_id)] and again[0].existing == "Replace"
+    again[0].picked = True
+    assert LI.import_all(again)[:2] == (0, 1) and len(crud.list_books()) == 1

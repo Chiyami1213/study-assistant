@@ -46,6 +46,12 @@ The app has no note builder any more (the old `notes/` chapter folders and the `
   (`quiz_view.book_questions`).
 - Reference files (textbooks, lecture notes) are in the Library, with stored copies under `pdfs/` (data folder).
 
+- A note's own light/dark switch (`.theme-btn`, top right) is hidden in the reader and the page follows the app's Light / Dark / device setting (`htmlnotes._THEME`).
+- The highlights a student makes in a note (the guide's own highlighter keeps them in localStorage under `sg:<title>:highlights`) are kept INSIDE the stored page as
+  `<script type="application/json" id="sa-highlights">` (`study/hlstore.py`): the open page reports each change through the hidden box `hl_sink` (in `app.py`), `hlstore.save` embeds it, a copy is put in
+  `static/hl/<book id>.json` which the opening page reads before the guide's own script, and the block is taken out of the page the window shows (a save must not reload the window). Replacing a stored
+  note (Update From Folder, Replace) carries the block over (`hlstore.carry_over`). Library import: a file the Library has already (Changed, or In Library by name) is Replaced (the usual) or Kept (`Candidate.existing`).
+
 ## Homework Helpers and Grade Explanations are written outside the app too
 
 A helper (hints for each problem) or a grade explanation (rubric, what was written, why points were lost, corrected answers) for one

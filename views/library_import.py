@@ -36,6 +36,7 @@ class Candidate:
     course_ids: list = field(default_factory=list)
     reader: object = None       # a function that returns the bytes of the file (read only when it is imported)
     picked: bool = None         # ticked in the confirmation page (None = not decided: everything not in the Library yet)
+    existing: str = "Replace"   # what to do when the Library already has this file (book_id is set): "Replace" its stored copy (the usual) or "Keep" it and leave this file out
 
 
 # ---------------------------------------------------------------- finding files
@@ -227,10 +228,16 @@ def import_candidate(c, remember=False, default_course=None):
         info = (pdfmeta.extract_info if is_pdf else pdfmeta.extract_html_info)(data, c.name)
     except Exception:
         info = {"title": "", "author": "", "edition": "", "year": "", "pages": None}
-    if c.status == "Changed" and c.book_id and crud.get_book(c.book_id):
+    if c.status in ("Changed", "In Library") and c.book_id and crud.get_book(c.book_id):          # the Library has it already: its stored copy is replaced (Keep is decided in import_all)
         book = crud.get_book(c.book_id)
         dest = data_path(book["pdf_path"])
         dest.parent.mkdir(parents=True, exist_ok=True)
+        if not is_pdf:                                                      # the highlights made in the old stored page stay in the new one (study/hlstore.py)
+            from study import hlstore
+            try:
+                data = hlstore.carry_over(dest.read_text(encoding="utf-8", errors="replace"), data.decode("utf-8", errors="replace")).encode("utf-8")
+            except OSError:
+                pass
         dest.write_bytes(data)                                              # the stored copy is ours to replace; the source file is untouched
         crud._exec("UPDATE books SET total_pages=? WHERE id=?", (info.get("pages"), c.book_id))
         try:
@@ -257,14 +264,21 @@ def import_candidate(c, remember=False, default_course=None):
     return book_id
 
 
-def import_all(candidates, remember=False, default_course=None):
-    """Import the given candidates. Returns (new books, replaced books, [problems])."""
+def import_all(candidates, remember=False, default_course=None, kept=None):
+    """Import the given candidates. Returns (new books, replaced books, [problems]). A file the Library has already and that is set to Keep is left out (its name is added to `kept` when
+    a list is given); with `remember` it is still marked as seen, so an update does not offer it again."""
     added = replaced = 0
     problems = []
     for c in candidates:
         try:
+            if c.book_id and c.existing == "Keep" and c.status in ("Changed", "In Library"):
+                if remember:
+                    settings.remember_import_source(c.key, c.size, c.mtime, c.book_id)
+                if kept is not None:
+                    kept.append(c.name)
+                continue
             import_candidate(c, remember, default_course)
-            if c.status == "Changed":
+            if c.status in ("Changed", "In Library") and c.book_id:
                 replaced += 1
             else:
                 added += 1
@@ -281,9 +295,13 @@ def import_all(candidates, remember=False, default_course=None):
 
 # ---------------------------------------------------------------- the confirmation page
 def select(candidates, which):
-    """Tick (all), untick (none) or tick only the changed files (changed) of the list."""
+    """Tick (all), untick (none) or tick only the changed files (changed) of the list; "replace" and "keep" set what happens to the files the Library has already."""
     for c in candidates:
-        c.picked = True if which == "all" else False if which == "none" else c.status == "Changed"
+        if which in ("replace", "keep"):
+            if c.book_id:
+                c.existing = "Replace" if which == "replace" else "Keep"
+        else:
+            c.picked = True if which == "all" else False if which == "none" else c.status == "Changed"
 
 
 def _table(candidates, key):
@@ -296,27 +314,33 @@ def _table(candidates, key):
     labels = ["(none)"] + list(courses.values())
     version = st.session_state.get(f"{key}_v", 0)
     if len(candidates) > 1:                                                  # tick or untick many files at once (the table is drawn anew with the new ticks; edits to titles are kept)
-        a, b, c3, _ = st.columns([1, 1, 1.2, 4], vertical_alignment="center")
+        a, b, c3, c4, c5, _ = st.columns([1, 1, 1.2, 1.4, 1.3, 1.6], vertical_alignment="center")
         clicks = {"all": a.button("Select All", key=f"{key}_all", icon=":material/select_all:", type="tertiary", help="ticks every file in the list"),
                   "none": b.button("Deselect All", key=f"{key}_none", icon=":material/deselect:", type="tertiary", help="unticks every file in the list")}
         if any(c.status == "Changed" for c in candidates):
             clicks["changed"] = c3.button("Changed Only", key=f"{key}_chg", icon=":material/update:", type="tertiary", help="ticks only the files that changed since they were imported")
+        if any(c.book_id for c in candidates):                               # files the Library has already: Replace its copy (the usual) or Keep it, for all of them at once
+            clicks["replace"] = c4.button("Replace Existing", key=f"{key}_rep", icon=":material/find_replace:", type="tertiary", help="the files the Library has already replace its stored copies")
+            clicks["keep"] = c5.button("Keep Existing", key=f"{key}_keep", icon=":material/lock:", type="tertiary", help="the Library's copies of the files it has already stay as they are; those files are left out")
         which = next((w for w, hit in clicks.items() if hit), None)
         if which:
             select(candidates, which)
             version += 1
             st.session_state[f"{key}_v"] = version
     key = f"{key}_{version}"
-    frame = pd.DataFrame([{"Import": c.picked if c.picked is not None else c.status != "In Library", "File": c.key if len(c.key) < 90 else "..." + c.key[-87:], "Status": c.status, "Type": c.kind, "Title": c.title, "Lecture": c.lecture,
+    frame = pd.DataFrame([{"Import": c.picked if c.picked is not None else c.status != "In Library", "File": c.key if len(c.key) < 90 else "..." + c.key[-87:], "Status": c.status, "If in Library": c.existing if c.book_id else None, "Type": c.kind, "Title": c.title, "Lecture": c.lecture,
                            "Course": courses.get(c.course_ids[0], "(none)") if c.course_ids else "(none)"} for c in candidates])
     edited = st.data_editor(frame, key=key, hide_index=True, width="stretch", num_rows="fixed",
                             column_config={"Import": st.column_config.CheckboxColumn("Import"), "File": st.column_config.TextColumn("File", disabled=True), "Status": st.column_config.TextColumn("Status", disabled=True),
+                                           "If in Library": st.column_config.SelectboxColumn("If in Library", options=["Replace", "Keep"], help="for a file the Library has already: Replace its stored copy or Keep it and leave this file out"),
                                            "Type": st.column_config.SelectboxColumn("Type", options=L.KINDS, required=True), "Title": st.column_config.TextColumn("Title", required=True),
                                            "Lecture": st.column_config.TextColumn("Lecture / HW No."), "Course": st.column_config.SelectboxColumn("Course", options=labels)})
     by_label = {v: k for k, v in courses.items()}
     chosen = []
     for c, row in zip(candidates, edited.to_dict("records")):
         c.picked = bool(row["Import"])
+        if c.book_id and row.get("If in Library") in ("Replace", "Keep"):
+            c.existing = row["If in Library"]
         if not row["Import"]:
             continue
         c.kind, c.title, c.lecture = row["Type"], (row["Title"] or "").strip() or c.title, (row["Lecture"] or "").strip()
@@ -325,9 +349,9 @@ def _table(candidates, key):
     return chosen
 
 
-def _summary(added, replaced, problems):
+def _summary(added, replaced, problems, kept=()):
     import streamlit as st
-    text = f"Imported {added} file{'s' if added != 1 else ''}" + (f" and updated {replaced}" if replaced else "") + "."
+    text = f"Imported {added} file{'s' if added != 1 else ''}" + (f" and replaced {replaced}" if replaced else "") + (f", kept {len(kept)} as they were" if kept else "") + "."
     st.session_state["lib_toast"] = text + (f" Not imported: {'; '.join(problems[:3])}" if problems else "")
 
 
@@ -364,7 +388,8 @@ def zip_dialog(default_course=None):
         st.markdown(f"**{len(cands)} files found, {new} new.** Check the type, title and course of each, and uncheck what you do not want.")
         chosen = _table(cands, f"bulk_zip_table_{up.file_id}")
         if st.button(f"Import {len(chosen)} File{'s' if len(chosen) != 1 else ''}", key="bulk_zip_go", type="primary", disabled=not chosen):
-            _summary(*import_all(chosen, False, default_course))
+            kept = []
+            _summary(*import_all(chosen, False, default_course, kept), kept)
             st.rerun()
     dialog()
 
@@ -420,7 +445,8 @@ def folder_dialog(course_id=None):
             for c in cands:
                 if c.status == "In Library" and c.book_id:
                     settings.remember_import_source(c.key, c.size, c.mtime, c.book_id)
-            _summary(*import_all(chosen, True, course_id))
+            kept = []
+            _summary(*import_all(chosen, True, course_id, kept), kept)
             st.rerun()
     dialog()
 

@@ -12,7 +12,7 @@ from views import tutorial
 
 # The dev server caches imported modules between reruns; reload ours so edits apply without a restart.
 # (exportfiles and dataimport are not reloaded: their running job and its progress live in the module.)
-for _m in ("core.database", "core.crud", "library.courseoutline", "core.settings", "views.icons", "library.pdfmeta", "library.covers", "study.reader", "study.macros", "study.unitex", "study.outline", "study.htmlnotes", "study.quizzes", "study.quizgen", "study.hwassist", "study.gradereport", "study.solcrop", "library.syllabus", "study.eqsheet", "study.promptgen", "library.photos", "views.courses_view", "views.home_view",
+for _m in ("core.database", "core.crud", "library.courseoutline", "core.settings", "views.icons", "library.pdfmeta", "library.covers", "study.reader", "study.hlstore", "study.htmlnotes", "study.macros", "study.unitex", "study.outline", "study.htmlnotes", "study.quizzes", "study.quizgen", "study.hwassist", "study.gradereport", "study.solcrop", "library.syllabus", "study.eqsheet", "study.promptgen", "library.photos", "views.courses_view", "views.home_view",
            "views.navigation", "views.homework_view", "views.exam_mode_view", "views.recall_view", "views.library_view", "views.quiz_view", "views.calendar_view", "views.lab_view",
            "views.settings_view"):
     if _m in sys.modules:
@@ -145,7 +145,7 @@ section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-h
 .nav-label {{font-size: 1.05rem; color: #7d8190; padding: 0.9rem 0 0.4rem 44px; margin-bottom: 1rem; line-height: 1.2;
     white-space: nowrap;}}
 
-.st-key-nav_order_sink {{position: absolute !important; width: 1px; height: 1px; overflow: hidden; opacity: 0; pointer-events: none;}}
+.st-key-hl_sink, .st-key-nav_order_sink {{position: absolute !important; width: 1px; height: 1px; overflow: hidden; opacity: 0; pointer-events: none;}}
 .nav-dragging {{opacity: 0.4;}}
 .nav-drop-above button {{box-shadow: 0 -2px 0 0 #4c8dff !important;}}
 .nav-drop-below button {{box-shadow: 0 2px 0 0 #4c8dff !important;}}
@@ -2518,6 +2518,12 @@ with st.sidebar:
     if sink and sink != st.session_state.get("_order_saved"):
         st.session_state["_order_saved"] = sink
         crud.set_course_order([int(i) for i in sink.split("|")[0].split(",") if i.isdigit()])
+    # Hidden channel: a study guide open in a window reports its highlights here, and they are kept inside the stored page (study/hlstore.py).
+    hl = st.text_input("highlights", key="hl_sink", label_visibility="collapsed")
+    if hl and hl != st.session_state.get("_hl_saved"):
+        st.session_state["_hl_saved"] = hl
+        from study import hlstore
+        hlstore.handle_message(hl)
     with st.container(key="nav_head"):
         st.button(" ", icon=":material/keyboard_double_arrow_right:", key="nav_expand", type="tertiary")
         st.button(" ", icon=":material/keyboard_double_arrow_left:", key="nav_collapse", type="tertiary")

@@ -273,7 +273,7 @@ def _viewer(book):
         jump = st.session_state.pop("lib_goto", None)
         _handle_link(book)                                 # links of a preparation, reflection ... page to the notes and to the course's other pages
         components.html(htmlnotes.safe_html(path.read_text(encoding="utf-8", errors="replace"), goto=jump, links=True,
-                                            questions=quiz_view.book_questions(book), resume=None if jump else "library"),
+                                            questions=quiz_view.book_questions(book), resume=None if jump else "library", book_id=book["id"]),
                         height=900, scrolling=True)
         return
     if book["kind"] in ("Homework", "Exam", "Practice Exam") and book["course_ids"]:     # the homework or exam and the helper side by side
@@ -453,7 +453,7 @@ def _imported_panel(doc, book, marks=False, height=860):
     path = data_path(doc["pdf_path"])
     if not path.exists():
         st.error("The stored file is missing."); return
-    components.html(htmlnotes.safe_html(path.read_text(encoding="utf-8", errors="replace"), resume=f"doc{doc['id']}", links=True, marks=marks),
+    components.html(htmlnotes.safe_html(path.read_text(encoding="utf-8", errors="replace"), resume=f"doc{doc['id']}", links=True, marks=marks, book_id=doc["id"]),
                     height=height, scrolling=True)
 
 

@@ -14,7 +14,7 @@ _VENDOR_TAG = re.compile(r"""<script\b[^>]*\bsrc\s*=\s*["']([^"']+)["'][^>]*>\s*
 
 @functools.lru_cache(maxsize=8)
 def _vendor_text(name):
-    return (VENDOR_DIR / name).read_text(encoding="utf-8").replace("</script", "<\/script")
+    return (VENDOR_DIR / name).read_text(encoding="utf-8").replace("</script", "<\\/script")
 
 
 def inline_vendor(text):
@@ -521,11 +521,88 @@ window.addEventListener('message', function (e) { if (e.data && e.data.study ===
 })();</script>"""
 
 
-def safe_html(text, goto=None, questions=None, errata_source=None, resume=None, links=False, marks=False, slides=None, esc_exit=False, anchor=None):
+# A study guide has its own light/dark switch (a button at the top right, class theme-btn) that sits where the app's reader tools are. In the app the switch is hidden and the page follows the
+# app's Light / Dark setting (with "Use Device Settings" the page follows the device, as it does by itself). Runs first, in the head, so there is no flash of the other theme.
+_THEME = """<script>
+(function () {
+  var MODE = "__MODE__", root = document.documentElement;
+  var css = document.createElement('style');
+  css.textContent = '.theme-btn,.theme-toggle,#theme-toggle,#themeToggle,button[aria-label*="theme" i]{display:none!important}';
+  (document.head || root).appendChild(css);
+  function apply() {
+    if (MODE === 'device') { if (root.hasAttribute('data-theme')) root.removeAttribute('data-theme'); }
+    else if (root.getAttribute('data-theme') !== MODE) root.setAttribute('data-theme', MODE);
+  }
+  apply();
+  new MutationObserver(apply).observe(root, {attributes: true, attributeFilter: ['data-theme']});
+  document.addEventListener('DOMContentLoaded', apply); window.addEventListener('load', apply);
+})();
+</script>"""
+
+# The guide's highlights (localStorage "sg:<title>:highlights") are kept in the stored page itself (see hlstore.py). First the saved value is put back before the guide's own script reads it; then every
+# change of that key is reported to the app through the hidden box hl_sink (after a short pause, and at once when the page is closed). A guide opened for the first time since this existed hands over
+# the highlights it already has in the browser.
+_HL = r"""<script>
+(function () {
+  var BOOK = "__BOOK__", URL = "__URL__", P = window.parent, KEYRE = /^sg:.*:highlights$/, ls;
+  try { ls = window.localStorage; } catch (e) { return; }
+  var setItem = Storage.prototype.setItem, removeItem = Storage.prototype.removeItem, timer = null, pending = null, sent = null, restored = null;
+  try {
+    var x = new XMLHttpRequest(); x.open('GET', P.location.origin + URL + '?t=' + Date.now(), false); x.send();
+    if (x.status === 200) { var d = JSON.parse(x.responseText); if (d && d.key && typeof d.value === 'string') { setItem.call(ls, d.key, d.value); restored = d.value; sent = d.value; } }
+  } catch (e) {}
+  function b64(s) { return btoa(unescape(encodeURIComponent(s))); }
+  function send(key, value) {
+    if (value === sent) return; sent = value;
+    var inp = P.document.querySelector('.st-key-hl_sink input'); if (!inp) return;
+    var set = Object.getOwnPropertyDescriptor(P.HTMLInputElement.prototype, 'value').set;
+    inp.focus(); set.call(inp, 'hl:' + BOOK + ':' + b64(JSON.stringify({key: key, value: value})) + '|' + Date.now());
+    inp.dispatchEvent(new P.Event('input', {bubbles: true}));
+    inp.dispatchEvent(new P.KeyboardEvent('keydown', {key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true}));
+    inp.blur();
+  }
+  function flush() { if (pending === null) return; var k = pending; pending = null; clearTimeout(timer); var v = null; try { v = ls.getItem(k); } catch (e) {} send(k, v); }
+  function later(k) { pending = k; clearTimeout(timer); timer = setTimeout(flush, 400); }
+  Storage.prototype.setItem = function (k, v) { setItem.apply(this, arguments); if (this === ls && KEYRE.test(String(k))) later(String(k)); };
+  Storage.prototype.removeItem = function (k) { removeItem.apply(this, arguments); if (this === ls && KEYRE.test(String(k))) later(String(k)); };
+  window.addEventListener('pagehide', flush);
+  window.addEventListener('load', function () {                       // highlights made before they were kept in the page: hand them over once
+    setTimeout(function () {
+      var k = 'sg:' + document.title + ':highlights', v = null; try { v = ls.getItem(k); } catch (e) {}
+      if (v && v !== '[]' && v !== '{}' && v !== restored) send(k, v);
+    }, 3000);
+  });
+})();
+</script>"""
+
+
+def _early(text, snippet):
+    """The snippet put right after the opening head tag (else after the html tag, else after the doctype, else first), so it runs before the page's own scripts."""
+    for pattern in (r"<head\b[^>]*>", r"<html\b[^>]*>", r"<!doctype[^>]*>"):
+        m = re.search(pattern, text, re.I)
+        if m:
+            return text[:m.end()] + snippet + text[m.end():]
+    return snippet + text
+
+
+def safe_html(text, goto=None, questions=None, errata_source=None, resume=None, links=False, marks=False, slides=None, esc_exit=False, anchor=None, book_id=None):
     """The note's HTML with the link guard added just before the closing body tag (or at the end). `goto` is the id of
     a section to scroll to once the page has loaded (the Exercises tab opens the page at #exercises). `questions` (the
     app's question dicts) replace the note's own Self-check, so the note and the course Quiz tab agree."""
     text = inline_vendor(text)
+    early = ""
+    if book_id:                                          # the highlights kept in the stored page: the page the window shows has no block (a save must not reload the window)
+        from study import hlstore
+        text, saved = hlstore.split(text)
+        try:
+            hlstore.mirror(book_id, saved)
+        except OSError:
+            pass
+        early += _HL.replace("__BOOK__", str(int(book_id))).replace("__URL__", hlstore.MIRROR_URL.format(int(book_id)))
+    from core import settings
+    mode = settings.get_appearance()
+    early = _THEME.replace("__MODE__", mode if mode in ("light", "dark") else "device") + early
+    text = _early(text, early)
     script = _SCRIPT + _FIND + _F11
     if links:
         script += _LINKS
