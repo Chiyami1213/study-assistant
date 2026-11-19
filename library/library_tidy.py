@@ -85,6 +85,31 @@ def remove_duplicates(groups):
     return removed
 
 
+def remove_books(ids):
+    """Remove the given books from the Library with their stored copies (a stored file only when no other book uses it, and only inside the data folder; the student's own originals are never
+    touched). The database is copied to Backups first. Returns how many were removed."""
+    books = [b for b in (crud.get_book(i) for i in dict.fromkeys(ids)) if b]
+    if not books:
+        return 0
+    backup("Before Remove")
+    for b in books:
+        path = data_path(b["pdf_path"])
+        crud.delete_book(b["id"])
+        try:
+            from library import covers
+            covers.remove_cover(b["id"])
+        except Exception:
+            pass
+        try:
+            from study import hlstore
+            hlstore.mirror(b["id"], None)
+        except Exception:
+            pass
+        if not any(x["pdf_path"] == b["pdf_path"] for x in crud.list_books()) and database.DATA_DIR in path.parents:
+            path.unlink(missing_ok=True)
+    return len(books)
+
+
 def tidy_title(book):
     """(title, lecture) written the Library's way, or the book's own when it already is."""
     title, lecture, kind = book["title"], book.get("lecture") or "", book["kind"]

@@ -879,6 +879,14 @@ summary.tl-head:hover b {{color: var(--accent);}}
 .st-key-lib_import_box [data-testid="stPopover"] button:hover {{border-color: var(--accent) !important;}}
 /* The Import menu closes behind the window it opened (a popover cannot be closed from the program) */
 body:has([data-testid="stDialog"]) [data-testid="stPopoverBody"]:has([class*="st-key-imp_menu_"]) {{display: none !important;}}
+/* the items of the Import menu: icons in one column, texts starting at the same place */
+[class*="st-key-imp_menu_"] button {{justify-content: flex-start !important; padding-left: 18px !important;}}
+[class*="st-key-imp_menu_"] button > div {{justify-content: flex-start !important; width: 100% !important;}}
+[class*="st-key-imp_menu_"] button p {{text-align: left !important;}}
+/* the items of the ⋯ menu of a task: icons in one column, texts starting at the same place */
+[class*="st-key-tl_edit_"] button, [class*="st-key-tl_start_"] button, [class*="st-key-tl_log_"] button, [class*="st-key-tl_unplan_"] button, [class*="st-key-tl_del_"] button {{justify-content: flex-start !important; padding-left: 18px !important;}}
+[class*="st-key-tl_edit_"] button > div, [class*="st-key-tl_start_"] button > div, [class*="st-key-tl_log_"] button > div, [class*="st-key-tl_unplan_"] button > div, [class*="st-key-tl_del_"] button > div {{justify-content: flex-start !important; width: 100% !important;}}
+[class*="st-key-tl_edit_"] button p, [class*="st-key-tl_start_"] button p, [class*="st-key-tl_log_"] button p, [class*="st-key-tl_unplan_"] button p, [class*="st-key-tl_del_"] button p {{text-align: left !important;}}
 .st-key-lib_import_box [data-testid="stPopover"] button > div {{display: flex !important; align-items: center !important; justify-content: center !important; gap: 8px !important; width: auto !important;}}
 .st-key-lib_import_box [data-testid="stPopover"] button p {{font-size: 0.9rem !important; font-weight: 400 !important; line-height: 1 !important; letter-spacing: 0 !important; margin: 0 !important;}}
 .st-key-lib_import_box [data-testid="stPopover"] button [data-testid="stIconMaterial"] {{font-size: 1.2rem !important; color: var(--text) !important;}}

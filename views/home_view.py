@@ -114,17 +114,21 @@ def _upcoming(courses, homework):
 
 
 def _complete(kind, item_id):
+    from planner import linkdone
     if kind == "Homework":
         crud.set_homework_status(item_id, "verified")
     else:
         crud.set_event_done(item_id, True)
+    linkdone.from_home(kind, item_id, True)                  # the same piece of work in the Task List is done too
 
 
 def _undo(kind, item_id):
+    from planner import linkdone
     if kind == "Homework":
         crud.set_homework_status(item_id, "todo")
     else:
         crud.set_event_done(item_id, False)
+    linkdone.from_home(kind, item_id, False)
 
 
 def _completed(courses, homework, today):

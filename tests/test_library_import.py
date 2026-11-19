@@ -321,3 +321,16 @@ def test_a_zip_file_the_library_has_under_that_name_replaces_the_stored_copy_ins
     assert [(c.status, c.book_id) for c in again] == [("In Library", book_id)] and again[0].existing == "Replace"
     again[0].picked = True
     assert LI.import_all(again)[:2] == (0, 1) and len(crud.list_books()) == 1
+
+
+def test_many_books_can_be_removed_at_once_with_their_stored_copies_and_a_backup():
+    from library import library_tidy as T
+    ids = []
+    for n in range(3):
+        LI.import_all([LI.Candidate(key=f"{n}.pdf", name=f"{n}.pdf", size=n, mtime=0.0, status="New", kind="Textbook", title=f"T{n}", reader=lambda n=n: pdf(n + 10))], False)
+    books = crud.list_books()
+    stored = [LI.data_path(b["pdf_path"]) for b in books]
+    assert all(p.exists() for p in stored)
+    assert T.remove_books([books[0]["id"], books[1]["id"], 99999]) == 2
+    assert [b["id"] for b in crud.list_books()] == [books[2]["id"]] and not stored[0].exists() and not stored[1].exists() and stored[2].exists()
+    assert T.remove_books([]) == 0

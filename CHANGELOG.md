@@ -26,6 +26,7 @@
 - **Highlights are kept in the page.** The highlights you make in a study guide are now saved inside the stored copy of that guide (not only in the browser), so they do not disappear when the browser data
   is cleared, on another computer after Export / Import, or when you replace the file with a newer one.
 - **Fix:** the PDF page renderer of the exe failed with "No module named 'library'" when a file was opened in the scrolling view.
+- **Remove Files in bulk:** Library > Import > **Remove Files** lists the files (filter by course and type), with Select All / Deselect All, and removes the ticked ones after a question. Only the Library's stored copies go, never your original files; the database is copied to Backups first.
 - **Smaller download:** the build leaves out libraries the app never uses (OpenCV, SciPy, ONNX Runtime, Matplotlib), about 40 MB less than the first 1.1.0 package.
 
 ## 1.1.0 (2026-11-15)

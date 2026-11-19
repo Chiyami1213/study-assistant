@@ -386,6 +386,8 @@ def _row(t, courses, colors, cushions, sessions, tz, now, show_course=True):
     done = cols["done"].checkbox("Done", t.is_done, key=f"tl_done_{t.id}_{int(t.is_done)}", label_visibility="collapsed", help="mark it done" if not t.is_done else "open it again")
     if done != t.is_done:
         task_store.set_done(t.id, done)
+        from planner import linkdone
+        linkdone.from_task(t, done)                          # the homework or exam of Home follows
         st.rerun()
     color = colors.get(f"task:{t.id}") or (crud.course_color(courses[t.course_id]) if t.course_id in courses else "#6b7280")
     title = html.escape(t.title)

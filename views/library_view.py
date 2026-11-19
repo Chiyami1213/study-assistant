@@ -1041,6 +1041,49 @@ def _tidy_dialog():
                 st.rerun()
 
 
+@st.dialog("Remove Files", width="large")
+def _remove_dialog():
+    """Tick many files and remove them at once (after a question). Only the Library's stored copies go; the files the student imported them from are never touched."""
+    import pandas as pd
+    from library import library_tidy as T
+    books = crud.list_books()
+    courses = {c["id"]: crud.label(c) for c in crud.list_courses(section=None)}
+    f1, f2 = st.columns(2)
+    course = f1.selectbox("Course", ["All Courses"] + list(courses.values()), key="rm_course")
+    kinds = f2.multiselect("Type", KINDS, key="rm_kinds", placeholder="All Types")
+    by_label = {v: k for k, v in courses.items()}
+    shown = [b for b in books if (course == "All Courses" or by_label.get(course) in b["course_ids"]) and (not kinds or b["kind"] in kinds)]
+    sel = st.session_state.setdefault("_rm_sel", set())
+    version = st.session_state.get("_rm_v", 0)
+    a, b_, _ = st.columns([1, 1, 5], vertical_alignment="center")
+    if a.button("Select All", key="rm_all", icon=":material/select_all:", type="tertiary", help="ticks every file in the list below"):
+        sel.update(x["id"] for x in shown)
+        st.session_state["_rm_v"] = version = version + 1
+    if b_.button("Deselect All", key="rm_none", icon=":material/deselect:", type="tertiary", help="unticks every file in the list below"):
+        sel.difference_update(x["id"] for x in shown)
+        st.session_state["_rm_v"] = version = version + 1
+    if not shown:
+        st.info("No file matches.")
+        return
+    frame = pd.DataFrame([{"Remove": x["id"] in sel, "Title": x["title"], "Type": x["kind"], "Course": ", ".join(courses.get(c, "") for c in x["course_ids"]), "Lecture": x.get("lecture") or "",
+                           "Added": (x.get("added_at") or "")[:10]} for x in shown])
+    got = st.data_editor(frame, key=f"rm_table_{course}_{len(shown)}_{version}", hide_index=True, width="stretch", num_rows="fixed", height=min(420, 40 + 35 * len(shown)),
+                         column_config={"Remove": st.column_config.CheckboxColumn("Remove"), **{k: st.column_config.TextColumn(k, disabled=True) for k in ("Title", "Type", "Course", "Lecture", "Added")}}).to_dict("records")
+    for x, row in zip(shown, got):
+        (sel.add if row["Remove"] else sel.discard)(x["id"])
+    chosen = [x["id"] for x in shown if x["id"] in sel]
+    if st.button(f"Remove {len(chosen)} File{'s' if len(chosen) != 1 else ''}", key="rm_go", type="primary", disabled=not chosen):
+        st.session_state["_rm_confirm"] = len(chosen)
+    if st.session_state.get("_rm_confirm") == len(chosen) and chosen:
+        st.warning(f"This removes {len(chosen)} file{'s' if len(chosen) != 1 else ''} and their stored copies from the Library. Your original files are not touched, and the database is copied to Backups first.")
+        if st.button("Yes, Remove Them", key="rm_yes", type="primary"):
+            n = T.remove_books(chosen)
+            sel.clear()
+            st.session_state.pop("_rm_confirm", None)
+            st.session_state["lib_toast"] = f"Removed {n} file{'s' if n != 1 else ''}."
+            st.rerun()
+
+
 PAGE = 120                                                       # files drawn at once in a list; the rest come with Show More
 
 
@@ -1124,6 +1167,8 @@ def render():
             library_import.zip_dialog()
         if st.button("Tidy Up", key="imp_menu_tidy", icon=":material/cleaning_services:", width="stretch", help="finds files that are in the Library twice and titles that can be written the Library's way"):
             _tidy_dialog()
+        if st.button("Remove Files", key="imp_menu_remove", icon=":material/delete_sweep:", width="stretch", help="tick many files and remove them from the library at once (your original files are never touched)"):
+            _remove_dialog()
         if st.button("Update From Folder", key="imp_menu_folder", icon=":material/sync:", width="stretch", help="reads the folder your files are kept in and lists the new and the changed ones"):
             library_import.folder_dialog()
         if st.button("Prompt for AI", key="imp_menu_prompt", icon=":material/auto_awesome:", width="stretch", help="makes a prompt for your own ai chat (claude, chatgpt or gemini) that writes a study guide, a helper or a grade page in the format this app reads"):
