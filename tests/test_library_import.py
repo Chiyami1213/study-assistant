@@ -318,7 +318,7 @@ def test_a_zip_file_the_library_has_under_that_name_replaces_the_stored_copy_ins
     LI.import_all([LI.Candidate(key="a.pdf", name="a.pdf", size=1, mtime=0.0, status="New", kind="Textbook", title="A", reader=lambda: pdf(1))], False)
     book_id = crud.list_books()[0]["id"]
     again = LI.zip_candidates(make_zip({"a.pdf": pdf(3)}), None)
-    assert [(c.status, c.book_id) for c in again] == [("In Library", book_id)] and again[0].existing == "Replace"
+    assert [(c.status, c.book_id) for c in again] == [("Changed", book_id)] and again[0].existing == "Replace"
     again[0].picked = True
     assert LI.import_all(again)[:2] == (0, 1) and len(crud.list_books()) == 1
 
@@ -334,3 +334,14 @@ def test_many_books_can_be_removed_at_once_with_their_stored_copies_and_a_backup
     assert T.remove_books([books[0]["id"], books[1]["id"], 99999]) == 2
     assert [b["id"] for b in crud.list_books()] == [books[2]["id"]] and not stored[0].exists() and not stored[1].exists() and stored[2].exists()
     assert T.remove_books([]) == 0
+
+
+def test_a_file_with_the_name_of_a_library_file_but_new_content_is_changed_not_in_library():
+    from study import hlstore
+    LI.import_all([LI.Candidate(key="n.html", name="Lec 1 Notes.html", size=1, mtime=0.0, status="New", kind="Notes", title="N", reader=lambda: HTML)], False)
+    book = crud.list_books()[0]
+    stored = LI.data_path(book["pdf_path"])
+    stored.write_text(hlstore.embed(stored.read_text(encoding="utf-8"), "sg:T:highlights", "[1]"), encoding="utf-8")      # highlights kept in the page do not make it different
+    same = LI.classify([("n.html", "Lec 1 Notes.html", len(HTML), 0.0, lambda: HTML)])[0]
+    newer = LI.classify([("n.html", "Lec 1 Notes.html", len(HTML) + 9, 0.0, lambda: HTML + b"<p>newer</p>")])[0]
+    assert (same.status, newer.status, newer.book_id) == ("In Library", "Changed", book["id"]) and newer.existing == "Replace"

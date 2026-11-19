@@ -877,6 +877,13 @@ summary.tl-head:hover b {{color: var(--accent);}}
 .st-key-lib_import_box [data-testid="stPopover"] button {{min-height: 40px !important; height: 40px; padding: 0 16px !important; border: 1px solid var(--border) !important; border-radius: 8px !important;
   background: var(--input) !important; width: 100%; display: flex !important; align-items: center !important; justify-content: center !important;}}
 .st-key-lib_import_box [data-testid="stPopover"] button:hover {{border-color: var(--accent) !important;}}
+/* Courses > Outline: the Auto Build popover looks like the button next to it (Edit Outline): same size, same text */
+.st-key-outline_auto_box [data-testid="stPopover"] button {{min-height: 40px !important; height: 40px; padding: 0 16px !important; border: 1px solid var(--border) !important; border-radius: 8px !important;
+  background: var(--bg) !important; width: 100%; display: flex !important; align-items: center !important; justify-content: center !important;}}
+.st-key-outline_auto_box [data-testid="stPopover"] button:hover {{border-color: var(--accent) !important;}}
+.st-key-outline_auto_box [data-testid="stPopover"] button > div {{display: flex !important; align-items: center !important; justify-content: center !important; gap: 8px !important; width: auto !important;}}
+.st-key-outline_auto_box [data-testid="stPopover"] button p {{font-size: 0.9rem !important; font-weight: 400 !important; line-height: 1 !important; letter-spacing: 0 !important; margin: 0 !important;}}
+.st-key-outline_auto_box [data-testid="stPopover"] button [data-testid="stIconMaterial"] {{font-size: 1.2rem !important; color: var(--text) !important;}}
 /* The Import menu closes behind the window it opened (a popover cannot be closed from the program) */
 body:has([data-testid="stDialog"]) [data-testid="stPopoverBody"]:has([class*="st-key-imp_menu_"]) {{display: none !important;}}
 /* the items of the Import menu: icons in one column, texts starting at the same place */

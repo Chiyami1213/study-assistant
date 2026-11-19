@@ -161,6 +161,19 @@ def same_file_in_library(size, reader, stored):
     return None
 
 
+def _stored_differs(reader, book):
+    """True when the file is NOT the content of the book's stored copy (an html page is compared without the highlights kept in it). A stored copy that cannot be read counts as different."""
+    try:
+        stored = data_path(book["pdf_path"])
+        mine = reader()
+        if stored.suffix.lower() in (".html", ".htm"):
+            from study import hlstore
+            return hlstore.split(stored.read_text(encoding="utf-8", errors="replace"))[0].encode("utf-8") != hlstore.split(mine.decode("utf-8", errors="replace"))[0].encode("utf-8")
+        return stored.read_bytes() != mine
+    except Exception:
+        return True
+
+
 def classify(entries, remembered=None, default_course=None):
     """Candidates for [(key, name, size, mtime, reader)]: New, Changed (remembered and different) or In Library (remembered and the same, or a book with that file name and size)."""
     remembered = remembered or {}
@@ -183,7 +196,8 @@ def classify(entries, remembered=None, default_course=None):
         elif (same := same_file_in_library(size, reader, stored)) is not None:
             status, book_id = "In Library", same                                 # the very same file, whatever it is titled
         elif name.lower() in names:
-            status, book_id = "In Library", names[name.lower()][0]["id"]
+            book = names[name.lower()][0]                                     # a file with the name of one the Library has: the same file, unless its content is different (a newer version)
+            status, book_id = ("Changed" if _stored_differs(reader, book) else "In Library"), book["id"]
         kind, title, lecture, ids = guess_fields(name, default_course, key)
         out.append(Candidate(key, name, size, mtime, status, book_id, kind, title, lecture, ids, reader))
     return sorted(out, key=priority)

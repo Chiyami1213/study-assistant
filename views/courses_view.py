@@ -1077,8 +1077,8 @@ def _outline(course):
     built, source = courseoutline.auto_items(course["id"], part)
     mine = bool(items) and state.get("source") in ("manual", None)
     if mine:                                                  # an outline of the user's own is only replaced after they confirm
-        with auto.popover("Auto Build", icon=":material/auto_fix_high:", width="stretch", disabled=not built,
-                          help="builds the outline again from the syllabus topics or the lecture titles"):
+        with auto.container(key="outline_auto_box"), st.popover("Auto Build", icon=":material/auto_fix_high:", width="stretch", disabled=not built,
+                                                                help="builds the outline again from the syllabus topics or the lecture titles"):
             st.caption("Replace your outline with one built from the " + ("syllabus topics" if source == "syllabus" else "lecture titles")
                        + "? Your current outline is copied to the outlines folder first.")
             st.button("Replace and Build", key=f"outline_auto_yes_{course['id']}", type="primary", on_click=_auto_build, args=(course["id"], part))
