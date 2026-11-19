@@ -4,6 +4,15 @@
 
 ---
 
+## 1.1.2 (2026-11-19)
+
+- **Remove Files in bulk:** Library > Import > **Remove Files** lists the files (filter by course and type), with Select All / Deselect All, and removes the ticked ones after a question. Only the Library's stored copies go, never your original files; the database is copied to Backups first.
+- **Done stays in step.** Ticking a homework or an exam done on the Home page now also marks its task in the Task List (it kept showing as overdue), and ticking a task in the Task List marks the homework or exam on the course page. They are matched by course and title.
+- **Update From Folder finds newer versions of files you have.** A file with the name of one the Library already has but with different content is now listed as **Changed** (Replace by default), where it was hidden as "already in the Library".
+- **Cleaner menus:** the items of the Import menu and of a task's ⋯ menu are left-aligned with their icons in one column, and Auto Build on a course's Outline looks like Edit Outline.
+- **Tutorial:** the Import step mentions Replace or Keep and Remove Files, and the calendar step names Shovel.
+
+
 ## 1.1.1 (2026-11-16)
 
 - **Color themes** (Settings > Appearance > Color Theme): four themes shown as cards of three equal color tiles, with the name under each: **Graphite** (the original look, unchanged), **Ocean**,
@@ -26,7 +35,6 @@
 - **Highlights are kept in the page.** The highlights you make in a study guide are now saved inside the stored copy of that guide (not only in the browser), so they do not disappear when the browser data
   is cleared, on another computer after Export / Import, or when you replace the file with a newer one.
 - **Fix:** the PDF page renderer of the exe failed with "No module named 'library'" when a file was opened in the scrolling view.
-- **Remove Files in bulk:** Library > Import > **Remove Files** lists the files (filter by course and type), with Select All / Deselect All, and removes the ticked ones after a question. Only the Library's stored copies go, never your original files; the database is copied to Backups first.
 - **Smaller download:** the build leaves out libraries the app never uses (OpenCV, SciPy, ONNX Runtime, Matplotlib), about 40 MB less than the first 1.1.0 package.
 
 ## 1.1.0 (2026-11-15)
