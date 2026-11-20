@@ -172,7 +172,7 @@ section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-h
 [data-testid="stFileUploaderDropzone"]:not(:has([data-testid="stFileUploaderFile"]))::after {{
     color: #8b90a0; font-size: 0.9rem; margin-left: 14px; align-self: center;}}
 .st-key-library_file_box [data-testid="stFileUploaderDropzone"]:not(:has([data-testid="stFileUploaderFile"]))::after {{
-    content: "PDF, HTML";}}
+    content: "PDF, HTML, ZIP";}}
 [class*="st-key-photo_box_"] [data-testid="stFileUploaderDropzone"]:not(:has([data-testid="stFileUploaderFile"]))::after {{
     content: "PNG, JPG, HEIC, WebP, GIF";}}
 
