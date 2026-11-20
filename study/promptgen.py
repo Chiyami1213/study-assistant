@@ -14,7 +14,7 @@ ASSISTANTS = {
     "Claude": {
         "chat": "a Claude chat (claude.ai)", "attach": "attach", "notes_word": "(artifacts)", "republish": "the artifacts are republished in place",
         "publish_job": "publish it as an artifact (HTML, private)",
-        "delivery": "publish the page as an HTML artifact and tell me the file name. I download the file and import it in my app with Library > Import > Add a File.",
+        "delivery": "publish the page as an HTML artifact and tell me the file name. I download the file and import it in my app with Library > Import > Add Files.",
         "publish_step": "**Publish** with the Artifact tool (HTML, private) using a first-publish `icon` such as `exam` or `homework`. Do not paste the URL in your reply unless I ask; give one sentence on what the page is.",
         "update_step": "**Update in place**: when I ask for a change, publish the same file again to keep the URL. Read the artifact first when it came from an earlier conversation.",
         "link_address": "Write the address you have for my page (an artifact link on any host is fine) and keep",
@@ -24,7 +24,7 @@ ASSISTANTS = {
         "chat": "a ChatGPT chat (chatgpt.com)", "attach": "upload", "notes_word": "(HTML pages or their text)", "republish": "the pages are given again under the same file names",
         "publish_job": "give it to me as one downloadable `.html` file (create the file with your file tools); if you cannot create a file, put the complete page in one single code block",
         "delivery": "give me the page as one downloadable `.html` file named exactly as above (create the file with your file tools and give me its download link). If you cannot create a file, put the complete page "
-                    "in one single code block with nothing else inside it, and I will save it with that name. I import the file in my app with Library > Import > Add a File.",
+                    "in one single code block with nothing else inside it, and I will save it with that name. I import the file in my app with Library > Import > Add Files.",
         "publish_step": "**Deliver** the page as one downloadable `.html` file (create it with your file tools and give me the link); if you cannot create a file, one single code block with the complete page. "
                         "Give one sentence on what the page is.",
         "update_step": "**Update**: when I ask for a change, give me the whole updated file again under the same file name (never only the changed part).",
@@ -35,7 +35,7 @@ ASSISTANTS = {
         "chat": "a Gemini chat (gemini.google.com)", "attach": "upload", "notes_word": "(HTML pages or their text)", "republish": "the pages are given again under the same file names",
         "publish_job": "give it to me as one HTML page (use Canvas if you have it, so I can download or copy the code); if you cannot, put the complete page in one single code block",
         "delivery": "give me the page as one complete HTML file named exactly as above (use Canvas if you have it, so I can download it or copy its code). If you cannot, put the complete page in one "
-                    "single code block with nothing else inside it, and I will save it with that name. I import the file in my app with Library > Import > Add a File.",
+                    "single code block with nothing else inside it, and I will save it with that name. I import the file in my app with Library > Import > Add Files.",
         "publish_step": "**Deliver** the page as one complete HTML file (in Canvas if you have it; otherwise one single code block with the complete page). Give one sentence on what the page is.",
         "update_step": "**Update**: when I ask for a change, give me the whole updated file again under the same file name (never only the changed part).",
         "link_address": "Because my notes pages are not on the web, write the address of a notes page as `https://study-assistant.local/artifact/notes-<lecture number>` (the address does not need to exist) and keep",

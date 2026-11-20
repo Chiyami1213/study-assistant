@@ -19,9 +19,12 @@ PDF = b"%PDF-1.4\n1 0 obj<</Type/Catalog>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF"
 @pytest.fixture
 def no_books():
     from core import database
-    with database.get_conn() as conn:
-        conn.execute("DELETE FROM books")
-        conn.commit()
+    for _ in (1, 2):                                                      # empty before the test, and again after it (the next test file must not meet these books)
+        with database.get_conn() as conn:
+            conn.execute("DELETE FROM books")
+            conn.commit()
+        if _ == 1:
+            yield
 
 
 def pdf(n):
@@ -160,7 +163,7 @@ def test_the_buttons_are_on_the_library_and_the_course_page():
     at = AppTest.from_file(app, default_timeout=90)
     at.session_state["page"] = "Library"
     at.run()
-    assert not at.exception and at.button(key="imp_menu_folder") is not None and at.button(key="imp_menu_zip") is not None
+    assert not at.exception and at.button(key="imp_menu_folder") is not None and at.button(key="imp_menu_add") is not None and not list(at.button(key="imp_menu_zip") for _ in ()) and "imp_menu_zip" not in [b.key for b in at.button]
     at = AppTest.from_file(app, default_timeout=90)
     at.session_state["page"] = "Courses"
     at.session_state["open_course"] = cid

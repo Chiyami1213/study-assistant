@@ -185,10 +185,17 @@ def _reset_add_boxes():
         st.session_state.pop(k, None)
 
 
-@st.dialog("Add File", width="large")
+@st.dialog("Add Files", width="large")
 def _add_dialog(default_course=None):
+    """One window for everything that is added by hand: one file (with its details to check), several files, or a zip (every pdf and html file in it, on a confirmation page)."""
+    from views import library_import
     with st.container(key="library_file_box"):
-        up = st.file_uploader("File", type=["pdf", "html", "htm"])
+        ups = st.file_uploader("Files", type=["pdf", "html", "htm", "zip"], accept_multiple_files=True)
+    if ups and (len(ups) > 1 or ups[0].name.lower().endswith(".zip")):
+        st.caption("Several files, or a zip: you confirm the list below before anything is imported.")
+        library_import.files_body(ups, default_course)
+        return
+    up = ups[0] if ups else None
     info = {"title": "", "author": "", "edition": "", "year": "", "pages": None, "source": ""}
     if up:
         cache = st.session_state.setdefault("_pdf_info", {})
@@ -1160,13 +1167,9 @@ def render():
         st.toast(st.session_state.pop("lib_toast"))
     with import_col.container(key="lib_import_box"), st.popover("Import", icon=":material/upload_file:", help="add files to the Library", type="secondary", width="stretch"):
         from views import library_import
-        if st.button("Add a File", key="imp_menu_add", icon=":material/add:", width="stretch"):
+        if st.button("Add Files", key="imp_menu_add", icon=":material/add:", width="stretch", help="one file, many files at once, or a zip of them; you confirm before anything is imported"):
             _reset_add_boxes()
             _add_dialog(None)
-        if st.button("Import Several Files", key="imp_menu_files", icon=":material/library_add:", width="stretch", help="choose or drop many pdf and html files at once; you confirm the list before anything is imported"):
-            library_import.files_dialog()
-        if st.button("Import a Zip", key="imp_menu_zip", icon=":material/folder_zip:", width="stretch", help="a zip of pdf and html files; you confirm the list before anything is imported"):
-            library_import.zip_dialog()
         if st.button("Tidy Up", key="imp_menu_tidy", icon=":material/cleaning_services:", width="stretch", help="finds files that are in the Library twice and titles that can be written the Library's way"):
             _tidy_dialog()
         if st.button("Remove Files", key="imp_menu_remove", icon=":material/delete_sweep:", width="stretch", help="tick many files and remove them from the library at once (your original files are never touched)"):

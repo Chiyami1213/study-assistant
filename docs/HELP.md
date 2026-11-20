@@ -22,10 +22,10 @@ computer and read again to keep your tasks and events up to date (**Sync Now**, 
 
 **How do I get study guides, helpers and grade pages made by an AI assistant into the app?** Library > Import > **Prompt for AI**: choose the course, the kind of page and its number, and your assistant
 (**Claude**, **ChatGPT** or **Gemini**), copy the prompt into a chat with it and attach your course files (the prompt lists which). The assistant writes one HTML page in the format the app reads; download it, keep the file name the prompt gave, and import it with
-**Add a File** (or a zip of several). The app recognizes the type from the name (Notes, Homework Helper, Grade Explanation, Exam Reflection, Exam Preparation ...), pairs a helper or a grade
+**Add Files** (one file, several at once, or a zip of them). The app recognizes the type from the name (Notes, Homework Helper, Grade Explanation, Exam Reflection, Exam Preparation ...), pairs a helper or a grade
 explanation with its homework or exam, and opens the links between your pages.
 
-**How do I add many files at once, or keep the Library up to date?** Library > **Import** has **Import a Zip** (a zip of pdf and html files) and **Update From Folder** (the folder your files are kept
+**How do I add many files at once, or keep the Library up to date?** Library > **Import** has **Add Files** (one file, many files at once, or a zip of pdf and html files; you confirm the list first) and **Update From Folder** (the folder your files are kept
 in; also the **Update Files** button on a course page). Both show what they found, with the type, title and course of each, and import only after you confirm. The folder is only read: your files there
 are never changed or deleted.
 
