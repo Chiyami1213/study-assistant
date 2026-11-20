@@ -408,6 +408,31 @@ def zip_dialog(default_course=None):
     dialog()
 
 
+def files_dialog(default_course=None):
+    """Import several files at once: choose or drop any number of pdf and html files, check them on the confirmation page (type, title, lecture, course; files the Library has already can be replaced or kept), then import."""
+    import streamlit as st
+    _scans().clear()
+
+    @st.dialog("Import Several Files", width="large")
+    def dialog():
+        ups = st.file_uploader("Files", type=["pdf", "html", "htm"], accept_multiple_files=True, key="bulk_files")
+        st.caption("Choose or drop as many pdf and html files as you like. Nothing is imported until you press Import.")
+        if not ups:
+            return
+        key = ("files", tuple(sorted(u.file_id for u in ups)))
+        if key not in _scans():
+            _scans()[key] = classify([(u.name, u.name, u.size, 0.0, (lambda u=u: u.getvalue())) for u in ups], {}, default_course)
+        cands = _scans()[key]
+        new = sum(c.status != "In Library" for c in cands)
+        st.markdown(f"**{len(cands)} file{'s' if len(cands) != 1 else ''}, {new} new.** Check the type, title and course of each, and uncheck what you do not want.")
+        chosen = _table(cands, f"bulk_files_table_{len(cands)}")
+        if st.button(f"Import {len(chosen)} File{'s' if len(chosen) != 1 else ''}", key="bulk_files_go", type="primary", disabled=not chosen):
+            kept = []
+            _summary(*import_all(chosen, False, default_course, kept), kept)
+            st.rerun()
+    dialog()
+
+
 def folder_dialog(course_id=None):
     """Update the Library from the chosen folder: the new and the changed files are listed for confirmation; files imported before are not listed again."""
     import streamlit as st

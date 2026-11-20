@@ -345,3 +345,12 @@ def test_a_file_with_the_name_of_a_library_file_but_new_content_is_changed_not_i
     same = LI.classify([("n.html", "Lec 1 Notes.html", len(HTML), 0.0, lambda: HTML)])[0]
     newer = LI.classify([("n.html", "Lec 1 Notes.html", len(HTML) + 9, 0.0, lambda: HTML + b"<p>newer</p>")])[0]
     assert (same.status, newer.status, newer.book_id) == ("In Library", "Changed", book["id"]) and newer.existing == "Replace"
+
+
+def test_several_chosen_files_are_listed_like_a_zip_and_a_second_copy_replaces_instead_of_adding():
+    entries = [(f"Lec {n} Notes.html", f"Lec {n} Notes.html", len(HTML) + n, 0.0, (lambda n=n: HTML + b"<p>%d</p>" % n)) for n in (1, 2)]
+    cands = LI.classify(entries, {}, None)
+    assert [c.status for c in cands] == ["New", "New"] and {c.kind for c in cands} <= {"Notes", "Lecture Notes"}
+    assert LI.import_all(cands)[:2] == (2, 0) and len(crud.list_books()) == 2
+    again = LI.classify([("Lec 1 Notes.html", "Lec 1 Notes.html", len(HTML) + 99, 0.0, lambda: HTML + b"<p>newer</p>")], {}, None)
+    assert again[0].status == "Changed" and LI.import_all(again)[:2] == (0, 1) and len(crud.list_books()) == 2

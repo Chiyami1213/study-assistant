@@ -1163,6 +1163,8 @@ def render():
         if st.button("Add a File", key="imp_menu_add", icon=":material/add:", width="stretch"):
             _reset_add_boxes()
             _add_dialog(None)
+        if st.button("Import Several Files", key="imp_menu_files", icon=":material/library_add:", width="stretch", help="choose or drop many pdf and html files at once; you confirm the list before anything is imported"):
+            library_import.files_dialog()
         if st.button("Import a Zip", key="imp_menu_zip", icon=":material/folder_zip:", width="stretch", help="a zip of pdf and html files; you confirm the list before anything is imported"):
             library_import.zip_dialog()
         if st.button("Tidy Up", key="imp_menu_tidy", icon=":material/cleaning_services:", width="stretch", help="finds files that are in the Library twice and titles that can be written the Library's way"):
