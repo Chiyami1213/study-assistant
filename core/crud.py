@@ -448,6 +448,8 @@ def add_book(title, author, edition, pdf_path, total_pages, course_ids=None, kin
                     "VALUES (?,?,?,?,?,?,?,?,?)",
                     (title, author or None, edition or None, year or None, lecture or None, pdf_path, total_pages, kind, orig_name or None))
     set_book_courses(book_id, course_ids)
+    if kind in ("Notes", "Lecture Notes"):
+        relink_quiz_attempts()                                      # the quiz record of a note that was deleted and imported again comes back to it
     return book_id
 
 
@@ -623,9 +625,34 @@ def replace_outline(course_id, items, part=None):
 
 
 # ---------- Quizzes ----------
+def chapter_key(book):
+    """Which chapter of its course a note is: its lecture number ("03" and "3" are the same), else None. A quiz record carries it, so the record is found again when the note is deleted and imported anew."""
+    lecture = ((book or {}).get("lecture") or "").strip()
+    return (lecture.lstrip("0") or "0") if lecture.isdigit() else None
+
+
 def add_quiz_attempt(course_id, book_id, correct, total, answers=None, assisted=0, notes_used=0, hints_used=0):
-    return _exec("INSERT INTO quiz_attempts(course_id,book_id,correct,total,answers,assisted,notes_used,hints_used) "
-                 "VALUES (?,?,?,?,?,?,?,?)", (course_id, book_id, correct, total, answers, assisted, notes_used, hints_used))
+    key = chapter_key(get_book(book_id))
+    return _exec("INSERT INTO quiz_attempts(course_id,book_id,correct,total,answers,assisted,notes_used,hints_used,chapter_key) "
+                 "VALUES (?,?,?,?,?,?,?,?,?)", (course_id, book_id, correct, total, answers, assisted, notes_used, hints_used, key))
+
+
+def relink_quiz_attempts():
+    """Quiz records whose note is gone (deleted, then imported anew) move to the note of the same course and chapter, when there is exactly one. Records without a chapter key get it from their note
+    while it still exists. Returns how many records were moved. Nothing is ever deleted."""
+    books = {b["id"]: b for b in list_books()}
+    for r in _all("SELECT id, book_id FROM quiz_attempts WHERE chapter_key IS NULL"):
+        if r["book_id"] in books and chapter_key(books[r["book_id"]]):
+            _exec("UPDATE quiz_attempts SET chapter_key=? WHERE id=?", (chapter_key(books[r["book_id"]]), r["id"]))
+    moved = 0
+    for r in _all("SELECT id, course_id, book_id, chapter_key FROM quiz_attempts WHERE chapter_key IS NOT NULL"):
+        if r["book_id"] in books:
+            continue
+        same = [b for b in books.values() if b["kind"] in ("Notes", "Lecture Notes") and r["course_id"] in b["course_ids"] and chapter_key(b) == r["chapter_key"]]
+        if len(same) == 1:
+            _exec("UPDATE quiz_attempts SET book_id=? WHERE id=?", (same[0]["id"], r["id"]))
+            moved += 1
+    return moved
 
 
 def quiz_attempts(course_id, book_id):

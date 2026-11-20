@@ -244,7 +244,8 @@ CREATE TABLE IF NOT EXISTS quiz_attempts (
     answers   TEXT,
     assisted  INTEGER NOT NULL DEFAULT 0,  -- correct answers made with the notes or a hint
     notes_used INTEGER NOT NULL DEFAULT 0, -- questions where Check Notes was used
-    hints_used INTEGER NOT NULL DEFAULT 0  -- questions where Hint was used
+    hints_used INTEGER NOT NULL DEFAULT 0, -- questions where Hint was used
+    chapter_key TEXT                       -- which chapter of the course the quiz is (its lecture number), so the record finds its notes again when the page is replaced by a new import
 );
 
 -- Study planner setup (planner/store.py). The term dates are in settings.json (semester) and the breaks are the rows of `holidays`.
@@ -429,6 +430,8 @@ def init_db() -> None:
             conn.execute("ALTER TABLE books ADD COLUMN kind TEXT NOT NULL DEFAULT 'Textbook'")
         if "author" not in book_cols:
             conn.execute("ALTER TABLE books ADD COLUMN author TEXT")
+        if "chapter_key" not in [r["name"] for r in conn.execute("PRAGMA table_info(quiz_attempts)")]:
+            conn.execute("ALTER TABLE quiz_attempts ADD COLUMN chapter_key TEXT")
         if "time" not in [r["name"] for r in conn.execute("PRAGMA table_info(events)")]:
             conn.execute("ALTER TABLE events ADD COLUMN time TEXT")
         if "book_id" not in [r["name"] for r in conn.execute("PRAGMA table_info(course_outline)")]:

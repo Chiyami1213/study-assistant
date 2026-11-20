@@ -26,6 +26,9 @@ from views import calendar_view, courses_view, home_view, lab_view, library_view
 st.set_page_config(page_title="Study Assistant", page_icon=":material/book:", layout="wide",
                    initial_sidebar_state="expanded")
 init_db()
+if "_quiz_linked" not in st.session_state:             # quiz records find their notes again after a note was deleted and imported anew (crud.relink_quiz_attempts)
+    crud.relink_quiz_attempts()
+    st.session_state["_quiz_linked"] = True
 if "_backed_up" not in st.session_state:             # a safety copy of the database and settings outside the project (see backup.py)
     from datafiles import backup
     backup.run()

@@ -8,6 +8,7 @@
 
 - **Remove Files in bulk:** Library > Import > **Remove Files** lists the files (filter by course and type), with Select All / Deselect All, and removes the ticked ones after a question. Only the Library's stored copies go, never your original files; the database is copied to Backups first.
 - **Add Files:** one window in the Library's Import menu for one file (with its details to check), several files at once, or a zip. Several files or a zip are listed on one confirmation page (type, title, lecture, course; Replace or Keep for files the Library has). It replaces Add a File and Import a Zip.
+- **Quiz scores survive a new import.** A quiz record now carries the chapter (the note's lecture number) as well as the note, so when a note is deleted and imported again the record comes back to the new note of the same course and chapter. Nothing is deleted.
 - **Done stays in step.** Ticking a homework or an exam done on the Home page now also marks its task in the Task List (it kept showing as overdue), and ticking a task in the Task List marks the homework or exam on the course page. They are matched by course and title.
 - **Update From Folder finds newer versions of files you have.** A file with the name of one the Library already has but with different content is now listed as **Changed** (Replace by default), where it was hidden as "already in the Library".
 - **Cleaner menus:** the items of the Import menu and of a task's ⋯ menu are left-aligned with their icons in one column, and Auto Build on a course's Outline looks like Edit Outline.
