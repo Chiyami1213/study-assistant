@@ -4,12 +4,10 @@
 
 ---
 
-## 1.1.4 (not released yet)
+## 1.1.3 (2026-11-25)
 
 - **A guided tour for every new course.** After you add a course, the app offers a short tour (also on the course page: **Set Up Tour**) that takes you to the syllabus (**Add Syllabus** reads the grading, the letter grades, the instructor and the outline, and the Overview is built from it), to **Update Files** (homework, exams and other files from the course's folder, with the type guessed from each name) and to **Prompt for AI** with the course already chosen (homework helpers, grade explanations and exam pages). It uses the same box, arrow and helper card as the Getting Started tour, and skipping it does not switch the tutorial off.
 - **Library header:** the title and the Import button are in one row (at the right, as on the Courses page), with the view, the order and the sort box in the row below.
-
-## 1.1.3 (2026-11-25)
 
 - **Three quizzes in the course Quiz tab.** A study guide's Quiz now has three parts and so does each chapter of the course Quiz tab: **Conceptual Questions**, a **Speed Round** (8 questions drawn from the guide's bank, 90-second countdown, answers marked at once, what is not answered when the time is up is missed) and **Guided Practice** (the steps of the guide's numerical practice problems, with the problem shown and the reason of the option you chose). Each is started, finished, saved for later (not the speed round) and retaken separately; the three scores count together in the chapter's total (the last attempt of each part), which the Overview's Understanding block uses. Every attempt is kept and View shows them with their part.
 - **Links on a course page:** Add Link sits below the links, at the left, so there is no empty band above them.

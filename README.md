@@ -74,7 +74,7 @@ Questions about installing, antivirus warnings, your files, backups, shortcuts a
 
 **1.1.3**
 - **Three quizzes for every chapter** in the course Quiz tab: conceptual questions, a timed speed round and guided numerical practice, taken separately and counted together in the chapter's total.
-- **Home** also lists lab reports and projects; **Prompt for AI** follows the newest study guide rules.
+- A **guided tour for every new course** (syllabus, files, AI pages), **Home** also lists lab reports and projects, and **Prompt for AI** follows the newest study guide rules.
 
 **1.1.2**
 - **Remove Files** in bulk (Library > Import), **Update From Folder** that finds newer versions of files you already have, and Done on Home and in the Task List kept in step.
