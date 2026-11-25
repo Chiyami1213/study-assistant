@@ -62,16 +62,20 @@ def shuffled(q, rng):
 
 @st.cache_data(show_spinner=False, max_entries=64)
 def _questions(path, mtime):
-    # only real questions: the open "think of an answer" items of some notes are replaced by written multiple-choice ones
-    return [x for x in quizzes.parse(open(path, encoding="utf-8", errors="replace").read()) if x["kind"] == "mc"]
+    # only real questions: the open "think of an answer" items of some notes are replaced by written multiple-choice ones; a guide that has only open (essay) questions keeps them
+    found = quizzes.parse(open(path, encoding="utf-8", errors="replace").read())
+    return [x for x in found if x["kind"] == "mc"] or [x for x in found if x["kind"] == "open"]
 
 
 @st.cache_data(show_spinner=False, max_entries=64)
 def _extra_parts(path, mtime):
     """{"speed": {questions, n, limit} or None, "guided": [step questions of the guided practice, in order]} of a note: its speed round and its guided numerical practice."""
     text = open(path, encoding="utf-8", errors="replace").read()
-    defs = macros.from_html(text)
-    return {"speed": quizparts.speed(text, defs), "guided": [q for g in quizparts.guided(text, defs) for q in g["questions"]]}
+    try:
+        defs = macros.from_html(text)
+        return {"speed": quizparts.speed(text, defs), "guided": [q for g in quizparts.guided(text, defs) for q in g["questions"]]}
+    except Exception:                                  # a quiz written in a form this app does not know is left out, never an error on the course page
+        return {"speed": None, "guided": []}
 
 
 def chapter_parts(chapter):
@@ -372,7 +376,7 @@ def render(course):
             saved = saved_progress(course["id"], c["book"]["id"], part)
             if saved:
                 suffix = "" if part == "concept" else f"_{part}"
-                done_n = sum(1 for v in saved["res"].values() if v.get("chosen") is not None)
+                done_n = sum(1 for v in saved["res"].values() if v.get("chosen") is not None or v.get("got") is not None)
                 when = saved.get("saved_at", "")[:16].replace("T", " ")
                 with st.container(horizontal=True, vertical_alignment="center", gap="small", key=f"quiz_saved_{course['id']}_{c['book']['id']}{suffix}"):
                     st.caption(f":material/bookmark: Saved {PART_LABEL[part].lower()}: {done_n} of {len(saved['order'])} answered"
@@ -476,6 +480,12 @@ def _cards(chapter, run, run_key, cid):
                         st.warning(q["ofb"][res["chosen"]])        # why the option chosen is wrong
                 if q.get("e"):
                     st.info(q["e"])
+            if q["kind"] != "mc":                                  # an open (essay) question: think of an answer, look at the model answer, then say whether you had it
+                with st.expander("Show the model answer"):
+                    st.markdown(q.get("e") or "(The page gives no model answer.)")
+                with st.container(horizontal=True, gap="small", key=f"qself_{cid}_{run['stamp']}_{qi}"):
+                    st.button("I Had It", key=f"{prefix}_got", icon=":material/check:", type="primary" if res.get("got") is True else "secondary", on_click=_self_grade, args=(run_key, qi, True))
+                    st.button("Not Yet", key=f"{prefix}_miss", icon=":material/close:", type="primary" if res.get("got") is False else "secondary", on_click=_self_grade, args=(run_key, qi, False))
             if q["kind"] == "mc" and res.get("hint"):
                 text, gone = _hint_for(q)
                 st.markdown(f":orange[**Hint used. This is recorded.**] {text}")
@@ -529,7 +539,7 @@ def _run(course, chapter, run, run_key):
         return
 
     res_all = run["res"]
-    answered = sum(1 for qi in order if (res_all.get(qi) or {}).get("chosen") is not None)
+    answered = sum(1 for qi in order if (res_all.get(qi) or {}).get("chosen") is not None or (res_all.get(qi) or {}).get("got") is not None)
     notes = sum(1 for qi in order if (res_all.get(qi) or {}).get("notes"))
     hints = sum(1 for qi in order if (res_all.get(qi) or {}).get("hint"))
     if run.get("mode") == "each":

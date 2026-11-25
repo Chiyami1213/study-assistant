@@ -63,3 +63,61 @@ def test_each_part_is_scored_separately_and_the_total_adds_them_up():
     assert [a["part"] for a in crud.quiz_attempts(course["id"], ch["book"]["id"])] == ["guided", "speed", "concept"]
     quiz_view._start(run_key, ch, "guided")
     assert [q["a"] for q in quiz_view.st.session_state[run_key]["qs"]] == [1, 1] and quiz_view.st.session_state[run_key]["order"] == [0, 1]       # steps keep their order and their options
+
+
+def _add_note(cid, lecture, body):
+    PDF_DIR.mkdir(parents=True, exist_ok=True)
+    dest = PDF_DIR / f"book_variety_{lecture}.html"
+    dest.write_text(f"<html><head><title>T{lecture}</title></head><body>{body}</body></html>", encoding="utf-8")
+    return crud.add_book(f"Note {lecture}", "", "", stored_path(dest), None, [cid], "Notes", "2026", str(lecture))
+
+
+def test_guides_with_different_quizzes_are_all_handled():
+    """Any mix of the parts: only a speed round (another variable name), only guided examples of the notes, only open questions, a broken quiz, no quiz at all."""
+    cid = crud.add_course("HUM 1", "Variety", "Fall 2026", 0, "Active")
+    only_speed = _add_note(cid, 1, '<section id="s1"><h2>One</h2></section><script>const SPEED=[["a?",["y","n"],0,"because"],["b?",["y","n"],1,"since"]],N=1,LIMIT=45;</script>')
+    only_guided = _add_note(cid, 2, '<section id="s1"><h2>One</h2><details class="example" id="ex-3"><summary><span class="exn">Ex 3</span>Spread</summary><div class="exbody"><h5>Problem</h5><p>Find it.</p>'
+                                    '<h5 class="exclear">Solution</h5></div></details></section><script>window.GD_DATA=[{"id": 3, "steps": [{"tag": "m", "q": "Which?", "o": [["A", 1, "yes"], ["B", 0, "no"]], "done": "x"}], "final": "7"}];</script>')
+    only_open = _add_note(cid, 3, '<section id="quiz"><h2>Quiz</h2><details class="q"><summary>1. Why does the sky look blue?</summary><p>Rayleigh scattering.</p></details>'
+                                  '<details class="q"><summary>2. Name one source of error.</summary><p>Parallax.</p></details></section>')
+    _add_note(cid, 4, '<section id="s1"><h2>Broken</h2></section><script>var BANK=[["a",["y"</script><script>window.GD_DATA=[{"id": 1, "steps": [</script>')            # a quiz that cannot be read
+    _add_note(cid, 5, '<section id="s1"><h2>No quiz at all</h2></section>')
+    by = {c["book"]["id"]: c for c in quiz_view.course_chapters(crud.get_course(cid))}
+    assert set(by) == {only_speed, only_guided, only_open}                                                   # the broken one and the one without a quiz offer nothing, and nothing fails
+    assert list(quiz_view.chapter_parts(by[only_speed])) == ["speed"] and by[only_speed]["speed"]["n"] == 1 and by[only_speed]["speed"]["limit"] == 45
+    g = quiz_view.chapter_parts(by[only_guided])
+    assert list(g) == ["guided"] and g["guided"][0]["tag"].startswith("Practice 3") and "Find it." in g["guided"][0]["ctx"]            # the guided examples of the notes, no practice section needed
+    o = quiz_view.chapter_parts(by[only_open])
+    assert list(o) == ["concept"] and [q["kind"] for q in o["concept"]] == ["open", "open"]
+
+
+def test_open_questions_are_answered_by_looking_at_the_model_answer_and_scored_by_the_student():
+    cid = crud.add_course("HUM 2", "Essays", "Fall 2026", 0, "Active")
+    bid = _add_note(cid, 1, '<section id="quiz"><h2>Quiz</h2><details class="q"><summary>1. Why?</summary><p>Because.</p></details><details class="q"><summary>2. How?</summary><p>Like so.</p></details></section>')
+    course = crud.get_course(cid)
+    ch = quiz_view.course_chapters(course)[0]
+    quiz_view._start("quiz_run_open", ch, "concept")
+    run = quiz_view.st.session_state["quiz_run_open"]
+    run["res"][run["order"][0]] = {"got": True}
+    run["res"][run["order"][1]] = {"got": False}
+    quiz_view._finish(course, ch, run)
+    assert (run["correct"], len(run["review"])) == (1, 2)
+    assert crud.quiz_stats(cid)[bid]["last_correct"] == 1 and crud.quiz_stats(cid)[bid]["last_total"] == 2
+
+
+def test_the_quiz_tab_runs_an_open_question_quiz_end_to_end():
+    from pathlib import Path
+    from streamlit.testing.v1 import AppTest
+    cid = crud.add_course("HUM 3", "Essays", "Fall 2026", 0, "Active")
+    bid = _add_note(cid, 1, '<section id="quiz"><h2>Quiz</h2><details class="q"><summary>1. Why?</summary><p>Because.</p></details></section>')
+    at = AppTest.from_file(str(Path(__file__).resolve().parent.parent / "app.py"), default_timeout=90)
+    at.session_state["page"] = "Courses"
+    at.session_state["open_course"] = cid
+    at.session_state["course_tab"] = (cid, "Quiz")
+    at.run()
+    assert not at.exception
+    at.button(key=f"quiz_go_{cid}_{bid}").click().run()
+    assert not at.exception and any(b.label == "I Had It" for b in at.button)
+    next(b for b in at.button if b.label == "I Had It").click().run()
+    at.button(key=f"quiz_finish_{cid}").click().run()
+    assert not at.exception and crud.quiz_stats(cid)[bid]["last_correct"] == 1

@@ -11,10 +11,14 @@ from study import quizzes
 _DEC = json.JSONDecoder()
 
 
-def _arrays_after(text, marker):
-    """Every JSON array that follows `marker` in the page, as a list of lists. `window.GD_DATA=[...]` and `window.GD_DATA=(window.GD_DATA||[]).concat([...])` are both read."""
+_BANK = r"(?:var|let|const)\s+(?:[A-Za-z_]*BANK|SR_?(?:QS|QUESTIONS|DATA)|SPEED(?:_?[A-Za-z]+)?|speed(?:Bank|Qs|Questions|Data)?)\s*=\s*(?=\[)"
+_GD = r"GD_DATA\s*=\s*(?:\(\s*window\.GD_DATA\s*\|\|\s*\[\s*\]\s*\)\s*\.concat\(\s*)?(?=\[)"
+
+
+def _arrays_after(text, pattern):
+    """Every JSON array that follows a match of `pattern` (a regex ending just before its `[`), as a list of lists. `window.GD_DATA=[...]` and `window.GD_DATA=(window.GD_DATA||[]).concat([...])` are both read."""
     out = []
-    for m in re.finditer(re.escape(marker) + r"\s*(?:\(\s*window\.GD_DATA\s*\|\|\s*\[\s*\]\s*\)\s*\.concat\(\s*)?(?=\[)", text):
+    for m in re.finditer(pattern, text):
         i = m.end()
         try:
             value, _ = _DEC.raw_decode(text, i)
@@ -27,7 +31,7 @@ def _arrays_after(text, marker):
 
 def speed(html_text, defs=None):
     """{"questions": [question dicts of the bank], "n": questions in a round, "limit": seconds} or None when the page has no speed round."""
-    arrays = _arrays_after(html_text, "var BANK=")
+    arrays = _arrays_after(html_text, _BANK)
     if not arrays:
         return None
     qs = []
@@ -37,9 +41,9 @@ def speed(html_text, defs=None):
             qs.append({**q, "tag": "Speed Round"})
     if not qs:
         return None
-    m = re.search(r"\bN\s*=\s*(\d+)\s*,\s*LIMIT\s*=\s*(\d+)", html_text)
-    n, limit = (int(m.group(1)), int(m.group(2))) if m else (8, 90)
-    return {"questions": qs, "n": min(n, len(qs)), "limit": limit}
+    n_m, limit_m = re.search(r"\bN\s*=\s*(\d+)\b", html_text), re.search(r"\bLIMIT\s*=\s*(\d+)\b", html_text)
+    n, limit = (int(n_m.group(1)) if n_m else 8), (int(limit_m.group(1)) if limit_m else 90)
+    return {"questions": qs, "n": max(1, min(n, len(qs))), "limit": max(10, limit)}
 
 
 def _example_info(html_text, ex_id, defs):
@@ -54,16 +58,18 @@ def _example_info(html_text, ex_id, defs):
 
 
 def guided(html_text, defs=None):
-    """[{"id", "title", "problem", "questions", "final"}] for the guided numerical practice of the page (the examples of `gpractice`, ids that start with P), in page order."""
-    section = re.search(r'<section[^>]*id="gpractice"[^>]*>(.*?)</section>', html_text, re.S)
-    if not section:
-        return []
-    wanted = re.findall(r'<details[^>]*id="ex-([^"]+)"', section.group(1))
+    """[{"id", "title", "problem", "questions", "final"}] for the guided numerical practice of the page, in page order: the examples of the section `gpractice`; a guide with no such section but with
+    guided examples in its notes (Guided mode) offers those instead."""
     data = {}
-    for arr in _arrays_after(html_text, "GD_DATA="):
+    for arr in _arrays_after(html_text, _GD):
         for ex in arr:
             if isinstance(ex, dict) and "steps" in ex:
                 data[str(ex.get("id"))] = ex
+    section = re.search(r'<section[^>]*id="gpractice"[^>]*>(.*?)</section>', html_text, re.S)
+    if section:
+        wanted = re.findall(r'<details[^>]*id="ex-([^"]+)"', section.group(1))
+    else:
+        wanted = [i for i in re.findall(r'<details[^>]*id="ex-([^"]+)"', html_text) if i in data]
     out = []
     for ex_id in wanted:
         ex = data.get(ex_id)

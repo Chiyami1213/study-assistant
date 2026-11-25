@@ -4,6 +4,10 @@
 
 ---
 
+## 1.1.4 (not released yet)
+
+- **Study guides with different quizzes.** The Quiz tab offers whatever a guide has: any mix of conceptual questions, speed round and guided practice (the speed round bank may have other variable names; guided examples in the notes count as guided practice when there is no practice section), and a guide whose questions are open (essay) gets open questions with a model answer, scored by you. A quiz the app cannot read is left out instead of causing an error.
+
 ## 1.1.3 (2026-11-25)
 
 - **A guided tour for every new course.** After you add a course, the app offers a short tour (also on the course page: **Set Up Tour**) that takes you to the syllabus (**Add Syllabus** reads the grading, the letter grades, the instructor and the outline, and the Overview is built from it), to **Update Files** (homework, exams and other files from the course's folder, with the type guessed from each name) and to **Prompt for AI** with the course already chosen (homework helpers, grade explanations and exam pages). It uses the same box, arrow and helper card as the Getting Started tour, and skipping it does not switch the tutorial off.
