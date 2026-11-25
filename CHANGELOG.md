@@ -7,6 +7,7 @@
 ## 1.1.4 (not released yet)
 
 - **Study guides with different quizzes.** The Quiz tab offers whatever a guide has: any mix of conceptual questions, speed round and guided practice (the speed round bank may have other variable names; guided examples in the notes count as guided practice when there is no practice section), and a guide whose questions are open (essay) gets open questions with a model answer, scored by you. A quiz the app cannot read is left out instead of causing an error.
+- **Menu.** A thin grey line runs down the left of the course list under Courses.
 
 ## 1.1.3 (2026-11-25)
 

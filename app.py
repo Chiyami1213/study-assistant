@@ -132,6 +132,9 @@ section[data-testid="stSidebar"].nav-collapsed .st-key-nav_collapse {{display: n
 [class*="st-key-nav_sub"] {{max-height: 0; overflow: hidden; transition: max-height .25s ease;}}
 [class*="st-key-nav_group_"]:hover [class*="st-key-nav_sub"] {{max-height: 2400px;}}
 [class*="st-key-nav_sub"] button {{padding: 0.5rem 16px 0.5rem 36px !important;}}
+/* a grey vertical line down the left of the sub-items, under the icon of the group (it is hidden with the folded sub-menu) */
+[class*="st-key-nav_sub"] {{position: relative;}}
+[class*="st-key-nav_sub"]::before {{content: ""; position: absolute; left: 35px; top: 2px; bottom: 2px; width: 1px; background: #4a4d57; pointer-events: none;}}
 
 /* Folded rail: compact centered icon blocks with even edge spacing */
 section[data-testid="stSidebar"] > div:first-child:not(:hover) button,
