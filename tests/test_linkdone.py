@@ -40,3 +40,20 @@ def test_done_in_the_task_list_marks_the_homework_and_the_exam_event():
     ex = crud.add_event("Midterm 1", "2026-11-20", cid)
     exam_id = ts.add_task("Midterm 1", cid, "Exam", timeutil.to_utc(date(2026, 11, 20), time(9), "America/New_York"), 600)
     assert linkdone.from_task(ts.get_task(exam_id), True) == 1 and crud.list_events("2026-11-20", "2026-11-20")[0]["done"]
+
+
+def test_the_home_page_lists_lab_reports_and_projects_and_ticks_them_done():
+    from datetime import date, time
+    from views import home_view
+    cid = crud.add_course("AE 7", "Lab Course", "Fall 2026", 0, "Active")
+    due = timeutil.to_utc(date(2026, 12, 4), time(17), "America/New_York")
+    lab = ts.add_task("Lab 2 Report", cid, "Lab", due, 180)
+    proj = ts.add_task("Project Proposal", cid, "Project", due, 300)
+    ts.add_task("HW 9", cid, "Homework", due, 120)                                            # homework is listed from the course page, not from here
+    by_id = {cid: crud.get_course(cid)}
+    got = {t[2]: t for t in home_view._tasks(by_id, False)}
+    assert set(got) == {"Lab 2 Report", "Project Proposal"} and got["Lab 2 Report"][:2] == ("2026-12-04", "17:00") and got["Project Proposal"][3] == "Project"
+    home_view._complete("Lab", lab)
+    assert [t[2] for t in home_view._tasks(by_id, False)] == ["Project Proposal"] and [t[2] for t in home_view._tasks(by_id, True)] == ["Lab 2 Report"]
+    home_view._undo("Lab", lab)
+    assert len(home_view._tasks(by_id, False)) == 2

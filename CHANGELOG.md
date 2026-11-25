@@ -6,6 +6,7 @@
 
 ## 1.1.3 (not released yet)
 
+- **Home shows labs and projects:** the Upcoming list (now "Upcoming Work") also lists the Lab and Project tasks of your active courses, with a Lab or Project badge, a check button to mark them done, and an Undo in Completed.
 - **Prompt for AI is up to date with the newest study guide rules:** course-type profiles (math, engineering, chemistry, biology, language, finance, programming, statistics, humanities), the theme toggle, Guided Mode steps, interactive tools (LaTeX in controls, no overlaps, continuous traces, figures, plots), readable prose, native script for language courses, the three-part Quiz (conceptual questions, a 90-second speed round, guided numerical practice) and the helper, grade, reflection and preparation page rules.
 
 ## 1.1.2 (2026-11-19)

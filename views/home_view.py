@@ -58,12 +58,25 @@ def render():
                         text=f"{c['code']}: {c['name']} · {done}/{total} homework" if total
                         else f"{c['code']}: {c['name']} · no homework yet")
     with right:
-        st.subheader("Upcoming Homework and Exams")
+        st.subheader("Upcoming Work")
         _upcoming(courses, homework)
 
 
 EXAM_RE = re.compile(r"midterm|final|exam", re.I)
 SHOWN = 8
+TASK_KINDS = ("Lab", "Project")                  # work that is not homework or an exam but is due: a lab report, a project (the planner's tasks of these categories)
+
+
+def _tasks(by_id, done):
+    """[(day, time, title, kind, course, id)] of the Lab and Project tasks of the active courses that are done (or not): the due day and time in the term's zone."""
+    from planner import store, task_store
+    zone = store.get_term().zone
+    out = []
+    for t in task_store.list_tasks():
+        if t.category in TASK_KINDS and t.course_id in by_id and t.is_done == done and t.due:
+            local = t.due.astimezone(zone)
+            out.append((local.date().isoformat(), local.strftime("%H:%M"), t.title, t.category, by_id[t.course_id], t.id))
+    return out
 
 
 def _when(day, time):
@@ -91,6 +104,7 @@ def _upcoming(courses, homework):
     items += [(e["date"], e.get("time") or "", e["title"], "Exam", by_id[e["course_id"]], e.get("covers"), e["id"])
               for e in crud.list_events(today.isoformat(), "2100-12-31")
               if e["course_id"] in by_id and EXAM_RE.search(e["title"]) and not e.get("done")]
+    items += [(day, time, title, kind, c, None, tid) for day, time, title, kind, c, tid in _tasks(by_id, False)]
     items.sort(key=lambda x: (x[0], x[1]))
     if not items:
         st.success("Nothing due. Enjoy the free time.")
@@ -100,7 +114,7 @@ def _upcoming(courses, homework):
                 label, css = _countdown(day, today)
                 tag = (f'<span class="book-badge tag" style="background:{crud.course_color(c)};'
                        f'border-color:{crud.course_color(c)}">{html.escape(crud.show_code(c["code"]))}</span>')
-                kind_badge = '<span class="book-badge">Exam</span>' if kind == "Exam" else ""
+                kind_badge = f'<span class="book-badge">{kind}</span>' if kind != "Homework" else ""
                 info, pill, check = st.columns([8, 2.2, 0.9], vertical_alignment="center")
                 info.markdown(f'<div><div class="dl-title">{html.escape(title)}</div>'
                               f'<div class="up-meta">{tag}{kind_badge}<span class="dl-when">{html.escape(_when(day, time))}</span></div>'
@@ -114,7 +128,10 @@ def _upcoming(courses, homework):
 
 
 def _complete(kind, item_id):
-    from planner import linkdone
+    from planner import linkdone, task_store
+    if kind in TASK_KINDS:
+        task_store.set_done(item_id, True)
+        return
     if kind == "Homework":
         crud.set_homework_status(item_id, "verified")
     else:
@@ -123,7 +140,10 @@ def _complete(kind, item_id):
 
 
 def _undo(kind, item_id):
-    from planner import linkdone
+    from planner import linkdone, task_store
+    if kind in TASK_KINDS:
+        task_store.set_done(item_id, False)
+        return
     if kind == "Homework":
         crud.set_homework_status(item_id, "todo")
     else:
@@ -139,6 +159,7 @@ def _completed(courses, homework, today):
             if h["status"] == "verified" and h["due_date"] and h["due_date"] >= since]
     rows += [(e["date"], e["title"], "Exam", by_id[e["course_id"]], e["id"]) for e in crud.list_events(since, "2100-12-31")
              if e["course_id"] in by_id and EXAM_RE.search(e["title"]) and e.get("done")]
+    rows += [(day, title, kind, c, tid) for day, _time, title, kind, c, tid in _tasks(by_id, True) if day >= since]
     if not rows:
         return
     with st.expander(f"Completed ({len(rows)})"):
