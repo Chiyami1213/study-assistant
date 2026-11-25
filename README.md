@@ -4,7 +4,7 @@
 
 ---
 
-Version 1.1.2. See the [changelog](CHANGELOG.md) for what changed in each release.
+Version 1.1.3. See the [changelog](CHANGELOG.md) for what changed in each release.
 
 **A personal study desk for university coursework.** Keep a course's textbooks, lecture slides, notes, homework and exams in one library, read them side by
 side, and let the app keep track of deadlines, grades and outlines. It runs on your computer, in its own desktop window, and your files, notes and grades stay there. The app goes online only for three things: **Import From Calendar** reads the calendar link you give it (and reads it again when the app opens, which you can turn off), notes with math load the MathJax library from the jsDelivr CDN when you open them, and **Report an Issue** opens a pre-filled GitHub page in your browser, which sends nothing until you press Submit there.
@@ -71,6 +71,10 @@ you share must be shared with its source under the same license. The software it
 Questions about installing, antivirus warnings, your files, backups, shortcuts and connection problems are answered on the [Help tab](docs/HELP.md).
 
 ## What's new
+
+**1.1.3**
+- **Three quizzes for every chapter** in the course Quiz tab: conceptual questions, a timed speed round and guided numerical practice, taken separately and counted together in the chapter's total.
+- **Home** also lists lab reports and projects; **Prompt for AI** follows the newest study guide rules.
 
 **1.1.2**
 - **Remove Files** in bulk (Library > Import), **Update From Folder** that finds newer versions of files you already have, and Done on Home and in the Task List kept in step.

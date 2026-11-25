@@ -4,7 +4,7 @@
 
 ---
 
-## 1.1.3 (not released yet)
+## 1.1.3 (2026-11-25)
 
 - **Three quizzes in the course Quiz tab.** A study guide's Quiz now has three parts and so does each chapter of the course Quiz tab: **Conceptual Questions**, a **Speed Round** (8 questions drawn from the guide's bank, 90-second countdown, answers marked at once, what is not answered when the time is up is missed) and **Guided Practice** (the steps of the guide's numerical practice problems, with the problem shown and the reason of the option you chose). Each is started, finished, saved for later (not the speed round) and retaken separately; the three scores count together in the chapter's total (the last attempt of each part), which the Overview's Understanding block uses. Every attempt is kept and View shows them with their part.
 - **Home shows labs and projects:** the Upcoming list (now "Upcoming Work") also lists the Lab and Project tasks of your active courses, with a Lab or Project badge, a check button to mark them done, and an Undo in Completed.
