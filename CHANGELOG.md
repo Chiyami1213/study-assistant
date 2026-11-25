@@ -6,6 +6,7 @@
 
 ## 1.1.3 (not released yet)
 
+- **Three quizzes in the course Quiz tab.** A study guide's Quiz now has three parts and so does each chapter of the course Quiz tab: **Conceptual Questions**, a **Speed Round** (8 questions drawn from the guide's bank, 90-second countdown, answers marked at once, what is not answered when the time is up is missed) and **Guided Practice** (the steps of the guide's numerical practice problems, with the problem shown and the reason of the option you chose). Each is started, finished, saved for later (not the speed round) and retaken separately; the three scores count together in the chapter's total (the last attempt of each part), which the Overview's Understanding block uses. Every attempt is kept and View shows them with their part.
 - **Home shows labs and projects:** the Upcoming list (now "Upcoming Work") also lists the Lab and Project tasks of your active courses, with a Lab or Project badge, a check button to mark them done, and an Undo in Completed.
 - **Prompt for AI is up to date with the newest study guide rules:** course-type profiles (math, engineering, chemistry, biology, language, finance, programming, statistics, humanities), the theme toggle, Guided Mode steps, interactive tools (LaTeX in controls, no overlaps, continuous traces, figures, plots), readable prose, native script for language courses, the three-part Quiz (conceptual questions, a 90-second speed round, guided numerical practice) and the helper, grade, reflection and preparation page rules.
 

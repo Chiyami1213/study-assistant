@@ -245,6 +245,7 @@ CREATE TABLE IF NOT EXISTS quiz_attempts (
     assisted  INTEGER NOT NULL DEFAULT 0,  -- correct answers made with the notes or a hint
     notes_used INTEGER NOT NULL DEFAULT 0, -- questions where Check Notes was used
     hints_used INTEGER NOT NULL DEFAULT 0, -- questions where Hint was used
+    part TEXT NOT NULL DEFAULT 'concept',  -- which of the three quizzes of a chapter: concept (conceptual questions), speed (speed round), guided (guided numerical practice)
     chapter_key TEXT                       -- which chapter of the course the quiz is (its lecture number), so the record finds its notes again when the page is replaced by a new import
 );
 
@@ -432,6 +433,8 @@ def init_db() -> None:
             conn.execute("ALTER TABLE books ADD COLUMN author TEXT")
         if "chapter_key" not in [r["name"] for r in conn.execute("PRAGMA table_info(quiz_attempts)")]:
             conn.execute("ALTER TABLE quiz_attempts ADD COLUMN chapter_key TEXT")
+        if "part" not in [r["name"] for r in conn.execute("PRAGMA table_info(quiz_attempts)")]:
+            conn.execute("ALTER TABLE quiz_attempts ADD COLUMN part TEXT NOT NULL DEFAULT 'concept'")
         if "time" not in [r["name"] for r in conn.execute("PRAGMA table_info(events)")]:
             conn.execute("ALTER TABLE events ADD COLUMN time TEXT")
         if "book_id" not in [r["name"] for r in conn.execute("PRAGMA table_info(course_outline)")]:

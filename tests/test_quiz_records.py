@@ -33,3 +33,19 @@ def test_an_ambiguous_chapter_is_left_alone_and_records_of_other_courses_are_not
     note(a, "5", "One")
     two = note(a, "5", "Two")                                                                            # two notes of chapter 5 in the course: which one is not known
     assert crud.quiz_attempts(a, two) == [] and crud.relink_quiz_attempts() == 0
+
+
+def test_the_three_quizzes_of_a_chapter_are_separate_but_count_in_total():
+    cid = crud.add_course("PHYS 2", "P", "Fall 2026", 0, "Active")
+    b = note(cid, "3")
+    crud.add_quiz_attempt(cid, b, 10, 12)                                      # conceptual (the usual)
+    s = crud.quiz_stats(cid)[b]
+    assert (s["last_correct"], s["last_total"], list(s["parts"])) == (10, 12, ["concept"])
+    crud.add_quiz_attempt(cid, b, 6, 8, part="speed")
+    crud.add_quiz_attempt(cid, b, 4, 8, part="guided")
+    s = crud.quiz_stats(cid)[b]
+    assert (s["last_correct"], s["last_total"], s["attempts"]) == (20, 28, 3)    # 10 + 6 + 4 of 12 + 8 + 8
+    crud.add_quiz_attempt(cid, b, 8, 8, part="speed")                          # a retake of one part replaces its score in the total
+    s = crud.quiz_stats(cid)[b]
+    assert (s["last_correct"], s["last_total"], s["parts"]["speed"]["attempts"]) == (22, 28, 2)
+    assert s["best"] == 83 and len(crud.quiz_attempts(cid, b)) == 4 and [a["part"] for a in crud.quiz_attempts(cid, b, "speed")] == ["speed", "speed"]

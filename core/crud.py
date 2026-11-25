@@ -631,10 +631,13 @@ def chapter_key(book):
     return (lecture.lstrip("0") or "0") if lecture.isdigit() else None
 
 
-def add_quiz_attempt(course_id, book_id, correct, total, answers=None, assisted=0, notes_used=0, hints_used=0):
+QUIZ_PARTS = ("concept", "speed", "guided")           # the three quizzes of a chapter: conceptual questions, speed round, guided numerical practice
+
+
+def add_quiz_attempt(course_id, book_id, correct, total, answers=None, assisted=0, notes_used=0, hints_used=0, part="concept"):
     key = chapter_key(get_book(book_id))
-    return _exec("INSERT INTO quiz_attempts(course_id,book_id,correct,total,answers,assisted,notes_used,hints_used,chapter_key) "
-                 "VALUES (?,?,?,?,?,?,?,?,?)", (course_id, book_id, correct, total, answers, assisted, notes_used, hints_used, key))
+    return _exec("INSERT INTO quiz_attempts(course_id,book_id,correct,total,answers,assisted,notes_used,hints_used,chapter_key,part) "
+                 "VALUES (?,?,?,?,?,?,?,?,?,?)", (course_id, book_id, correct, total, answers, assisted, notes_used, hints_used, key, part if part in QUIZ_PARTS else "concept"))
 
 
 def relink_quiz_attempts():
@@ -655,8 +658,10 @@ def relink_quiz_attempts():
     return moved
 
 
-def quiz_attempts(course_id, book_id):
-    """The finished attempts of one quiz, newest first."""
+def quiz_attempts(course_id, book_id, part=None):
+    """The finished attempts of a chapter's quizzes (of one part when `part` is given), newest first."""
+    if part:
+        return _all("SELECT * FROM quiz_attempts WHERE course_id=? AND book_id=? AND part=? ORDER BY id DESC", (course_id, book_id, part))
     return _all("SELECT * FROM quiz_attempts WHERE course_id=? AND book_id=? ORDER BY id DESC", (course_id, book_id))
 
 
@@ -669,14 +674,20 @@ def clear_quiz_attempts(course_id, book_id=None):
 
 
 def quiz_stats(course_id):
-    """{book id: {attempts, last_correct, last_total, last_assisted, last_notes, last_hints, best (best unaided percent),
-    last_at}} for the quizzes taken in a course."""
+    """{book id: {attempts, last_correct, last_total, last_assisted, last_notes, last_hints, best (best unaided percent), last_at, parts}} for the quizzes taken in a course.
+    A chapter has three quizzes (conceptual questions, speed round, guided practice) that are done separately and COUNT IN TOTAL: the last_* numbers are the sums of the last attempt of each part taken,
+    `best` is the best total reached after any attempt, and `parts` is {part: {attempts, last_correct, last_total, last_assisted, best}} for each part taken."""
     rows = _all("SELECT * FROM quiz_attempts WHERE course_id=? ORDER BY id", (course_id,))
-    out = {}
+    out, last = {}, {}
     for r in rows:
-        s = out.setdefault(r["book_id"], {"attempts": 0, "best": 0})
+        part = r["part"] if r["part"] in QUIZ_PARTS else "concept"
+        s = out.setdefault(r["book_id"], {"attempts": 0, "best": 0, "parts": {}})
         s["attempts"] += 1
-        s["best"] = max(s["best"], round(100 * (r["correct"] - r["assisted"]) / r["total"]) if r["total"] else 0)
-        s.update(last_correct=r["correct"], last_total=r["total"], last_assisted=r["assisted"], last_notes=r["notes_used"],
-                 last_hints=r["hints_used"], last_at=r["taken_at"])
+        p = s["parts"].setdefault(part, {"attempts": 0, "best": 0})
+        p["attempts"] += 1
+        p["best"] = max(p["best"], round(100 * (r["correct"] - r["assisted"]) / r["total"]) if r["total"] else 0)
+        p.update(last_correct=r["correct"], last_total=r["total"], last_assisted=r["assisted"], last_notes=r["notes_used"], last_hints=r["hints_used"], last_at=r["taken_at"])
+        tot = {k: sum(x[k] for x in s["parts"].values()) for k in ("last_correct", "last_total", "last_assisted", "last_notes", "last_hints")}
+        s.update(tot, last_at=r["taken_at"])
+        s["best"] = max(s["best"], round(100 * (tot["last_correct"] - tot["last_assisted"]) / tot["last_total"]) if tot["last_total"] else 0)
     return out
