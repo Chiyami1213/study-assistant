@@ -10,11 +10,11 @@ PARTS = [
     ("mindmap", "Mind Map", re.compile(r"mind[\s_-]*maps?", re.I)),
     ("eqsheet", "Equation Sheet", re.compile(r"equation sheet|formula sheet|cheat sheet", re.I)),
     ("assumptions", "Assumptions", re.compile(r"^\s*(summary\s+)?assumptions?(\s+list)?\s*$", re.I)),
-    ("quiz", "Quiz", re.compile(r"self[\s_-]*check|\bquiz\b|^\s*(practice\s+)?exercises", re.I)),
+    ("quiz", "Quiz", re.compile(r"self[\s_-]*check|\bquiz\b|^\s*(practice\s+)?exercises|speed\s*round|guided\s+(numerical\s+)?practice", re.I)),
     ("errata", "Errata", re.compile(r"errata|notes check|things to fix|corrections|clarifications?", re.I)),
 ]
 PART_IDS = {"mindmap": "mindmap", "mind-map": "mindmap", "eqsheet": "eqsheet", "sheet": "eqsheet", "cheat": "eqsheet",
-            "assumptions": "assumptions", "quiz": "quiz", "qs": "quiz", "exercises": "quiz", "selfcheck": "quiz", "errata": "errata"}
+            "assumptions": "assumptions", "quiz": "quiz", "qs": "quiz", "exercises": "quiz", "selfcheck": "quiz", "gpractice": "quiz", "speed": "quiz", "errata": "errata"}      # the Quiz of a guide has three parts: conceptual questions, a speed round, guided numerical practice
 
 
 def parts(page_html):

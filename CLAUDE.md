@@ -42,6 +42,7 @@ The app has no note builder any more (the old `notes/` chapter folders and the `
   section: `s1`, `s2`, ... , the tab opens at the first), `eqsheet` or `sheet` (Equation Sheet), `assumptions` (Assumptions), `errata`
   (Errata; older notes use a "Notes check" section), `quiz` (Quiz; older notes use a "Self-check" section). Not every note has every
   part, and a part that is missing gets no tab.
+- The quiz of a guide has three parts under the Quiz tab: (1) conceptual questions (`id="qBox"`, the array `Q`; the app scores only these, 12 a chapter), (2) a speed round (`id="speed"`, `srBox`, inside the `quiz` section) and (3) guided numerical practice (`<section id="gpractice">`, after `quiz`). `outline.PART_IDS` / `PARTS` treat `gpractice` and `speed` as part of the Quiz tab.
 - A note with its own quiz script (`id="qBox"`) runs it as it is; older notes get the course's question set injected
   (`quiz_view.book_questions`).
 - Reference files (textbooks, lecture notes) are in the Library, with stored copies under `pdfs/` (data folder).

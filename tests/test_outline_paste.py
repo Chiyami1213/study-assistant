@@ -51,3 +51,12 @@ def test_chapters_and_lectures_are_told_apart_and_an_outline_with_levels_is_neit
     assert C.flat_kind(C.from_text("Lec 1  A\nLec 2  B")) == "Lectures" and C.flat_kind(C.from_text("Ch 1  A\nCh 2  B")) == "Chapters"
     assert C.flat_kind(C.from_text("I. Topic\n  A. Sub")) is None and C.flat_kind([]) is None
     assert C.rows_from_items(C.from_text("I. Topic\n  A. Sub")) == [{"number": "", "title": "Topic", "hours": ""}]          # only the top level goes into a table
+
+
+def test_the_speed_round_and_the_guided_numerical_practice_belong_to_the_quiz_tab():
+    from study import outline
+    page = ('<section id="s1"><h2>One</h2></section><section id="quiz"><h2>Quiz</h2><div id="qBox"></div><div id="speed"><h3>Part 2 Speed Round</h3></div></section>'
+            '<section id="gpractice"><h2>Guided Numerical Practice</h2></section>')
+    assert [(p["key"], p["section"]) for p in outline.parts(page)] == [("notes", "s1"), ("quiz", "quiz")]          # one Quiz tab, no extra Notes part
+    only = '<section id="s1"><h2>One</h2></section><section id="gpractice"><h2>Guided Numerical Practice</h2></section>'
+    assert [p["key"] for p in outline.parts(only)] == ["notes", "quiz"]

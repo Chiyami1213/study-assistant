@@ -26,6 +26,7 @@ The page is a list of `<section id="...">` blocks, each starting with an `<h2>`.
 Rules:
 
 1. Use these ids exactly, in this order: `mindmap` first, then `s1`, `s2`, ..., then `eqsheet`, `assumptions` (if any), `errata`, `quiz`. A part the guide does not have gets no section and no tab.
+   The Quiz part has three parts, all under the Quiz tab: (1) the conceptual questions (`<div id="qBox">`, from the array `Q` below; the app scores only these), (2) a timed speed round (`<div id="speed">` in the `quiz` section, with its own questions, none repeated from part 1), and (3) guided numerical practice, written as its own `<section id="gpractice">` right after `quiz` (a heading "Guided Numerical Practice", worked problems in `<details class="example" id="ex-P1">`, ...). The reader treats `gpractice` as part of the Quiz tab.
 2. Give every subsection heading an id built from its section: `s2-1`, `s2-2`, ... (the heading `<h3 id="s2-2">`). Give every worked example an id `ex-1`, `ex-2`, ... in page order. My other pages link to these ids.
 3. Equations carry their number in the box as in the style rules, and the equation sheet links back to them.
 4. **The quiz data** follows the Quiz rules and is written as one JavaScript array in the page's script, named `Q`, one entry for each question in this exact shape (the app reads it for the Quiz tab of the course page, and the page can run its own quiz from the same array):
