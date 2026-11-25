@@ -4,17 +4,15 @@
 
 ---
 
-## 1.1.4 (not released yet)
-
-- **Study guides with different quizzes.** The Quiz tab offers whatever a guide has: any mix of conceptual questions, speed round and guided practice (the speed round bank may have other variable names; guided examples in the notes count as guided practice when there is no practice section), and a guide whose questions are open (essay) gets open questions with a model answer, scored by you. A quiz the app cannot read is left out instead of causing an error.
-- **Menu.** A thin grey line runs down the left of the course list under Courses.
-
 ## 1.1.3 (2026-11-25)
 
 - **A guided tour for every new course.** After you add a course, the app offers a short tour (also on the course page: **Set Up Tour**) that takes you to the syllabus (**Add Syllabus** reads the grading, the letter grades, the instructor and the outline, and the Overview is built from it), to **Update Files** (homework, exams and other files from the course's folder, with the type guessed from each name) and to **Prompt for AI** with the course already chosen (homework helpers, grade explanations and exam pages). It uses the same box, arrow and helper card as the Getting Started tour, and skipping it does not switch the tutorial off.
 - **Library header:** the title and the Import button are in one row (at the right, as on the Courses page), with the view, the order and the sort box in the row below.
 
 - **Three quizzes in the course Quiz tab.** A study guide's Quiz now has three parts and so does each chapter of the course Quiz tab: **Conceptual Questions**, a **Speed Round** (8 questions drawn from the guide's bank, 90-second countdown, answers marked at once, what is not answered when the time is up is missed) and **Guided Practice** (the steps of the guide's numerical practice problems, with the problem shown and the reason of the option you chose). Each is started, finished, saved for later (not the speed round) and retaken separately; the three scores count together in the chapter's total (the last attempt of each part), which the Overview's Understanding block uses. Every attempt is kept and View shows them with their part.
+- **Study guides with different quizzes.** The Quiz tab offers whatever a guide has: any mix of conceptual questions, speed round and guided practice (the speed round bank may have other variable names; guided examples in the notes count as guided practice when there is no practice section), and a guide whose questions are open (essay) gets open questions with a model answer, scored by you. A quiz the app cannot read is left out instead of causing an error.
+- **Closed-book round.** A guide's "Closed-Book Round · Write It From Memory" (the equations to write on paper, each with its answer behind a card) is now a fourth quiz of the chapter in the course Quiz tab, next to the conceptual questions, the speed round and the guided practice. You write each equation with the notes shut, open the model answer and press **I Had It** or **Not Yet**; the score counts in the chapter's total like the others.
+- **Menu.** The courses under Courses are indented to the right of a thin grey line that runs down from the group's icon; the highlighted course's box does not touch the line.
 - **Links on a course page:** Add Link sits below the links, at the left, so there is no empty band above them.
 - **Home shows labs and projects:** the Upcoming list (now "Upcoming Work") also lists the Lab and Project tasks of your active courses, with a Lab or Project badge, a check button to mark them done, and an Undo in Completed.
 - **Prompt for AI is up to date with the newest study guide rules:** course-type profiles (math, engineering, chemistry, biology, language, finance, programming, statistics, humanities), the theme toggle, Guided Mode steps, interactive tools (LaTeX in controls, no overlaps, continuous traces, figures, plots), readable prose, native script for language courses, the three-part Quiz (conceptual questions, a 90-second speed round, guided numerical practice) and the helper, grade, reflection and preparation page rules.

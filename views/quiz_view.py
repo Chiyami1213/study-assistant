@@ -33,7 +33,7 @@ from views import library_view
 
 PASS, STRONG = 60, 80          # percent: below PASS the quiz is failed
 MODE_END, MODE_EACH = "Check After Finishing", "Check After Each Answer"
-PART_LABEL = {"concept": "Conceptual Questions", "speed": "Speed Round", "guided": "Guided Practice"}      # the three quizzes of a chapter; their scores count in total
+PART_LABEL = {"concept": "Conceptual Questions", "speed": "Speed Round", "guided": "Guided Practice", "closed": "Closed-Book Round"}      # the quizzes of a chapter; their scores count in total
 
 # The written questions put the right answer second most of the time, so the options are shuffled for every attempt. A question is left in
 # its order when an option points at the others ("All of the above", "Both A and B", "option C") or when its choices are a row of numbers;
@@ -69,13 +69,20 @@ def _questions(path, mtime):
 
 @st.cache_data(show_spinner=False, max_entries=64)
 def _extra_parts(path, mtime):
-    """{"speed": {questions, n, limit} or None, "guided": [step questions of the guided practice, in order]} of a note: its speed round and its guided numerical practice."""
+    """{"speed": {questions, n, limit} or None, "guided": [step questions of the guided practice, in order], "closed": [equations of the closed-book round]} of a note."""
     text = open(path, encoding="utf-8", errors="replace").read()
     try:
         defs = macros.from_html(text)
-        return {"speed": quizparts.speed(text, defs), "guided": [q for g in quizparts.guided(text, defs) for q in g["questions"]]}
-    except Exception:                                  # a quiz written in a form this app does not know is left out, never an error on the course page
-        return {"speed": None, "guided": []}
+        out = {"speed": None, "guided": [], "closed": []}
+        for key, read in (("speed", lambda: quizparts.speed(text, defs)), ("guided", lambda: [q for g in quizparts.guided(text, defs) for q in g["questions"]]),
+                          ("closed", lambda: quizparts.closed(text, defs))):
+            try:
+                out[key] = read()
+            except Exception:                          # a quiz written in a form this app does not know is left out (the others stay), never an error on the course page
+                pass
+        return out
+    except Exception:
+        return {"speed": None, "guided": [], "closed": []}
 
 
 def chapter_parts(chapter):
@@ -87,6 +94,8 @@ def chapter_parts(chapter):
         out["speed"] = chapter["speed"]["questions"]
     if chapter.get("guided"):
         out["guided"] = chapter["guided"]
+    if chapter.get("closed"):
+        out["closed"] = chapter["closed"]
     return out
 
 
@@ -134,8 +143,8 @@ def course_chapters(course):
                 qq["tag"] = (labels.get(qq.get("sec")) or ref(qq["_num"])) + " · " + qq["tag"].replace("Self-check · ", "") + " (self-check)"
         qs = own
         extra = _extra_parts(str(path), path.stat().st_mtime)
-        if qs or extra["speed"] or extra["guided"]:
-            out.append({"book": b, "questions": qs, "path": path, "speed": extra["speed"], "guided": extra["guided"],
+        if qs or extra["speed"] or extra["guided"] or extra["closed"]:
+            out.append({"book": b, "questions": qs, "path": path, "speed": extra["speed"], "guided": extra["guided"], "closed": extra["closed"],
                         "name": (f"Lec {b['lecture']} · " if b.get("lecture") else "") + b["title"]})
     return out
 
@@ -344,7 +353,7 @@ def render(course):
     st.radio("Checking Mode", [MODE_END, MODE_EACH], index=[MODE_END, MODE_EACH].index(pref), horizontal=True, key=run_key + "_mode",
              help="check after finishing: nothing is marked until you finish. check after each answer: an answer is marked right away "
                   "and cannot be changed; check notes and hint are not available")
-    st.caption(f"Pick a chapter or lecture. Each chapter has up to three quizzes (conceptual questions, a speed round, guided practice): take them separately; their scores count together in the total. "
+    st.caption(f"Pick a chapter or lecture. Each chapter has up to four quizzes (conceptual questions, a speed round, guided practice, a closed-book round of equations to write from memory): take them separately; their scores count together in the total. "
                f"Below {PASS}% the total is failed. Check Notes and Hint are allowed (not in the mode that checks each answer, and not in the speed round) but recorded.")
     for c in chapters:
         s = stats.get(c["book"]["id"])
@@ -357,8 +366,8 @@ def render(course):
             label, css = _level(pct)
             meta.markdown(f"Total {_unaided(s)}/{s['last_total']} unaided ({pct}%)  \nBest {s['best']}% · {s['attempts']} attempts")
             pill.markdown(f'<span class="dl-pill {css}">{label}</span>', unsafe_allow_html=True)
-        else:
-            meta.caption("Not taken yet")
+        else:                                                    # at the far right of the row, where the View button of a taken quiz would be
+            view.markdown('<div style="text-align:right; opacity:0.6; font-size:0.875rem;">Not taken yet</div>', unsafe_allow_html=True)
         if s:
             view.button("View", key=f"quiz_view_{course['id']}_{c['book']['id']}", width="stretch", icon=":material/visibility:",
                         on_click=_open_view, args=(run_key, c), help="opens a finished attempt again: the questions, your answers and the explanations")
@@ -366,7 +375,7 @@ def render(course):
         for (part, qs), cell in zip(parts.items(), cells):
             ps = (s or {}).get("parts", {}).get(part)
             saved = saved_progress(course["id"], c["book"]["id"], part)
-            unit = "steps" if part == "guided" else "questions"
+            unit = {"guided": "steps", "closed": "equations"}.get(part, "questions")
             cell.caption(f"**{PART_LABEL[part]}** · {_count(c, part, qs)} {unit}" + (f" · last {ps['last_correct'] - ps['last_assisted']}/{ps['last_total']}" if ps else " · not taken")
                          + (f" · {int(c['speed']['limit'])} s" if part == "speed" else ""))
             suffix = "" if part == "concept" else f"_{part}"
@@ -494,7 +503,7 @@ def _cards(chapter, run, run_key, cid):
                                f"{{opacity: 0.4; text-decoration: line-through; pointer-events: none;}}")
             if res.get("notes"):
                 st.markdown(":orange[**Notes used for this question. This is recorded.**]")
-            if run.get("part") == "speed":                       # a speed round is answered on instinct: no notes, no hint
+            if run.get("part") in ("speed", "closed"):           # a speed round is answered on instinct and a closed-book round with the notes shut: no notes, no hint
                 continue
             with st.container(horizontal=True, gap="small", key=f"qhelp_{cid}_{run['stamp']}_{qi}"):
                 st.button("Show Notes" if res.get("notes") else "Check Notes", key=f"{prefix}_notes", type="tertiary",
@@ -542,7 +551,9 @@ def _run(course, chapter, run, run_key):
     answered = sum(1 for qi in order if (res_all.get(qi) or {}).get("chosen") is not None or (res_all.get(qi) or {}).get("got") is not None)
     notes = sum(1 for qi in order if (res_all.get(qi) or {}).get("notes"))
     hints = sum(1 for qi in order if (res_all.get(qi) or {}).get("hint"))
-    if run.get("mode") == "each":
+    if part == "closed":
+        st.caption(f"{answered} of {len(order)} answered. Notes shut: write each equation on paper, open the model answer to check, then press I Had It only if you had it exactly, or Not Yet.")
+    elif run.get("mode") == "each":
         right = sum(1 for qi in order if _is_right(qs[qi], res_all.get(qi)))
         st.caption(f"{answered} of {len(order)} answered · {right} right so far · {notes} with notes · {hints} with hints (both recorded). "
                    f"Press an option to answer; it is marked at once and cannot be changed.")

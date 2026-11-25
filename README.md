@@ -30,7 +30,7 @@ side, and let the app keep track of deadlines, grades and outlines. It runs on y
   Google Calendar and Shovel from a calendar link (kept up to date) or an `.ics` file.
 - **Prompts for your own AI.** Library > Import > **Prompt for AI** writes a ready-to-paste prompt for **Claude, ChatGPT or Gemini** for a study guide, a homework
   helper, a grade explanation, an exam reflection or an exam preparation page, with the format this app reads built in; download the page the assistant makes and import it.
-- **Quizzes and eye rest.** Each chapter has up to three quizzes from your notes: conceptual questions, a timed 90-second speed round and guided numerical practice (step by step, with the reason for every option). They are taken separately and their scores count together in a total per chapter, kept even when a note is replaced. A reminder to rest your eyes every 20 minutes.
+- **Quizzes and eye rest.** Each chapter has up to four quizzes from your notes: conceptual questions, a timed 90-second speed round, guided numerical practice (step by step, with the reason for every option) and a closed-book round of equations to write from memory. They are taken separately and their scores count together in a total per chapter, kept even when a note is replaced. A reminder to rest your eyes every 20 minutes.
 - **Backup and moving.** Automatic snapshots, a library backup in a folder you choose, and Export My Files / Import to keep a copy or take everything to another
   computer.
 

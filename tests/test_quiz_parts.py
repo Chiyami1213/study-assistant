@@ -121,3 +121,31 @@ def test_the_quiz_tab_runs_an_open_question_quiz_end_to_end():
     next(b for b in at.button if b.label == "I Had It").click().run()
     at.button(key=f"quiz_finish_{cid}").click().run()
     assert not at.exception and crud.quiz_stats(cid)[bid]["last_correct"] == 1
+
+
+CLOSED = ('<section id="quiz"><h2>Quiz</h2><div id="cbr"><h3>Closed-Book Round · Write It From Memory</h3>'
+          '<div class="cbbar"><button type="button" id="cbClose">Close all</button><span class="cbp" id="cbProg"></span></div>'
+          '<details class="cb"><summary><span class="cbn">1.</span><span class="cbq">Write: Gibbs phase rule</span></summary><div class="cba"><div class="eqb key"><div class="eqm">\\[F=C-P+2\\]</div></div>'
+          '<p class="small">\\(C\\) components, \\(P\\) phases.</p><label class="cbk"><input type="checkbox" data-id="c1"/> I wrote this correctly from memory</label></div></details>'
+          '<details class="cb"><summary><span class="cbn">2.</span><span class="cbq">Write: Enthalpy</span></summary><div class="cba"><div class="eqb key"><div class="eqm">\\[H\\equiv U+pV\\]</div></div>'
+          '<label class="cbk"><input type="checkbox" data-id="c2"/> I wrote this correctly from memory</label></div></details></div></section>')
+
+
+def test_the_closed_book_round_is_a_quiz_of_its_own_scored_by_the_student():
+    from study import quizparts
+    qs = quizparts.closed(CLOSED)
+    assert [q["q"] for q in qs] == ["Write: Gibbs phase rule", "Write: Enthalpy"] and all(q["kind"] == "open" for q in qs)
+    assert "$$F=C-P+2$$" in qs[0]["e"] and "$C$ components" in qs[0]["e"] and "I wrote this correctly" not in qs[0]["e"]      # the answer without the tick box
+    assert quizparts.closed("<section id='s1'>no round</section>") == []
+    cid = crud.add_course("HUM 3", "Closed", "Fall 2026", 0, "Active")
+    bid = _add_note(cid, 1, CLOSED)
+    course = crud.get_course(cid)
+    ch = quiz_view.course_chapters(course)[0]
+    assert list(quiz_view.chapter_parts(ch)) == ["closed"] and quiz_view.PART_LABEL["closed"] == "Closed-Book Round"
+    quiz_view._start("quiz_run_closed", ch, "closed")
+    run = quiz_view.st.session_state["quiz_run_closed"]
+    run["res"][run["order"][0]] = {"got": True}
+    run["res"][run["order"][1]] = {"got": False}
+    quiz_view._finish(course, ch, run)
+    s = crud.quiz_stats(cid)[bid]
+    assert (s["last_correct"], s["last_total"]) == (1, 2) and set(s["parts"]) == {"closed"}

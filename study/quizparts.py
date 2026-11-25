@@ -46,6 +46,25 @@ def speed(html_text, defs=None):
     return {"questions": qs, "n": max(1, min(n, len(qs))), "limit": max(10, limit)}
 
 
+def closed(html_text, defs=None):
+    """The closed-book round of a page (`<div id="cbr">`): equations to write from memory. [{"kind": "open", "q": what to write, "e": the answer (equations and a note), "tag"}] in page order, or [].
+    Each card is `<details class="cb"><summary>... <span class="cbq">Write: ...</span></summary><div class="cba">equation, note, tick box</div></details>`; the student ticks it in the page, here the
+    student says "I Had It" or "Not Yet" like for any open question."""
+    out = []
+    for m in re.finditer(r'<details[^>]*class="cb"[^>]*>(.*?)</details>', html_text, re.S):
+        body = m.group(1)
+        q = re.search(r'<span class="cbq">(.*?)</span>\s*</summary>', body, re.S) or re.search(r"<summary>(.*?)</summary>", body, re.S)
+        a = re.search(r'<div class="cba">(.*)', body, re.S)
+        if not q:
+            continue
+        ans = re.sub(r'<label class="cbk">.*?</label>', "", a.group(1) if a else "", flags=re.S)
+        ans = re.sub(r"</div>|<p\b", lambda x: "\n\n" + x.group(0), ans)               # an equation and the note under it are separate paragraphs
+        text = quizzes._md(q.group(1), defs)
+        if text:
+            out.append({"kind": "open", "q": text, "o": [], "a": None, "e": quizzes._md(ans, defs), "tag": "Closed-Book Round"})
+    return out
+
+
 def _example_info(html_text, ex_id, defs):
     """(title, problem statement as markdown) of the practice example `ex-<id>`."""
     m = re.search(r'<details[^>]*id="ex-' + re.escape(str(ex_id)) + r'"[^>]*>\s*<summary>(.*?)</summary>(.*?)(?=<h5[^>]*class="exclear"|</details>)', html_text, re.S)

@@ -631,7 +631,7 @@ def chapter_key(book):
     return (lecture.lstrip("0") or "0") if lecture.isdigit() else None
 
 
-QUIZ_PARTS = ("concept", "speed", "guided")           # the three quizzes of a chapter: conceptual questions, speed round, guided numerical practice
+QUIZ_PARTS = ("concept", "speed", "guided", "closed")  # the quizzes of a chapter: conceptual questions, speed round, guided numerical practice, closed-book round (equations written from memory)
 
 
 def add_quiz_attempt(course_id, book_id, correct, total, answers=None, assisted=0, notes_used=0, hints_used=0, part="concept"):
@@ -675,7 +675,7 @@ def clear_quiz_attempts(course_id, book_id=None):
 
 def quiz_stats(course_id):
     """{book id: {attempts, last_correct, last_total, last_assisted, last_notes, last_hints, best (best unaided percent), last_at, parts}} for the quizzes taken in a course.
-    A chapter has three quizzes (conceptual questions, speed round, guided practice) that are done separately and COUNT IN TOTAL: the last_* numbers are the sums of the last attempt of each part taken,
+    A chapter has up to four quizzes (conceptual questions, speed round, guided practice, closed-book round) that are done separately and COUNT IN TOTAL: the last_* numbers are the sums of the last attempt of each part taken,
     `best` is the best total reached after any attempt, and `parts` is {part: {attempts, last_correct, last_total, last_assisted, best}} for each part taken."""
     rows = _all("SELECT * FROM quiz_attempts WHERE course_id=? ORDER BY id", (course_id,))
     out, last = {}, {}

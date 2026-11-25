@@ -132,9 +132,15 @@ section[data-testid="stSidebar"].nav-collapsed .st-key-nav_collapse {{display: n
 [class*="st-key-nav_sub"] {{max-height: 0; overflow: hidden; transition: max-height .25s ease;}}
 [class*="st-key-nav_group_"]:hover [class*="st-key-nav_sub"] {{max-height: 2400px;}}
 [class*="st-key-nav_sub"] button {{padding: 0.5rem 16px 0.5rem 36px !important;}}
-/* a grey vertical line down the left of the sub-items, under the icon of the group (it is hidden with the folded sub-menu) */
+/* the sub-items are indented to the right of a thin grey line that runs down from the middle of the group's icon (as in the Projects menu of the reference), so the chosen course's box never touches it */
 [class*="st-key-nav_sub"] {{position: relative;}}
-[class*="st-key-nav_sub"]::before {{content: ""; position: absolute; left: 35px; top: 2px; bottom: 2px; width: 1px; background: #4a4d57; pointer-events: none;}}
+[class*="st-key-nav_sub"]::before {{content: ""; position: absolute; left: 36px; top: 0; bottom: 0; width: 1px; background: #3a3d46; pointer-events: none;}}
+[class*="st-key-nav_sub"] [data-testid="stElementContainer"] {{margin-left: 46px; width: calc(100% - 56px) !important;}}
+[class*="st-key-nav_sub"] button {{padding-left: 14px !important;}}
+/* a second, shorter line beside the courses of each section (Active, Self-Study, Completed): every course row draws its piece, so the pieces join into one line per section and the headings have none */
+[class*="st-key-nav_course_"] {{position: relative;}}
+[class*="st-key-nav_course_"]::before {{content: ""; position: absolute; left: 15px; top: 0; bottom: 0; width: 1px; background: #3a3d46; pointer-events: none;}}
+[class*="st-key-nav_course_"] button {{margin-left: 22px !important; width: calc(100% - 22px) !important; padding-left: 14px !important;}}
 
 /* Folded rail: compact centered icon blocks with even edge spacing */
 section[data-testid="stSidebar"] > div:first-child:not(:hover) button,
@@ -163,7 +169,7 @@ section[data-testid="stSidebar"].nav-collapsed [class*="st-key-nav_sub"] {{max-h
 
 /* Foldable section headings in the Courses submenu */
 [class*="st-key-nav_sub"] [class*="st-key-nav_sec_"] button, [class*="st-key-nav_sec_"] button {{
-    padding: 0.55rem 16px 0.35rem 30px !important; gap: 8px !important;}}
+    padding: 0.55rem 16px 0.35rem 0 !important; gap: 8px !important;}}
 [class*="st-key-nav_sec_"] button p {{color: #7d8190 !important;}}
 [class*="st-key-nav_sec_"] button span[data-testid="stIconMaterial"] {{font-size: 1.2rem !important; color: #7d8190 !important;}}
 [class*="st-key-nav_sec_"] button:hover {{background: transparent !important;}}
@@ -2519,8 +2525,7 @@ def course_sub_buttons():
             if not items:
                 continue
             closed = status in collapsed
-            if st.button(title, icon=":material/chevron_right:" if closed else ":material/expand_more:",
-                         key=f"nav_sec_{status}", type="tertiary"):
+            if st.button(title, key=f"nav_sec_{status}", type="tertiary", help="click to fold or unfold this list"):         # no arrow: the heading alone folds the list
                 collapsed.symmetric_difference_update({status})
                 settings.set_collapsed(collapsed)
                 st.rerun()
