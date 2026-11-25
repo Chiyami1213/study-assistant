@@ -106,6 +106,22 @@ def _add_course_dialog():
             st.toast("The course was added, but that photo could not be read.")
         st.session_state["courses_filter"] = status
         st.session_state["_courses_filter_kept"] = status
+        if not tutorial.active_tour():
+            st.session_state["_setup_offer"] = cid                         # a short tour offers to set the new course up (syllabus, files, AI pages)
+        st.rerun()
+
+
+@st.dialog("Set Up This Course")
+def _setup_offer_dialog(cid):
+    course = crud.get_course(cid)
+    st.markdown(f"**{crud.label(course) if course else 'The course'}** is added. A short guided tour shows you how to set it up: add the syllabus (the Overview page is built from it), "
+                "bring in its homework, exams and other files, and make homework helpers and grade explanations with your AI.")
+    st.caption("You can start it later from the course page (Set Up Tour).")
+    a, b = st.columns(2)
+    if a.button("Start the Tour", key="setup_start", type="primary", width="stretch"):
+        tutorial.start_course(cid)
+        st.rerun()
+    if b.button("Not Now", key="setup_skip", width="stretch"):
         st.rerun()
 
 
@@ -213,6 +229,9 @@ def _sorted_groups(courses, sort_by):
 
 
 def render():
+    offer = st.session_state.pop("_setup_offer", None)
+    if offer and not tutorial.active_tour():
+        _setup_offer_dialog(offer)
     open_id = st.session_state.get("open_course")
     course = crud.get_course(open_id) if open_id else None
     if course:
@@ -221,14 +240,17 @@ def render():
             settings.touch_course(course["id"])
         if st.session_state.get("lib_toast"):
             st.toast(st.session_state.pop("lib_toast"))
-        back_col, update_col, _gap = st.columns([1.4, 2.2, 6])
+        back_col, update_col, tour_col, _gap = st.columns([1.4, 2.2, 2.2, 4])
         if back_col.button("← All Courses", key="course_back"):
             st.session_state["open_course"] = None
             st.session_state.pop("course_tab", None)
             st.rerun()
-        if update_col.button("Update Files", key="course_update_files", icon=":material/sync:", help="reads the folder your files are kept in and lists the new and the changed ones for this course"):
+        if update_col.button("Update Files", key="course_update_files", icon=":material/sync:", help="reads the folder your files are kept in and lists the new and the changed ones for this course") or tutorial.wants("course_folder"):
             from views import library_import
             library_import.folder_dialog(course["id"])
+        if tour_col.button("Set Up Tour", key="course_setup_tour", icon=":material/school:", help="a guided tour: add the syllabus, bring in the files and make helpers with your ai"):
+            tutorial.start_course(course["id"])
+            st.rerun()
         st.markdown(_hero_html(course), unsafe_allow_html=True)  # banner between the button row and the tabs
         _manage(course)
         return
@@ -651,7 +673,7 @@ def _syllabus(course):
         st.caption("This course has more than one syllabus. Choose a part above to see its syllabus and what each part of the grade is worth.")
         return
     add_col, edit_col, _gap = st.columns([1.5, 1.5, 6])
-    if add_col.button("Add Syllabus", key=f"syl_add_{course['id']}", icon=":material/upload_file:", help="add the syllabus pdf to the Library and read it: grading, letter grades, instructor and outline"):
+    if add_col.button("Add Syllabus", key=f"syl_add_{course['id']}", icon=":material/upload_file:", help="add the syllabus pdf to the Library and read it: grading, letter grades, instructor and outline") or tutorial.wants("add_syllabus"):
         _syllabus_add_dialog(course)
     if edit_col.button("Edit Syllabus", key=f"syl_edit_{course['id']}", icon=":material/edit:", disabled=not data, help="change anything that was read from the syllabus, or type it in"):
         _syllabus_edit_dialog(course)

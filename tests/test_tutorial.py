@@ -134,3 +134,34 @@ def test_the_arrow_keys_move_the_tour_but_not_while_typing():
     js = tutorial.OVERLAY.read_text(encoding="utf-8")
     assert "ArrowRight" in js and "ArrowLeft" in js and "isContentEditable" in js and "INPUT|TEXTAREA|SELECT" in js         # the keys are read, and a field being typed in keeps them
     assert "removeEventListener('keydown'" in js                                                                           # and the listener goes away with the overlay
+
+
+def test_the_course_tour_is_consistent_and_every_window_it_opens_is_known():
+    keys = {k for k, *_ in tutorial.COURSE_STEPS} | {"done"}
+    assert [s["main"] for s in tutorial.COURSE_TOUR if s["main"] != "done"][0] == "syllabus" and tutorial.COURSE_TOUR[-1]["main"] == "done"
+    assert all(s["main"] in keys and s["title"] and s["text"] for s in tutorial.COURSE_TOUR)
+    assert {s["open"] for s in tutorial.COURSE_TOUR if s.get("open")} == {"add_syllabus", "course_folder", "prompt"}
+    assert [m for m in dict.fromkeys(s["main"] for s in tutorial.COURSE_TOUR)] == [k for k, *_ in tutorial.COURSE_STEPS] + ["done"]       # the entries follow the steps of the chain
+    assert all(s.get("advance") in (None, "syllabi", "books") for s in tutorial.COURSE_TOUR)
+
+
+def test_adding_a_course_offers_the_tour_and_its_pages_open_the_windows_of_the_course():
+    cid = crud.add_course("AE 1", "Aero", "Fall 2026", 0, "Active")
+    at = AppTest.from_file(APP, default_timeout=90)
+    at.session_state["page"] = "Courses"
+    at.session_state["_setup_offer"] = cid
+    at.run()
+    assert not at.exception and at.button(key="setup_start") is not None                                   # the offer: Start the Tour, Not Now
+    at.session_state["_tour"] = {"i": 0, "applied": -1, "base": None, "name": "course", "course": cid}        # what Start the Tour does (a window's buttons cannot be clicked in AppTest)
+    at.run()
+    tour = at.session_state["_tour"]
+    assert tour["name"] == "course" and tour["course"] == cid and at.session_state["open_course"] == cid and at.session_state["course_tab"] == (cid, "Overview")
+    assert not at.exception and at.button(key="course_setup_tour") is not None                              # the course page, with the button that starts the tour again
+    for target_open in ("add_syllabus", "course_folder"):                                                   # the windows of the tour open without error
+        i = next(n for n, s in enumerate(tutorial.COURSE_TOUR) if s.get("open") == target_open)
+        at.session_state["_tour"] = {**tour, "i": i, "applied": i}
+        at.run()
+        assert not at.exception
+    at.session_state["_tour"] = {**tour, "i": 8, "applied": -1}                                              # the Library step opens Prompt for AI with this course chosen
+    at.run()
+    assert not at.exception and at.session_state["page"] == "Library"

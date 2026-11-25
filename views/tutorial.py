@@ -55,12 +55,35 @@ TOUR = [
 ]
 
 
+# The tour of one new course (offered when a course is added, and from the course page): the syllabus (the overview page is built from it), the course's files (homework, exams, resources) and the
+# pages an AI writes for it (helpers, grade explanations). Same engine and same entries as TOUR; `tab` is the tab of the course page to have open.
+COURSE_STEPS = [
+    ("syllabus", "Add the Syllabus", "The syllabus pdf is read: what each part of the grade is worth, the letter-grade cutoffs, the instructor and the outline. The Overview page is built from it.", "Add the Syllabus", "Syllabus"),
+    ("files", "Bring In the Course Files", "Update Files reads the folder where you keep this course's homework, exams, notes and readings, and imports the new ones with their type guessed from the name.", "Import the Files", "Files"),
+    ("helpers", "Make Helpers and Grade Pages", "Prompt for AI writes the prompt that has your own AI make a homework helper, a grade explanation or an exam page for this course.", "Make a Prompt", "AI Pages"),
+]
+COURSE_TOUR = [
+    dict(main="syllabus", page="Courses", tab="Overview", target='css:[class*="st-key-syl_add_"] button', title="Add the Syllabus", text="Add Syllabus reads the syllabus pdf of the course: what each part of the grade is worth, the letter-grade cutoffs, the instructor, and the topic list the outline is built from. Press Next and the window opens."),
+    dict(main="syllabus", page="Courses", tab="Overview", open="add_syllabus", target="label:Syllabus", title="Choose the Syllabus", text="Choose the syllabus pdf of this course. Your file is only copied into the Library; the original is never changed."),
+    dict(main="syllabus", page="Courses", tab="Overview", open="add_syllabus", target="button:Add and Read", advance="syllabi", title="Add and Read", text="Click Add and Read. The tour goes on by itself when the syllabus is added (or press Next to skip this)."),
+    dict(main="syllabus", page="Courses", tab="Overview", target='css:[class*="st-key-syl_edit_"] button', title="Check What Was Read", text="The Overview now shows the grading, the letter grades and the instructor. Nothing is final: Edit Syllabus changes anything that was read wrongly, and the Outline tab builds the course outline from the syllabus topics."),
+    dict(main="files", page="Courses", tab="Overview", target="css:.st-key-course_update_files button", title="Bring In the Course Files", text="Update Files reads the folder where you keep this course's files and lists the new and the changed ones. Press Next and the window opens."),
+    dict(main="files", page="Courses", tab="Overview", open="course_folder", target="button:Choose Folder", title="Choose the Folder", text="Choose the folder of this course (or one that holds it): the homework, the exams, the solutions, the notes and any readings. The app only reads it; your files there are never changed."),
+    dict(main="files", page="Courses", tab="Overview", open="course_folder", target="css:[data-testid=stDialog]", title="Check the List", text="Every pdf and html file is listed with a type guessed from its name (Homework, Homework Solution, Exam, Textbook ...), a title, the lecture or homework number and the course. Change what is wrong, untick what you do not want, and use Select All or Deselect All."),
+    dict(main="files", page="Courses", tab="Overview", open="course_folder", target="css:.st-key-imp_go button", advance="books", title="Import", text="Click Import. Homework and exams then show on the course page and on Home, and a helper or a grade page is paired with its homework by its file name."),
+    dict(main="helpers", page="Library", open="prompt", target="label:Course", title="Pick the Course", text="Prompt for AI makes the prompt your own AI assistant (Claude, ChatGPT or Gemini) needs to write a page for this course in the format this app reads. Choose the course here."),
+    dict(main="helpers", page="Library", open="prompt", target="label:Page", title="Which Page", text="A Homework Helper is for before the due date, a Grade Explanation for after grading, and there are Exam Reflection and Exam Preparation pages. Choose the page and its number or exam; a Study Guide is made from your slides."),
+    dict(main="helpers", page="Library", open="prompt", target="css:[data-testid=stDialog] [data-testid=stCode]", title="Paste It in Your AI Chat", text="Copy the prompt into a chat with your AI and attach the files listed above the box (the homework pdf, the graded paper, your notes ...). Download the page it makes and import it with Library > Import > Add Files: the app pairs it with its homework or exam by the file name."),
+    dict(main="done", page="Courses", tab="Overview", target="", title="The Course Is Set Up", text="The syllabus, the files and the AI pages are in. The Overview shows what is coming up, the Homework and Exams tabs hold the papers with their helpers and grade explanations, and the Quiz tab quizzes you on the notes. You can start this tour again from the course page."),
+]
+
+
 def facts():
     """What the student has done so far, counted from their own data."""
     from planner import session_store, task_store
     books = crud.list_books()
     return {"courses": len(crud.list_courses(section=None)), "terms": len(settings.list_terms()) + (1 if settings.semester_set() and not settings.list_terms() else 0),
-            "meetings": len(crud.list_meetings()), "books": len(books),
+            "meetings": len(crud.list_meetings()), "books": len(books), "syllabi": sum(1 for b in books if b["kind"] == "Syllabus"),
             "guides": sum(1 for b in books if b["kind"] in ("Notes", "Lecture Notes") and str(b["pdf_path"]).lower().endswith((".html", ".htm"))),
             "tasks": len(task_store.list_tasks()), "sessions": len(session_store.list_sessions())}
 
@@ -84,10 +107,29 @@ def active_tour():
     return st.session_state.get("_tour")
 
 
+def _def(tour=None):
+    """(the chain steps, the tour entries, the name shown on the card) of the tour that is on."""
+    tour = tour or active_tour() or {}
+    if tour.get("name") == "course":
+        return COURSE_STEPS, COURSE_TOUR, "Set Up This Course"
+    return STEPS, TOUR, "Getting Started"
+
+
+def course_id():
+    """The course the course tour is about (None when it is not on)."""
+    tour = active_tour()
+    return tour.get("course") if tour and tour.get("name") == "course" else None
+
+
+def start_course(cid):
+    """Start the tour that sets up one course; its pages are shown by `tour_before` on the next run."""
+    st.session_state["_tour"] = {"i": 0, "applied": -1, "base": None, "name": "course", "course": cid}
+
+
 def start(step_key=None):
     """Start the tour at the first thing of a step of the chain (or at the welcome). The page is shown by `tour_before` on the next run."""
     i = 0 if step_key is None else next((n for n, s in enumerate(TOUR) if s["main"] == step_key), 0)
-    st.session_state["_tour"] = {"i": i, "applied": -1, "base": None}
+    st.session_state["_tour"] = {"i": i, "applied": -1, "base": None, "name": "start"}
 
 
 def stop(dismiss=False):
@@ -99,17 +141,20 @@ def stop(dismiss=False):
 def wants(name):
     """True while the step the tour is on needs the window `name` to be open (the pages ask this when they are drawn)."""
     tour = active_tour()
-    return bool(tour and TOUR[tour["i"]].get("open") == name)
+    return bool(tour and _def(tour)[1][tour["i"]].get("open") == name)
 
 
 def _enter(i):
     """Show the page of step i (and remember how many of what it waits for there were)."""
     ss = st.session_state
-    step = TOUR[i]
     tour = ss["_tour"]
+    step = _def(tour)[1][i]
     tour["i"], tour["applied"] = i, i
     ss["page"] = step["page"]
-    if step["page"] == "Courses":
+    if step["page"] == "Courses" and tour.get("name") == "course":          # the page of the course being set up, on the tab of the step
+        ss["open_course"] = tour["course"]
+        ss["course_tab"] = (tour["course"], step.get("tab") or "Overview")
+    elif step["page"] == "Courses":
         ss["open_course"] = None
         ss.pop("course_tab", None)
     if step["page"] == "Library":
@@ -131,27 +176,28 @@ def tour_before():
         ss["_tour_sink_done"] = sink
         action = sink.split("|")[0]
         if action == "skip":
-            stop(dismiss=True)
+            stop(dismiss=tour.get("name") != "course")          # skipping the setup of one course does not switch off the getting-started tutorial
             return
         if action == "done":
             stop()
             return
         if action in ("next", "back"):
-            _enter(max(0, min(len(TOUR) - 1, tour["i"] + (1 if action == "next" else -1))))
+            _enter(max(0, min(len(_def(tour)[1]) - 1, tour["i"] + (1 if action == "next" else -1))))
             return
     if tour["applied"] != tour["i"]:
         _enter(tour["i"])
         return
-    step = TOUR[tour["i"]]
+    step = _def(tour)[1][tour["i"]]
     if step.get("advance") and tour.get("base") is not None and facts().get(step["advance"], 0) > tour["base"]:      # the student did what the step asks
-        _enter(min(len(TOUR) - 1, tour["i"] + 1))
+        _enter(min(len(_def(tour)[1]) - 1, tour["i"] + 1))
 
 
-def _chain(step):
+def _chain(step, steps=None):
     """The chain of the card: [{label, state}] with a tick for the steps before the present one."""
-    keys = [k for k, *_ in STEPS]
+    steps = steps or STEPS
+    keys = [k for k, *_ in steps]
     here = keys.index(step["main"]) if step["main"] in keys else (len(keys) if step["main"] == "done" else -1)
-    return [{"label": title, "state": "done" if n < here else "now" if n == here else "todo"} for n, (_k, title, *_r) in enumerate(STEPS)]
+    return [{"label": title, "state": "done" if n < here else "now" if n == here else "todo"} for n, (_k, title, *_r) in enumerate(steps)]
 
 
 def tour_after():
@@ -163,8 +209,13 @@ def tour_after():
         return
     st.session_state["_tour_drawn"] = True
     i = tour["i"]
-    step = TOUR[i]
-    cfg = {"i": i, "n": len(TOUR), "last": i == len(TOUR) - 1, "title": step["title"], "text": step["text"], "target": step.get("target", ""), "chain": _chain(step), "where": "Getting Started"}
+    steps, entries, where = _def(tour)
+    step = entries[i]
+    target = step.get("target", "")
+    if step.get("css_target") and not target.startswith("css:"):
+        target = "css:" + target
+    cfg = {"i": i, "n": len(entries), "last": i == len(entries) - 1, "title": step["title"], "text": step["text"], "target": target, "chain": _chain(step, steps), "where": where,
+           **({"head": "Set Up This Course", "skip": "Skip Tour", "skip_tip": "close the tour"} if tour.get("name") == "course" else {})}
     components.html("<script>" + OVERLAY.read_text(encoding="utf-8").replace("__CFG__", json.dumps(cfg)) + "</script>", height=0)
 
 

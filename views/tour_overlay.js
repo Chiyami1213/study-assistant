@@ -64,7 +64,7 @@
   const chain = cfg.chain.map((c, i) => `${i ? `<div class="sa-line${c.state !== 'todo' ? ' sa-done' : ''}"></div>` : ''}<div class="sa-dot sa-${c.state}">${c.state === 'done' ? '&#10003;' : i + 1}</div>`).join('');
   const now = cfg.chain.find(c => c.state === 'now');
   const esc = s => String(s).replace(/[&<>]/g, m => ({'&': '&amp;', '<': '&lt;', '>': '&gt;'}[m]));
-  card.innerHTML = `<div class="sa-top"><span>Getting Started</span><button class="sa-skip" data-a="skip" title="close the tutorial">Skip Tutorial &#10005;</button></div><div class="sa-chain">${chain}</div>`
+  card.innerHTML = `<div class="sa-top"><span>${esc(cfg.head || 'Getting Started')}</span><button class="sa-skip" data-a="skip" title="${esc(cfg.skip_tip || 'close the tutorial')}">${esc(cfg.skip || 'Skip Tutorial')} &#10005;</button></div><div class="sa-chain">${chain}</div>`
     + `<div class="sa-where">${now ? esc((cfg.chain.indexOf(now) + 1) + '. ' + now.label) : esc(cfg.where || '')}</div><div class="sa-title">${esc(cfg.title)}</div><div class="sa-text">${esc(cfg.text)}</div>`
     + `<div class="sa-row"><span class="sa-count" title="the left and right arrow keys move between the steps">${cfg.i + 1} / ${cfg.n} &nbsp;&#8592; &#8594;</span><button data-a="back"${cfg.i === 0 ? ' disabled' : ''}>Back</button>`
     + `<button class="sa-next" data-a="${cfg.last ? 'done' : 'next'}">${cfg.last ? 'Finish' : 'Next'}</button></div>`;

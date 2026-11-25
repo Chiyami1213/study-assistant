@@ -1153,7 +1153,7 @@ def render():
         _add_dialog(None)
     elif tutorial.wants("prompt"):
         from views import prompt_dialog
-        prompt_dialog.prompt_dialog()
+        prompt_dialog.prompt_dialog(tutorial.course_id())            # the course the tour is setting up is chosen already
     all_books = crud.list_books()
     courses = {c["id"]: c for c in crud.list_courses(section=None)}
     _handle_click()
