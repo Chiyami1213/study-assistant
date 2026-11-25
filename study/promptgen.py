@@ -54,7 +54,8 @@ KINDS = {
 }
 EXAMS = ["Midterm 1", "Midterm 2", "Midterm 3", "Final Exam"]
 NUMBER_LABEL = {"chapter": "Chapter or Lecture Number", "homework": "Homework Number", "exam": "Exam"}
-STYLE_RULES = ("Format and Navigation", "Math", "Units and Dimensions", "Text Style", "Layout Checks (Every Guide, Before Delivery)")      # the rules of the study guides that pages of the other kinds follow too
+STYLE_RULES = ("How to Use These Rules: Base Plus Course-Type Profile", "Format and Navigation", "Math", "Units and Dimensions", "Text Style", "Interactive Tools", "Language Courses: Native Script",
+               "Content Beyond the Slides and Errors in Sources", "Layout Checks (Every Guide, Before Delivery)")      # the rules of the study guides that pages of the other kinds follow too
 
 ATTACH = {
     "Study Guide": ["the lecture slides (or chapter text) this guide is about, as PDFs", "my own lecture notes for it, if I have any (photos or a scan are fine)", "the other guides of this course I already have, so the style and the links match"],

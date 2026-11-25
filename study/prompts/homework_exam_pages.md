@@ -23,7 +23,20 @@ If you can read my earlier pages for this course (homework grade explanations, h
 - **Equations**: `.eqb` boxes, black 1.5 px edge for regular equations, red 2.5 px edge (`--halpha`, with a faint glow) for final results and governing equations.
 - **Units** in parentheses with a center dot, dimensions in square brackets, every vector with `\vec`, no `/` for division (see the rules).
 - **Title** of each page is the file name (for example `<COURSE> Midterm 1 Grades`); headings in APA title case; fix any formatting problem on every page of that type.
-- Browser storage (`localStorage`) only for per-viewer ticks, always inside `try/catch`.
+- **Closed integrals use `\oint`**, never `\oiint`: MathJax does not render it.
+- **Only wide display equations may scroll horizontally, never inline math** (no overflow rule on inline math containers).
+- **Braces on every subscript and superscript** (`C_{n}H_{m}`, `x_{i}^{2}`, never `C_nH_m`), and check every formula with real MathJax 3, not KaTeX alone: bare chained subscripts give a "Double subscripts" error in MathJax.
+- **Light and dark modes** both ship and follow the system theme; light is the base theme and is checked as carefully as dark. Nothing is hard-coded to one theme (no fixed white or black in text, plots, canvases, figures or MathJax output).
+- **Theme toggle**: a fixed Light/Dark button (class `theme-btn`) in the top-right corner that starts on the system theme, sets `data-theme` on the root and saves the choice in `localStorage`. On phones it sits across from the Contents button so they never overlap; hidden when printing; never covers the header text. (My app hides it while reading and makes the page follow the app's own Light or Dark setting.)
+- **Course type**: tailor the page to the course's type (math or physics, engineering, chemistry, biology, language, finance, programming, statistics, humanities, textbook-only) as in the style rules' profile table, and drop what the course does not use (for example no equation boxes in a humanities course).
+- **Readable prose**: no wall of paragraphs. A paragraph of more than about 80 words, or two long paragraphs in a row (what you wrote, why points were lost, notes, takeaways), becomes bullets with a bold lead term, a small collapsible mind map for categories, or a tabbed or stepper summary with Show all; every fact, number and key term is kept and every panel shows when printed (see the style rules, Text Style).
+- **Interactive models for engineering and STEM**: use 3D interactive or animated models, and as many interactive plots and labs as help visualize the content (a problem's geometry in 3D, a parameter sweep in a Correct solution or Preparation page), wherever they aid understanding.
+- **Language courses**: show native script (for example kanji and kana) next to the romanization for every example, term and sentence in the target language; bare particles, affixes and English stay romanization-only.
+- **Figures** (problem diagrams, free-body diagrams, system sketches) are detailed, accurate original drawings with leader-line labels, never box-and-arrow placeholders; a 3D figure can be rotated (drag, arrow buttons, Front/Side/Top presets, Reset) and a drag never triggers a click.
+- **Plots and charts**: every curve has its own distinct color, different from every other series and from any line already in the figure; the legend shows line samples matching each curve's dash style and wraps on phones; bars and fills never turn black or too dark in dark mode. Check diagrams for overlaps at extreme slider values, and write quantities such as \(v_e\) as real subscripts, never with underscores.
+- **Beyond the sources**: content you add beyond the posted solution or slides goes in a grey callout labelled "beyond the slides"; a typo or error in a source is recorded in the notes section, never silently fixed.
+- **Interactive elements** (hint buttons, check boxes, sliders, readouts) follow the style rules, Interactive Tools: all math in LaTeX, no `/` for division, consistent control spacing, no overlapping labels.
+- Browser storage (`localStorage`) only for per-viewer ticks and the theme choice, always inside `try/catch`.
 
 ## Page Specifications
 
@@ -32,12 +45,13 @@ If you can read my earlier pages for this course (homework grade explanations, h
 Purpose: help me solve the homework myself, part by part, with short steps (I am time-pressed before the due date).
 
 1. Header: course, homework number, a lede with what the homework covers.
-2. **Before You Start: Lessons From Graded Work**: a checklist of the points lost on my earlier homework and exams (grader comments), each tagged with its source (for example `HW1 P4a`). **Include only the lessons that apply to this homework's problems**; drop any the problems cannot trigger and reword examples to the current problems. The lede says only applicable lessons are shown and names the ones that matter most, without numbering them. The first homework of a course has no such section.
+2. **Before You Start: Lessons From Graded Work**: a **compact checklist**: one tick-box row per lesson, with its source tag (for example `HW1 P4a`) and no tiles or cards, because tiles take too much space. The lessons are the points lost on my earlier homework and exams (grader comments). Ticks are saved in the browser. **Include only the lessons that apply to this homework's problems**; drop any the problems cannot trigger and reword examples to the current problems. The lede says only applicable lessons are shown and names the ones that matter most, without numbering them. The first homework of a course has no such section.
 3. One card per problem: page number pill, "Concept check · getting started", the task restated briefly in a shaded box, then:
    - a resource list: notes section links (book icon), a worked example in my notes that uses the same approach (calculator icon), key boxed equations in my notes (Σ icon)
    - one block per part with a lightbulb button that reveals **hints one step at a time** ("Next hint (2 of 4)"), never the full answer
    - a "done" checkbox per part saved in the browser
 4. Hints give the method and the check, not the numeric answer.
+5. **No AI-policy box** in helpers (my reader app already shows it). Keep every helper of a course in the same format.
 
 ### 2. Homework Grade Explanation
 
@@ -101,7 +115,7 @@ Sections: Overview, Rules From the Last Exam, Coverage Map, Equation Sheet, Prob
 2. **Read the inputs**: render scanned pages to images at about 110 dpi for reading and 220 dpi for crops of handwriting. Transcribe the grader's marks and comments exactly.
 3. **Solve before writing**: compute every number in the solutions with code. If a result contradicts the problem statement, find out why before writing (for example check a second-law balance, the table range, the units).
 4. **Gather the material before opening any skill or template**, then build in stages (header and scoreboard, then each card, then the endings).
-5. **Verify** before publishing: open the page at 390 and 1100 (px) wide in a headless browser, confirm no sideways scroll, no script errors and that all folds are closed. (Math may not render offline in a sandbox; that is not a bug.)
+5. **Verify** before publishing: open the page at 390 and 1100 (px) wide, in light and dark, in a headless browser, confirm no sideways scroll, no script errors and that all folds are closed. (Math may not render offline in a sandbox; that is not a bug.)
 6. {{PUBLISH_STEP}}
 7. {{UPDATE_STEP}}
 8. **Zip**: when I ask, deliver one zip per course with the pages (homework grades and helpers together), named with the same names as the pages.

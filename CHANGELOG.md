@@ -4,6 +4,10 @@
 
 ---
 
+## 1.1.3 (not released yet)
+
+- **Prompt for AI is up to date with the newest study guide rules:** course-type profiles (math, engineering, chemistry, biology, language, finance, programming, statistics, humanities), the theme toggle, Guided Mode steps, interactive tools (LaTeX in controls, no overlaps, continuous traces, figures, plots), readable prose, native script for language courses, the three-part Quiz (conceptual questions, a 90-second speed round, guided numerical practice) and the helper, grade, reflection and preparation page rules.
+
 ## 1.1.2 (2026-11-19)
 
 - **Remove Files in bulk:** Library > Import > **Remove Files** lists the files (filter by course and type), with Select All / Deselect All, and removes the ticked ones after a question. Only the Library's stored copies go, never your original files; the database is copied to Backups first.
