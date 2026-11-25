@@ -1161,7 +1161,8 @@ def render():
     lib = st.session_state.setdefault("_lib", {"sort": "Type", "tile": None, "inner": {}, "desc": True})
     in_tile = lib["sort"] in INNER and lib["tile"] is not None
     lib.setdefault("view", "Cards")
-    title_col, view_col, order_col, import_col, sort_col = st.columns([2.6, 2.6, 1.6, 1.3, 1.4], vertical_alignment="bottom")           # the title, the view and the one sort box share a row, lined up at the bottom
+    title_col, import_col = st.columns([6.2, 1.6], vertical_alignment="bottom")            # as on the Courses page: the title and the button at the right in one row,
+    view_col, order_col, sort_col = st.columns([2.6, 1.6, 1.6], vertical_alignment="bottom")   # the view, the order and the sort box in the row below           # the title, the view and the one sort box share a row, lined up at the bottom
     title_col.markdown("<h1 class='lib-title'>Library</h1>", unsafe_allow_html=True)
     if st.session_state.get("lib_toast"):
         st.toast(st.session_state.pop("lib_toast"))

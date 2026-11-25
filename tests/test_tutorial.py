@@ -62,6 +62,7 @@ def test_a_step_button_goes_to_its_page_and_asks_for_its_window():
 
 
 def test_the_steps_are_ticked_off_from_what_the_student_has_done():
+    crud._exec("DELETE FROM books")                                    # whatever an earlier test file left in the shared data folder
     f = {"courses": 0, "terms": 0, "meetings": 0, "books": 0, "guides": 0, "tasks": 0, "sessions": 0}
     assert not any(tutorial.done_flags(f).values())
     crud.add_course("AE 1", "A", "Fall 2026", 0, "Active")
