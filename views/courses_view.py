@@ -420,8 +420,6 @@ def _links(course):
     """Web links of the course (class page, syllabus ...), opened in a new tab."""
     links = crud.list_links(course["id"])
     with st.expander(f"Links ({len(links)})", expanded=True):
-        if st.button("Add Link", key=f"link_open_{course['id']}", icon=":material/add_link:"):
-            _add_link_dialog(course)
         if not links:
             st.caption("No links yet.")
         for ln in links:
@@ -431,6 +429,8 @@ def _links(course):
                        f'{html.escape(ln["title"])}</a>', unsafe_allow_html=True)
             if b.button("Remove", key=f"link_rm_{ln['id']}"):
                 crud.delete_link(ln["id"]); st.rerun()
+        if st.button("Add Link", key=f"link_open_{course['id']}", icon=":material/add_link:"):          # below the links, at the left: no empty band above them
+            _add_link_dialog(course)
 
 
 def _when(day, time):
