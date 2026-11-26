@@ -21,7 +21,7 @@ from datetime import datetime
 import streamlit as st
 import streamlit.components.v1 as components
 
-from core import crud
+from core import crud, settings
 from study import htmlnotes
 from study import macros
 import re
@@ -97,6 +97,12 @@ def chapter_parts(chapter):
     if chapter.get("closed"):
         out["closed"] = chapter["closed"]
     return out
+
+
+def speed_limit(chapter):
+    """Seconds of a speed round of this chapter: the seconds per question of Settings > Quizzes times the questions of the round (so rounds differ in length), or the guide's own limit when Settings says so."""
+    q = settings.get_quiz()
+    return chapter["speed"]["limit"] if q["use_guide_time"] else chapter["speed"]["n"] * q["speed_seconds"]
 
 
 def _count(chapter, part, qs):
@@ -222,7 +228,7 @@ def _start(run_key, chapter, part="concept"):
     run = {"book": chapter["book"]["id"], "order": order, "phase": "run", "res": {}, "part": part,
            "stamp": random.randint(1, 10 ** 9), "qs": qs, "mode": "each" if mode == MODE_EACH or part == "speed" else "end"}      # a speed round marks each answer at once
     if part == "speed":
-        run.update(t0=time.time(), limit=chapter["speed"]["limit"])
+        run.update(t0=time.time(), limit=speed_limit(chapter))
     st.session_state[run_key] = run
 
 
@@ -377,7 +383,7 @@ def render(course):
             saved = saved_progress(course["id"], c["book"]["id"], part)
             unit = {"guided": "steps", "closed": "equations"}.get(part, "questions")
             cell.caption(f"**{PART_LABEL[part]}** · {_count(c, part, qs)} {unit}" + (f" · last {ps['last_correct'] - ps['last_assisted']}/{ps['last_total']}" if ps else " · not taken")
-                         + (f" · {int(c['speed']['limit'])} s" if part == "speed" else ""))
+                         + (f" · {speed_limit(c)} s" if part == "speed" else ""))
             suffix = "" if part == "concept" else f"_{part}"
             cell.button("Retake" if ps else "Start", key=f"quiz_go_{course['id']}_{c['book']['id']}{suffix}", type="primary" if not ps and not saved else "secondary",
                         width="stretch", on_click=_start, args=(run_key, c, part))

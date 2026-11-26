@@ -392,6 +392,26 @@ def set_eye_rest(**values):
     _save(data)
 
 
+DEFAULT_QUIZ = {"speed_seconds": 5, "use_guide_time": False}
+
+
+def get_quiz():
+    """Quiz settings: seconds a speed round gives for each question (the total of a round is that times its number of questions) and whether a guide's own time limit is used instead."""
+    saved = _load().get("quiz", {})
+    out = dict(DEFAULT_QUIZ)
+    for k, v in saved.items():
+        if k in out and type(v) is type(out[k]):
+            out[k] = v
+    out["speed_seconds"] = max(1, min(120, out["speed_seconds"]))
+    return out
+
+
+def set_quiz(**values):
+    data = _load()
+    data["quiz"] = {**get_quiz(), **values}
+    _save(data)
+
+
 DEFAULT_SEMESTER = {"start": "2026-08-24", "end": "2026-12-08", "exam_end": "2026-12-18"}
 
 

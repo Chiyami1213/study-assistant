@@ -53,7 +53,7 @@ def test_each_part_is_scored_separately_and_the_total_adds_them_up():
     for part, right in (("concept", 1), ("speed", 2), ("guided", 1)):
         quiz_view._start(run_key, ch, part)
         run = quiz_view.st.session_state[run_key]
-        assert run["part"] == part and len(run["order"]) == 2 and (part != "speed" or run["limit"] == 90)
+        assert run["part"] == part and len(run["order"]) == 2 and (part != "speed" or run["limit"] == 10)
         for qi in run["order"][:right]:
             run["res"][qi] = {"chosen": run["qs"][qi]["a"], "notes": False, "hint": False}
         quiz_view._finish(course, ch, run)
@@ -149,3 +149,19 @@ def test_the_closed_book_round_is_a_quiz_of_its_own_scored_by_the_student():
     quiz_view._finish(course, ch, run)
     s = crud.quiz_stats(cid)[bid]
     assert (s["last_correct"], s["last_total"]) == (1, 2) and set(s["parts"]) == {"closed"}
+
+
+def test_speed_round_time_is_seconds_per_question_from_settings():
+    from core import settings
+    assert settings.get_quiz() == {"speed_seconds": 5, "use_guide_time": False}                            # the default: 5 seconds for each question
+    cid = crud.add_course("HUM 4", "Speed", "Fall 2026", 0, "Active")
+    _add_note(cid, 1, '<section id="s1"><h2>One</h2></section><script>var BANK=[["a?",["y","n"],0,"x"],["b?",["y","n"],1,"x"],["c?",["y","n"],0,"x"],["d?",["y","n"],1,"x"]],N=3,LIMIT=90;</script>')
+    ch = quiz_view.course_chapters(crud.get_course(cid))[0]
+    assert quiz_view.speed_limit(ch) == 15                                                                  # 3 questions x 5 s, not the 90 s of the guide
+    settings.set_quiz(speed_seconds=8)
+    assert quiz_view.speed_limit(ch) == 24
+    quiz_view._start("quiz_run_speedtime", ch, "speed")
+    assert quiz_view.st.session_state["quiz_run_speedtime"]["limit"] == 24
+    settings.set_quiz(use_guide_time=True)
+    assert quiz_view.speed_limit(ch) == 90                                                                  # or the guide's own limit when Settings says so
+    settings.set_quiz(speed_seconds=5, use_guide_time=False)

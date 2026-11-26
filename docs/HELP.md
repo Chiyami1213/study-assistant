@@ -18,7 +18,7 @@ computer and read again to keep your tasks and events up to date (**Sync Now**, 
 
 **How do I remove what Auto-Plan placed?** Calendar > **Clear Auto-Plan** removes the sessions it made that have not started (the ones you placed yourself stay), or use the bin on a single tile.
 
-**What are the quizzes of a chapter?** Courses > Quiz lists each chapter of your notes with the quizzes the note has: **Conceptual Questions**, a timed **Speed Round**, **Guided Practice** (numerical problems step by step) and a **Closed-Book Round** (write each equation on paper with the notes shut, open the model answer, then press I Had It or Not Yet). Take them separately; the scores count together in the chapter's total, and a quiz can be saved for later (not the speed round). A note may have any mix of them.
+**What are the quizzes of a chapter?** Courses > Quiz lists each chapter of your notes with the quizzes the note has: **Conceptual Questions**, a timed **Speed Round**, **Guided Practice** (numerical problems step by step) and a **Closed-Book Round** (write each equation on paper with the notes shut, open the model answer, then press I Had It or Not Yet). Take them separately; the scores count together in the chapter's total, and a quiz can be saved for later (not the speed round). A speed round gives you a number of seconds for each question (5 by default, Settings > Quizzes), so its total time depends on its number of questions. A note may have any mix of them.
 
 **How do I take a rest when I want one?** Press **Rest Now** in the menu (above Settings). It starts an eye rest at once and the 20-minute reminder starts again from that moment. Reminders and their length are in Settings > Eye Rest.
 

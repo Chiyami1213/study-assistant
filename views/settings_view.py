@@ -6,7 +6,7 @@ import streamlit as st
 
 from core import database, settings
 
-SECTIONS = ["Appearance", "Eye Rest", "Study Planner", "Backup", "Keyboard Shortcuts", "Help", "Report an Issue", "Danger Zone", "About"]
+SECTIONS = ["Appearance", "Eye Rest", "Quizzes", "Study Planner", "Backup", "Keyboard Shortcuts", "Help", "Report an Issue", "Danger Zone", "About"]
 
 
 def _slug(name):
@@ -16,6 +16,25 @@ def _slug(name):
 def _section(name):
     """A section heading the top bar can jump to."""
     st.header(name, anchor=_slug(name))
+
+
+def _quiz_section():
+    """Speed round time: seconds for each question (the total differs from round to round), or the guide's own limit."""
+    _section("Quizzes")
+    quiz = settings.get_quiz()
+    st.caption("A speed round gives you a number of seconds for each question, so a round of 8 questions at 5 seconds has 40 seconds. This replaces the time limit written in the study guide.")
+    with st.container(key="quiz_settings"):
+        cols = st.columns([2, 3, 3])
+        secs = cols[0].number_input("Seconds per Question", 1, 120, quiz["speed_seconds"], 1, key="quiz_speed_seconds", disabled=quiz["use_guide_time"],
+                                    help="the time of a speed round is this many seconds for each of its questions")
+        with cols[1]:
+            st.markdown("<div style='height:1.7rem'></div>", unsafe_allow_html=True)
+            guide = st.toggle("Use the Guide's Own Time Limit", quiz["use_guide_time"], key="quiz_use_guide_time",
+                              help="uses the total time written in each study guide instead of the seconds per question")
+        new = {"speed_seconds": int(secs), "use_guide_time": bool(guide)}
+        if new != {k: quiz[k] for k in new}:
+            settings.set_quiz(**new)
+            st.rerun()
 
 
 def _jump_bar():
@@ -133,6 +152,7 @@ def render():
             settings.set_eye_rest(**new)
             st.rerun()
 
+    _quiz_section()
     _planner_section()
     _backup_section()
     _section("Keyboard Shortcuts")
