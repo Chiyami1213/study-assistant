@@ -65,13 +65,21 @@ def _rest(p):                          # a person sitting in rest
     p.drawPath(path)
 
 
+def _quiz(p):                          # a question mark in a circle
+    p.drawEllipse(QPointF(12, 12), 8.5, 8.5)
+    path = QPainterPath()
+    path.moveTo(9.3, 9.6); path.cubicTo(9.5, 6.8, 14.8, 6.8, 14.8, 9.8); path.cubicTo(14.8, 11.8, 12, 11.6, 12, 14)
+    p.drawPath(path)
+    p.drawPoint(QPointF(12, 16.8))
+
+
 def _course(p):                        # a book
     p.drawRoundedRect(QRectF(5, 3.5, 14, 17), 2, 2)
     p.drawLine(QPointF(8.5, 3.5), QPointF(8.5, 20.5))
     p.drawLine(QPointF(11.5, 8), QPointF(16, 8))
 
 
-DRAWERS = {"Home": _home, "Calendar": _calendar, "Library": _library, "Note Reader": _reader, "Courses": _courses, "Settings": _settings, "Rest Now": _rest, "course": _course}
+DRAWERS = {"Home": _home, "Calendar": _calendar, "Library": _library, "Note Reader": _reader, "Courses": _courses, "Settings": _settings, "Rest Now": _rest, "Quiz": _quiz, "course": _course}
 
 
 def icon(name, color="#d5d7dd", size=24):

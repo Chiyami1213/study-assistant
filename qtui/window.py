@@ -7,6 +7,7 @@ from qtui import server, theme
 from qtui.eyerest import EyeRestController
 from qtui.pages.library_page import LibraryPage
 from qtui.pages.pdf_page import PdfPage
+from qtui.pages.quiz_page import QuizPage
 from qtui.pages.settings_page import SettingsPage
 from qtui.pages.web_page import WebPage
 from qtui.sidebar import Sidebar
@@ -40,6 +41,9 @@ class MainWindow(QMainWindow):
         self.library.classic_requested.connect(lambda what: self.show_page("Classic Library"))
         self.pages["Library"] = self.library
         self.stack.addWidget(self.library)
+        self.quiz = QuizPage(self._colors())
+        self.pages["Quiz"] = self.quiz
+        self.stack.addWidget(self.quiz)
         self.pdf = PdfPage()
         self.pdf.back_requested.connect(lambda: self.show_page("Library"))
         self.stack.addWidget(self.pdf)
@@ -70,6 +74,7 @@ class MainWindow(QMainWindow):
         c = self._colors()
         self.setStyleSheet(theme.stylesheet(c))
         self.settings_page.refresh(c)
+        self.quiz.set_colors(c)
 
     def resizeEvent(self, e):
         c = self.centralWidget()
@@ -84,6 +89,8 @@ class MainWindow(QMainWindow):
         view = self.pages[name]
         if isinstance(view, WebPage):
             view.ensure(self.course if name == "Courses" else None)
+        if name == "Quiz":
+            self.quiz.set_course(self.course)
         self.stack.setCurrentWidget(view)
         self.sidebar.set_current({"Classic Settings": "Settings", "Classic Library": "Library"}.get(name, name), self.course)
 

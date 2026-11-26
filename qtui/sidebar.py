@@ -7,7 +7,7 @@ from core import crud, settings
 from qtui import icons
 from qtui.theme import MENU_W, RAIL_W, SIDEBAR
 
-TOP = ["Home", "Calendar", "Library", "Note Reader", "Courses"]
+TOP = ["Home", "Calendar", "Library", "Note Reader", "Quiz", "Courses"]
 SECTIONS = ["Active", "Self-Study", "Completed"]
 
 

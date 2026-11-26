@@ -86,7 +86,7 @@ def test_the_window_has_the_menu_the_settings_page_and_rest_now(qapp, fresh_data
     w = MainWindow(use_server=False)
     w.show()
     qapp.processEvents()
-    assert set(w.sidebar.buttons) == {"Home", "Calendar", "Library", "Note Reader", "Courses", "Rest Now", "Settings"}
+    assert set(w.sidebar.buttons) == {"Home", "Calendar", "Library", "Note Reader", "Quiz", "Courses", "Rest Now", "Settings"}
     w.choose_course(cid)
     assert w.page == "Courses" and w.course == cid and cid in w.sidebar.courses.course_buttons and w.sidebar.courses.isVisibleTo(w.sidebar)
     w.show_page("Settings")
@@ -180,3 +180,61 @@ def test_the_import_confirmation_returns_what_was_edited_and_ticked(qapp, fresh_
     added, replaced, problems = LI.import_all(chosen, False, course)
     assert (added, replaced, problems) == (1, 0, [])
     assert [b["title"] for b in crud.list_books() if course in b["course_ids"]] == ["Homework Four"]
+
+
+def test_question_text_keeps_its_math_for_mathjax_and_cards_show_their_state():
+    from qtui import quizhtml
+    assert quizhtml.md("Find **x** if $a<b$ and `y`") == "Find <b>x</b> if $a&lt;b$ and <code>y</code>"
+    assert quizhtml.md("one\n\ntwo") == "one<br><br>two"
+    q = {"kind": "mc", "q": "What is $x$?", "o": ["one", "two"], "a": 1, "e": "Because.", "ofb": ["wrong because", ""]}
+    run = {"qs": [q], "order": [0], "res": {0: {"chosen": 0}}, "mode": "each", "part": "concept"}
+    locked = quizhtml.card_inner(run, 0)
+    assert "opt wrong" in locked and "opt right" in locked and "Not correct." in locked and "wrong because" in locked and "Because." in locked and "disabled" in locked
+    run["mode"], run["res"] = "end", {0: {"chosen": 1, "hint": True}}
+    open_ = quizhtml.card_inner(run, 0)
+    assert "opt chosen" in open_ and "Not correct" not in open_ and "Hint used" in open_ and "Check Notes" in open_
+    run["part"] = "speed"
+    assert "Check Notes" not in quizhtml.card_inner(run, 0)                      # no notes and no hint in a speed round
+    page = quizhtml.page({"bg": "#000", "bg2": "#111", "text": "#fff", "border": "#333", "card": "#222", "accent": "#48f", "primary": "#f44", "input": "#222"}, "<p>x</p>")
+    assert "qwebchannel.js" in page and "mathjax" in page
+
+
+def test_the_quiz_page_takes_a_quiz_saves_it_for_later_and_records_the_attempt(qapp, fresh_data):
+    from core import crud
+    from core.database import DATA_DIR, stored_path
+    from qtui import theme
+    from qtui.pages.quiz_page import QuizPage
+    cid = crud.add_course("QT 4", "Quiz", "Fall 2026", 0, "Active")
+    f = DATA_DIR / "pdfs" / "qt_quiz_note.html"
+    f.parent.mkdir(parents=True, exist_ok=True)
+    f.write_text('<html><body><section id="s1"><h2>One</h2></section><script>const Q=[["What?",["a","b"],0,"because"],["Why?",["c","d"],1,"since"],["Who?",["e","f"],0,"so"]];</script></body></html>', encoding="utf-8")
+    bid = crud.add_book("Chapter 1 Notes", "", "", stored_path(f), None, [cid], "Notes", "2026", "1")
+    page = QuizPage(theme.colors("dark", "graphite"))
+    page.set_course(cid)
+    page.reload_courses(select=cid)
+    assert page.course["id"] == cid
+    chapters = page_chapters = __import__("study.quizrun", fromlist=["x"]).course_chapters(page.course)
+    assert len(chapters) == 1 and len(chapters[0]["questions"]) == 3
+    page.start(chapters[0], "concept")
+    run = page.run
+    assert run["phase"] == "run" and len(run["order"]) == 3
+    page.on_act("pick", run["order"][0], 1)
+    page.on_act("hint", run["order"][1], 0)
+    assert run["res"][run["order"][0]]["chosen"] == 1 and run["res"][run["order"][1]]["hint"]
+    page.save_for_later()                                                         # kept in the data folder, resumable
+    assert page.run is None and page.stack.currentWidget() is page.scroll
+    page.show_list()
+    page.resume(chapters[0], "concept")
+    assert page.run is not None and page.run["res"][page.run["order"][0]]["chosen"] == 1
+    for qi in page.run["order"]:                                                  # answer everything, the right answer each time
+        page.on_act("pick", qi, page.run["qs"][qi]["a"])
+    page.finish()
+    assert page.run["phase"] == "done" and page.run["correct"] == 3
+    s = crud.quiz_stats(cid)[bid]
+    assert (s["last_correct"], s["last_total"]) == (3, 3) and set(s["parts"]) == {"concept"}
+    from study import quizrun
+    assert quizrun.saved_progress(cid, bid, "concept") is None                    # the saved copy went when the resumed quiz was finished
+    page.leave()
+    page.view_attempts(chapters[0])
+    assert page.run == {"phase": "view"}
+    page.leave()
