@@ -5,12 +5,14 @@ from PySide6.QtWidgets import QLabel, QMainWindow, QStackedWidget, QVBoxLayout, 
 from core import crud, settings
 from qtui import server, theme
 from qtui.eyerest import EyeRestController
+from qtui.pages.library_page import LibraryPage
+from qtui.pages.pdf_page import PdfPage
 from qtui.pages.settings_page import SettingsPage
 from qtui.pages.web_page import WebPage
 from qtui.sidebar import Sidebar
 from qtui.theme import RAIL_W
 
-CLASSIC = ["Home", "Calendar", "Library", "Note Reader", "Courses"]            # the pages still drawn by the classic interface
+CLASSIC = ["Home", "Calendar", "Note Reader", "Courses"]            # the pages still drawn by the classic interface
 
 
 class MainWindow(QMainWindow):
@@ -33,6 +35,16 @@ class MainWindow(QMainWindow):
         for name in CLASSIC:
             self.pages[name] = WebPage(name) if use_server else QLabel(f"{name} (classic page)")
             self.stack.addWidget(self.pages[name])
+        self.library = LibraryPage()
+        self.library.open_book.connect(self.open_book)
+        self.library.classic_requested.connect(lambda what: self.show_page("Classic Library"))
+        self.pages["Library"] = self.library
+        self.stack.addWidget(self.library)
+        self.pdf = PdfPage()
+        self.pdf.back_requested.connect(lambda: self.show_page("Library"))
+        self.stack.addWidget(self.pdf)
+        self.pages["Classic Library"] = WebPage("Library") if use_server else QLabel("Library (classic page)")
+        self.stack.addWidget(self.pages["Classic Library"])
         self.settings_page = SettingsPage(self._colors())
         self.settings_page.appearance_changed.connect(self.apply_theme)
         self.settings_page.classic_requested.connect(lambda: self.show_page("Classic Settings"))
@@ -73,7 +85,20 @@ class MainWindow(QMainWindow):
         if isinstance(view, WebPage):
             view.ensure(self.course if name == "Courses" else None)
         self.stack.setCurrentWidget(view)
-        self.sidebar.set_current("Settings" if name == "Classic Settings" else name, self.course)
+        self.sidebar.set_current({"Classic Settings": "Settings", "Classic Library": "Library"}.get(name, name), self.course)
+
+    def open_book(self, book_id):
+        """A PDF is read here; the other files (the interactive notes, helpers and grade pages) are still opened by the classic Library."""
+        book = crud.get_book(book_id)
+        if not book:
+            return
+        if book["pdf_path"].lower().endswith(".pdf"):
+            self.pdf.open(book)
+            self.stack.setCurrentWidget(self.pdf)
+            self.sidebar.set_current("Library", self.course)
+        elif self.use_server:
+            self.pages["Classic Library"].load(server.url("Library", book=book_id))
+            self.show_page("Classic Library")
 
     def choose_course(self, cid):
         self.course = cid

@@ -10,9 +10,9 @@ PROJECT = Path(__file__).resolve().parent.parent
 PORT = int(os.environ.get("STUDY_ASSISTANT_QT_PORT") or 8766)             # not 8765, so the classic window and this one can run side by side
 
 
-def url(page, course=None):
-    """The address of a classic page inside the native window."""
-    return f"http://localhost:{PORT}/?qt=1&page={page.replace(' ', '%20')}" + (f"&course={course}" if course else "")
+def url(page, course=None, book=None):
+    """The address of a classic page inside the native window (a course for Courses, a file to open for Library)."""
+    return f"http://localhost:{PORT}/?qt=1&page={page.replace(' ', '%20')}" + (f"&course={course}" if course else "") + (f"&open_book={book}" if book else "")
 
 
 def start():

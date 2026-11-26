@@ -103,11 +103,12 @@ def kind_from_folders(key):
 
 def guess_fields(name, default_course=None, key=""):
     """(kind, title, lecture, course ids) guessed from the file name alone (the file itself is read when it is imported)."""
-    from views import library_view as L
+    from library import browse as L
+    from library import pdfmeta
     stem = Path(name).stem
     kind = L.detect_kind(name, "") or kind_from_folders(key) or "Textbook"           # the file name first, then the folders it is in
-    lec, clean = L.split_lecture(stem.replace("_", " ").replace("-", " ") if " " not in stem else stem)
-    title = crud.fix_course_ids(L.strip_notes_prefix(clean) if kind in ("Lecture Notes", "Notes") else stem.replace("_", " ").strip())
+    lec, clean = pdfmeta.split_lecture(stem.replace("_", " ").replace("-", " ") if " " not in stem else stem)
+    title = crud.fix_course_ids(pdfmeta.strip_notes_prefix(clean) if kind in ("Lecture Notes", "Notes") else stem.replace("_", " ").strip())
     lecture = ""
     if kind in L.HW_KINDS:
         m = re.search(r"(?:hw|homework|problem\s*set|pset|ps)[\s_#-]*(\d+)", stem, re.I) or re.search(r"(\d+)(?!.*\d)", stem)
@@ -115,7 +116,7 @@ def guess_fields(name, default_course=None, key=""):
         if lecture and not title.lower().startswith("hw"):
             title = f"HW {lecture}" + {"Homework Solution": " Solution", "Graded Homework": " Graded", "Homework Helper": " Helper", "Grade Explanation": " Grade Explanation"}.get(kind, "")
     elif kind in ("Lecture Notes", "Notes"):
-        lecture = lec or L.guess_lecture(stem, "") or ""
+        lecture = lec or pdfmeta.guess_lecture(stem, "") or ""
     from library import naming
     named, named_lecture = naming.default_title(kind, name)                 # the Library's own forms: HW 5 Solution, Midterm 1 Practice, a note's topic with its number apart
     if named:
@@ -206,7 +207,7 @@ def classify(entries, remembered=None, default_course=None):
 def priority(c):
     """The order files are listed in: homework and exam documents first (the homework, its solution, helper, grade explanation; the exam, practice exam, preparation, reflection, equation sheet),
     then the syllabus, then notes and lecture slides, then everything else. Inside a group by type, then by title with the numbers in order."""
-    from views import library_view as L
+    from library import browse as L
     if c.kind in L.HW_GROUP or c.kind in L.EXAM_GROUP or c.kind == "Equation Sheet":
         group = 0
     elif c.kind == "Syllabus":

@@ -105,3 +105,78 @@ def test_the_window_has_the_menu_the_settings_page_and_rest_now(qapp, fresh_data
     w.rest.rest_now()
     assert w.rest.mode == "rest" and w.rest.overlay.isVisibleTo(w) and w.rest.logic.refused == 0
     w.close()
+
+
+def _books(n, kind="Homework", course=None):
+    from core import crud
+    from core.database import DATA_DIR, stored_path
+    (DATA_DIR / "pdfs").mkdir(parents=True, exist_ok=True)
+    ids = []
+    for i in range(n):
+        f = DATA_DIR / "pdfs" / f"qt_{kind}_{i}.html"
+        f.write_text("<html><body>x</body></html>", encoding="utf-8")
+        ids.append(crud.add_book(f"{kind} {i + 1}", "", "", stored_path(f), None, [course] if course else [], kind, "2026", str(i + 1)))
+    return ids
+
+
+def test_the_library_page_groups_searches_edits_and_removes(qapp, fresh_data, monkeypatch):
+    from PySide6.QtWidgets import QMessageBox
+    from core import crud
+    from qtui.library_dialogs import EditBookDialog, RemoveDialog
+    from qtui.pages.library_page import BookCard, LibraryPage
+    cid = crud.add_course("QT 2", "Library", "Fall 2026", 0, "Active")
+    hw = _books(3, "Homework", cid)
+    notes = _books(2, "Notes", cid)
+    page = LibraryPage()
+    assert page.count.text().startswith("5 Titles")
+    # the overview is a tile for each type; a click on a tile shows its files, grouped by course
+    page._open_tile("Homework")
+    cards = page.body.findChildren(BookCard)
+    assert sorted(c.book["title"] for c in cards) == ["Homework 1", "Homework 2", "Homework 3"]
+    page._set_view("Details")
+    assert page.body.findChildren(__import__("PySide6.QtWidgets", fromlist=["QTableWidget"]).QTableWidget)
+    # the search looks at titles, types, authors and courses, whatever is open
+    page._search("notes 2")
+    assert page.count.text().startswith("1 Title")
+    page._search("")
+    # edit: the details are saved, the courses too
+    dlg = EditBookDialog(crud.get_book(hw[0]))
+    dlg.title.setText("Problem Set One")
+    dlg.kind.setCurrentText("Homework")
+    dlg.lecture.setText("1")
+    dlg._save()
+    assert crud.get_book(hw[0])["title"] == "Problem Set One"
+    # remove many: the rows, the stored copies
+    monkeypatch.setattr(QMessageBox, "question", lambda *a, **k: QMessageBox.Yes)
+    rm = RemoveDialog()
+    rm.ticked = {hw[1], hw[2]}
+    rm._remove()
+    assert rm.removed == 2 and crud.get_book(hw[1]) is None and crud.get_book(hw[0]) is not None
+    page.refresh()
+    page._back()
+    assert page.count.text().startswith("3 Titles")
+
+
+def test_the_import_confirmation_returns_what_was_edited_and_ticked(qapp, fresh_data, tmp_path):
+    from core import crud
+    from qtui.library_dialogs import ImportDialog
+    from views import library_import as LI
+    course = crud.add_course("QT 3", "Import", "Fall 2026", 0, "Active")
+    files = []
+    for name in ("QT3 Homework 4.html", "QT3 Lecture 2 Notes.html"):
+        p = tmp_path / name
+        p.write_text("<html><title>x</title><body>hello</body></html>", encoding="utf-8")
+        st = p.stat()
+        files.append((p.name, p.name, st.st_size, st.st_mtime, (lambda p=p: p.read_bytes())))
+    candidates = LI.classify(files, {}, course)
+    assert len(candidates) == 2 and all(c.status == "New" for c in candidates)
+    dlg = ImportDialog(candidates)
+    names = {c.name: r for r, c in enumerate(dlg.candidates)}
+    r = names["QT3 Homework 4.html"]
+    dlg.table.cellWidget(r, 4).setText("Homework Four")                 # the title is edited
+    dlg.table.cellWidget(names["QT3 Lecture 2 Notes.html"], 0).setChecked(False)           # this one is not imported
+    chosen = dlg.chosen()
+    assert [c.name for c in chosen] == ["QT3 Homework 4.html"] and chosen[0].title == "Homework Four"
+    added, replaced, problems = LI.import_all(chosen, False, course)
+    assert (added, replaced, problems) == (1, 0, [])
+    assert [b["title"] for b in crud.list_books() if course in b["course_ids"]] == ["Homework Four"]

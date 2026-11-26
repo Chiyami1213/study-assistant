@@ -2482,6 +2482,9 @@ if _QT:
         st.session_state["_qt_started"] = True
         if st.query_params.get("page") in PAGES:
             st.session_state["page"] = st.query_params["page"]
+        _book = str(st.query_params.get("open_book") or "")
+        if _book.isdigit() and crud.get_book(int(_book)):
+            st.session_state["open_book"] = int(_book)              # the Library opens at this file (the native Library hands over the files it cannot show yet)
         _course = str(st.query_params.get("course") or "")
         if _course.isdigit() and crud.get_course(int(_course)):
             _c = crud.get_course(int(_course))

@@ -12,6 +12,11 @@ class WebPage(QWebEngineView):
         self.course = None
         self._loaded = False
 
+    def load(self, url):
+        """Shows this address now (a classic page opened at a file, for example)."""
+        self._loaded = True
+        self.setUrl(QUrl(url))
+
     def ensure(self, course=None):
         """Loads the page the first time it is shown (and again when another course is chosen)."""
         if not self._loaded or (self.page_name == "Courses" and course != self.course):
