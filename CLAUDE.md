@@ -7,6 +7,19 @@ Personal Streamlit + SQLite study app (`python run.py`). The project root holds 
 (and into the reload list at the top of `app.py`). The exe must not bundle these packages (it reads them from the project folder): `launcher.py` imports them by name with `importlib`, and the build
 scripts do not list them as hidden imports.
 
+## The native (Qt) interface (`qtui/`, branch `qt-ui`, in progress; started from the released v1.1.3)
+
+The goal is to replace Streamlit with a native PySide6 window like the `propsim` project, page by page. `python run_qt.py` starts it (`--no-server` for only the native parts); the classic app (`python run.py`) is unchanged and is what
+the releases still build. Everything outside `views/` and `app.py` (`core/`, `library/`, `study/`, `planner/`, `datafiles/`, `desktop/`) is reused as it is: new native code must call it and never import `streamlit`.
+- `qtui/window.py` `MainWindow`: the menu (`sidebar.py`: an icon rail that opens on hover, the Courses list with its section lines, Rest Now, Settings; icons are drawn in `icons.py`) and a `QStackedWidget`.
+- Native pages so far: Settings (`pages/settings_page.py`: Appearance, color theme, Eye Rest, Quizzes) and the eye rest (`eyerest.py`: pure `EyeRest` logic + the card; Rest Now). Colors come from `core.settings.theme_colors` (`theme.py`, pure).
+- Every other page is still the classic Streamlit page inside a `QWebEngineView` (`pages/web_page.py`): `server.py` starts the hidden server on port 8766 (`STUDY_ASSISTANT_QT_PORT`), `?qt=1&page=<name>&course=<id>` makes `app.py` hide its own menu,
+  open that page / course and switch off the web eye rest. Each classic page keeps its own view, so what is open stays open.
+- Porting order: Settings (done, the rest of its sections next), Library, Quiz runner, Courses (Overview, Homework, Exams, Resources), Home, Note Reader (the HTML guides stay in a web view: they are interactive pages), Calendar planner (last).
+  A page is ported by writing `qtui/pages/<name>_page.py`, registering it in `window.py` instead of the `WebPage`, and deleting nothing from `views/` until the native page does everything the classic one does.
+- The exe build excludes PySide6 (`tools/build_exe.py` `EXCLUDE`) until the native build exists; `PySide6>=6.6` is only needed to run `run_qt.py` and `tests/test_qtui.py` (it skips without it). Test with `QT_QPA_PLATFORM=offscreen`;
+  to look at a window use `WA_DontShowOnScreen` and `widget.grab()` (the offscreen platform has no fonts) with a scratch `STUDY_ASSISTANT_DATA`.
+
 ## Where things live
 - The PROJECT folder (`Documents\study-assistant`) holds only what is pushed to GitHub: the code and docs. (`static/`, `build/`, `dist/` are
   git-ignored caches and build output.)

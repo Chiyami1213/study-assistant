@@ -1771,7 +1771,7 @@ win.__keyOf = e => {                               // a key press as a binding: 
 };
 win.__keyIs = (e, group, action, dflt) => win.__keyOf(e) === (((win.__keys || {})[group] || {})[action] || dflt);
 win.__eyeCfg = __EYE_CFG__;                      // from Settings; a change reloads this script, the running timer reads the new values
-if (!win.__eyeRestV2) {
+if (!win.__eyeRestV2 && !new URLSearchParams(win.location.search).has('qt')) {          // the native window has its own eye rest
   win.__eyeRestV2 = true;
   const KEY = 'sa_eye_rest', num = (k, d) => +localStorage.getItem(k) || d;
   const cfg = () => win.__eyeCfg;
@@ -2476,6 +2476,17 @@ if st.query_params.get("detached"):          # a Note Reader window dragged out 
     st.stop()
 
 st.session_state.setdefault("page", "Home")
+_QT = bool(st.query_params.get("qt"))             # shown inside the native (Qt) window: that window draws the menu, the page and the course come from the address (qtui/server.py)
+if _QT:
+    if "_qt_started" not in st.session_state:
+        st.session_state["_qt_started"] = True
+        if st.query_params.get("page") in PAGES:
+            st.session_state["page"] = st.query_params["page"]
+        _course = str(st.query_params.get("course") or "")
+        if _course.isdigit() and crud.get_course(int(_course)):
+            _c = crud.get_course(int(_course))
+            st.session_state.update(course_id=_c["id"], open_course=_c["id"], courses_filter=crud.course_status(_c), _courses_filter_kept=crud.course_status(_c))      # as when a course is chosen in the menu
+    st.markdown("<style>section[data-testid='stSidebar'] {position: fixed !important; left: -5000px !important;} .block-container {padding-left: 2.5rem !important;}</style>", unsafe_allow_html=True)
 tutorial.tour_before()                          # the guided tour: its Back / Next / Skip, and the page of its step (before the menu is drawn)
 st.session_state.setdefault("mode", "Detailed")
 st.session_state.setdefault("pdf_page", 1)
