@@ -307,3 +307,46 @@ def test_home_lists_the_work_due_and_a_check_marks_it_done_and_undo_puts_it_back
     assert homedata.upcoming_items(courses, homework) == [] and [r[1] for r in homedata.completed_items(courses, homework)] == ["HW 9"]
     page._undo("Homework", hid)
     assert crud.list_homework(cid)[0]["status"] == "todo"
+
+
+def test_the_calendar_draws_week_day_and_month_and_the_task_list_works(qapp, fresh_data):
+    from datetime import date, timedelta
+    from core import crud
+    from planner import task_store, timeutil, store as planner_store
+    from qtui import theme
+    from qtui.pages.calendar_page import CalendarPage
+    from qtui.task_dialogs import TaskDialog
+    cid = crud.add_course("QT 30", "Calendar", "Fall 2026", 0, "Active")
+    tz = planner_store.get_term().zone
+    due = timeutil.to_utc(date.today() + timedelta(days=3), __import__("datetime").time(23, 0), tz)
+    tid = task_store.add_task("Read Chapter 2", cid, "Reading", due)
+    page = CalendarPage(theme.colors("dark", "graphite"))
+    page.refresh()
+    assert page.grid.data is not None and len(page.grid.days) == 7                       # the week
+    page._set_view("Day")
+    assert len(page.grid.days) == 1
+    page._set_view("Month")
+    assert page.cstack.currentWidget() is page.mscroll and page.span.text()              # the month
+    page._step(1)
+    page._today()
+    page._set_view("Week")
+    page._step(-1)
+    assert page.grid.days[0] < date.today()
+    # the Task List: the task is listed with its time left and cushion, and a check marks it done
+    page._set_page("Task List")
+    assert page.stack.currentWidget() is page.tasks
+    labels = "".join(l.text() for l in page.tasks.findChildren(__import__("PySide6.QtWidgets", fromlist=["QLabel"]).QLabel))
+    assert "Read Chapter 2" in labels and "left" in labels
+    page.tasks._done(task_store.get_task(tid), True)
+    assert task_store.get_task(tid).is_done
+    # add a task through the window
+    dlg = TaskDialog(None, cid, False)
+    dlg.title.setText("Lab Report")
+    dlg.category.setCurrentText("Lab")
+    dlg._save()
+    assert [t.title for t in task_store.list_tasks() if t.category == "Lab"] == ["Lab Report"]
+    edit = TaskDialog(task_store.list_tasks()[-1].id, None, False)
+    edit.title.setText("Lab Report 1")
+    edit.estimate.setValue(90)
+    edit._save()
+    assert task_store.list_tasks()[-1].title == "Lab Report 1" and task_store.list_tasks()[-1].estimate_minutes == 90

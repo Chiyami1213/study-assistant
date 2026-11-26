@@ -5,6 +5,7 @@ from PySide6.QtWidgets import QLabel, QMainWindow, QStackedWidget, QVBoxLayout, 
 from core import crud, settings
 from qtui import server, theme
 from qtui.eyerest import EyeRestController
+from qtui.pages.calendar_page import CalendarPage
 from qtui.pages.courses_page import CoursesPage
 from qtui.pages.home_page import HomePage
 from qtui.pages.library_page import LibraryPage
@@ -15,7 +16,7 @@ from qtui.pages.web_page import WebPage
 from qtui.sidebar import Sidebar
 from qtui.theme import RAIL_W
 
-CLASSIC = ["Calendar", "Note Reader"]            # the pages still drawn by the classic interface
+CLASSIC = ["Note Reader"]            # the pages still drawn by the classic interface
 
 
 class MainWindow(QMainWindow):
@@ -43,6 +44,13 @@ class MainWindow(QMainWindow):
         self.library.classic_requested.connect(lambda what: self.show_page("Classic Library"))
         self.pages["Library"] = self.library
         self.stack.addWidget(self.library)
+        self.calendar = CalendarPage(self._colors())
+        self.calendar.classic_requested.connect(lambda what: self.show_page("Classic Calendar"))
+        self.calendar.changed.connect(self._planner_changed)
+        self.pages["Calendar"] = self.calendar
+        self.stack.addWidget(self.calendar)
+        self.pages["Classic Calendar"] = WebPage("Calendar") if use_server else QLabel("Calendar (classic page)")
+        self.stack.addWidget(self.pages["Classic Calendar"])
         self.home = HomePage()
         self.home.course_requested.connect(self.choose_course)
         self.home.classic_requested.connect(lambda what: self.show_page("Classic Home"))
@@ -94,6 +102,7 @@ class MainWindow(QMainWindow):
         self.setStyleSheet(theme.stylesheet(c))
         self.settings_page.refresh(c)
         self.quiz.set_colors(c)
+        self.calendar.set_colors(c)
 
     def resizeEvent(self, e):
         c = self.centralWidget()
@@ -110,10 +119,13 @@ class MainWindow(QMainWindow):
             view.ensure(self.course if name == "Courses" else None)
         if name == "Quiz":
             self.quiz.set_course(self.course)
+        if name == "Calendar":
+            self.calendar.reload_terms()
+            self.calendar.refresh()
         if name == "Home":
             self.home.refresh()                              # what was done elsewhere shows at once
         self.stack.setCurrentWidget(view)
-        self.sidebar.set_current({"Classic Settings": "Settings", "Classic Library": "Library", "Classic Courses": "Courses", "Classic Home": "Home"}.get(name, name), self.course)
+        self.sidebar.set_current({"Classic Settings": "Settings", "Classic Library": "Library", "Classic Courses": "Courses", "Classic Home": "Home", "Classic Calendar": "Calendar"}.get(name, name), self.course)
 
     def open_book(self, book_id):
         """A PDF is read here; the other files (the interactive notes, helpers and grade pages) are still opened by the classic Library."""
@@ -144,6 +156,9 @@ class MainWindow(QMainWindow):
             return
         self.pages["Classic Courses"].load(server.url("Courses", cid))
         self.show_page("Classic Courses")
+
+    def _planner_changed(self):
+        self.home.refresh()
 
     def _courses_changed(self):
         self.sidebar.refresh_courses()
