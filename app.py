@@ -1802,7 +1802,7 @@ if (!win.__eyeRestV2) {
     el.querySelector('button').onclick = closeCard;
     setTimeout(() => { if (card && card.el === el) closeCard(); }, 15000);
   }
-  function ask() {
+  function ask(auto) {                                                  // auto: the student chose Rest Now, the rest starts at once
     const el = doc.createElement('div'); el.id = 'sa-rest';
     el.innerHTML = '<h3>Eye Rest</h3><p>You have been studying for 20 minutes. Look at something 20 feet (6 meters) away for ' +
       restLen() + ' seconds?</p><div class="count" style="display:none"></div><div class="bar" style="display:none"><i></i></div>' +
@@ -1816,8 +1816,18 @@ if (!win.__eyeRestV2) {
       el.querySelector('.count').style.display = ''; el.querySelector('.bar').style.display = '';
       el.querySelector('.go').remove(); el.querySelector('.no').textContent = 'Skip'; tick();
     };
-    beep();
+    if (auto) el.querySelector('.go').onclick(); else beep();
   }
+  function restNow() {                                                  // a rest the student takes on their own: it counts as the eye rest, so the 20 minutes start again
+    if (forced) return;
+    closeCard(); st.next = Date.now() + interval(); st.refused = 0; st.forceEnd = 0; save(st);
+    ask(true); beep();
+  }
+  win.__restNow = restNow;
+  doc.addEventListener('click', e => {                                  // the Rest Now button of the menu: handled here, no page rerun
+    const b = e.target && e.target.closest && e.target.closest('.st-key-nav_rest button');
+    if (b) { e.preventDefault(); e.stopPropagation(); restNow(); }
+  }, true);
   function force() {
     if (!st.forceEnd || st.forceEnd < Date.now() - 1000) { st.forceEnd = Date.now() + forceLen() * 1000; save(st); }
     closeCard();
@@ -1857,7 +1867,7 @@ if (!win.__eyeRestV2) {
       card.el.querySelector('.count').textContent = card.done ? 'Done' : left;
       card.el.querySelector('.bar i').style.width = (card.done ? 100 : (total - left) / total * 100) + '%';
       if (!card.done && left === 0) {
-        card.done = true; beep();
+        card.done = true; beep(); st.next = now + interval(); st.refused = 0; save(st);         // rested: the 20 minutes start again
         card.el.querySelector('p').textContent = 'Nice work. Your eyes are rested.';
         card.el.querySelector('.no').textContent = 'Back to Studying';
         setTimeout(closeCard, 15000);
@@ -2563,6 +2573,8 @@ with st.sidebar:
             nav_button(label, icon)
     with st.container(key="nav_spacer"):
         st.markdown("&nbsp;", unsafe_allow_html=True)  # empty containers are not rendered
+    st.button("Rest Now", icon=":material/self_improvement:", key="nav_rest", type="tertiary",
+              help="start an eye rest now: it counts as your eye rest and the 20-minute reminder starts again")      # handled by the eye rest script (win.__restNow)
     for label, (icon, _) in NAV_BOTTOM.items():
         nav_button(label, icon)
 

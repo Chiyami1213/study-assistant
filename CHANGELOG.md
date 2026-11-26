@@ -4,6 +4,10 @@
 
 ---
 
+## 1.1.4 (not released yet)
+
+- **Rest Now.** A **Rest Now** button in the menu (above Settings) starts an eye rest whenever you want one. It counts as your eye rest, so the 20-minute reminder starts again from that moment and the skipped rests in a row are forgotten.
+
 ## 1.1.3 (2026-11-25)
 
 - **A guided tour for every new course.** After you add a course, the app offers a short tour (also on the course page: **Set Up Tour**) that takes you to the syllabus (**Add Syllabus** reads the grading, the letter grades, the instructor and the outline, and the Overview is built from it), to **Update Files** (homework, exams and other files from the course's folder, with the type guessed from each name) and to **Prompt for AI** with the course already chosen (homework helpers, grade explanations and exam pages). It uses the same box, arrow and helper card as the Getting Started tour, and skipping it does not switch the tutorial off.
