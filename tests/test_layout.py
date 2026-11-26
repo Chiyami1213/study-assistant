@@ -10,7 +10,7 @@ PACKAGES = ["core", "library", "study", "datafiles", "desktop", "planner", "view
 
 
 def test_the_root_holds_only_the_entry_points():
-    assert sorted(p.name for p in ROOT.glob("*.py")) == ["app.py", "launcher.py", "run.py", "version.py"]
+    assert sorted(p.name for p in ROOT.glob("*.py")) == ["app.py", "launcher.py", "run.py", "run_qt.py", "version.py"]
 
 
 @pytest.mark.usefixtures("fresh_data")
@@ -44,3 +44,8 @@ def test_a_guides_three_js_comes_from_the_app_not_from_the_network():
     assert "three.js/r128" not in out and "WebGLRenderer" in out and "Three.js Authors" in out            # the library is inside the page
     assert "mathjax/3.2.2/es5/tex-svg.js" in out                                                             # other CDN scripts are left alone
     assert "</script" not in htmlnotes._vendor_text("three-r128.min.js")
+
+
+def test_the_native_interface_never_imports_streamlit():
+    for path in (ROOT / "qtui").rglob("*.py"):
+        assert not re.search(r"^\s*(from|import) streamlit", path.read_text(encoding="utf-8"), re.M), path
