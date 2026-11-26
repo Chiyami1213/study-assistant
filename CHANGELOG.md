@@ -4,7 +4,7 @@
 
 ---
 
-## 1.2.0 (native interface, preview)
+## 1.2.0 (2026-11-26)
 
 - **A native window.** Study Assistant now also runs as a native desktop program (Qt) instead of a web page in a window: `python run_qt.py`, or `StudyAssistantNative.exe` from the native installer. Native pages: the menu, Home, Calendar (week, day, month, terms, auto-plan) and Task List, Library (with a PDF reader), Note Reader (up to three windows, notes with tabs, highlights), Courses (tiles, a course page with Overview, Homework, Exams, Outline, Resources), Quiz (all four quizzes, notes and hints, save for later) and Settings (appearance, eye rest, quizzes), with Rest Now. The data folder is the same, so both versions can be used on the same files.
 - **Not native yet (opens the classic page inside the window):** dragging and resizing blocks in the Calendar, the course tree, merging courses, the syllabus and outline editors, Tidy Up, Prompt for AI, the getting-started tutorial, the other Settings sections, and the links from a note to its lecture slides and to the textbook.

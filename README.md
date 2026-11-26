@@ -72,6 +72,10 @@ Questions about installing, antivirus warnings, your files, backups, shortcuts a
 
 ## What's new
 
+**1.2.0**
+- **A native window.** Study Assistant now runs as a native desktop program (Qt) instead of a web page in a window: faster to open and to move around in, with the same data folder as before. Native: the menu, Home, Calendar (week, day, month, auto-plan) and Task List, Library with a PDF reader, Note Reader (up to three windows, highlights kept), Courses, Quiz and Settings. The few parts that are not native yet (the course tree, merging, the syllabus and outline editors, dragging blocks in the Calendar and the tutorial) open inside the same window.
+- Install it with `StudyAssistant-Native-1.2.0-Windows-Installer.zip`; `python run_qt.py` starts it from the source.
+
 **1.1.3**
 - **Up to four quizzes for every chapter** in the course Quiz tab: conceptual questions, a timed speed round, guided numerical practice and a closed-book round of equations to write from memory, taken separately and counted together in the chapter's total. Guides may have any mix of them.
 - **Speed round time** is set in Settings > Quizzes as seconds for each question (5 by default), so each round has its own total.
