@@ -18,8 +18,11 @@ def url(page, course=None, book=None):
 def start():
     """Starts the hidden server (a child process that ends with this one). Returns the process."""
     creation = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
-    cmd = [sys.executable, "-m", "streamlit", "run", str(PROJECT / "app.py"), "--server.port", str(PORT), "--server.headless", "true",
-           "--browser.gatherUsageStats", "false", "--server.fileWatcherType", "none"]
+    if getattr(sys, "frozen", False):                       # the built app: the same exe, started in server mode (launcher_qt.py)
+        cmd = [sys.executable, "--server", str(PORT), "--parent", str(os.getpid())]
+    else:
+        cmd = [sys.executable, "-m", "streamlit", "run", str(PROJECT / "app.py"), "--server.port", str(PORT), "--server.headless", "true",
+               "--browser.gatherUsageStats", "false", "--server.fileWatcherType", "none"]
     return subprocess.Popen(cmd, cwd=PROJECT, creationflags=creation, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL)
 
 

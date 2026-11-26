@@ -15,6 +15,13 @@ def run(argv=None):
     app = QApplication(argv)
     app.setApplicationName("Study Assistant")
     init_db()
+    from PySide6.QtWebEngineCore import QWebEngineProfile
+    from core.database import DATA_DIR
+    profile = QWebEngineProfile.defaultProfile()                       # what the web views keep lives with the user's other files, not in the user profile
+    folder = DATA_DIR / "webview_qt"
+    folder.mkdir(parents=True, exist_ok=True)
+    profile.setPersistentStoragePath(str(folder))
+    profile.setCachePath(str(folder / "cache"))
     proc = None
     if use_server and not server.ready():
         proc = server.start()
@@ -24,7 +31,11 @@ def run(argv=None):
     win.show()
     code = app.exec()
     if proc is not None and proc.poll() is None:
-        proc.terminate()
+        try:
+            import launcher                                           # stops the server and the page renderers it started
+            launcher.stop_server(proc)
+        except Exception:
+            proc.terminate()
     return code
 
 

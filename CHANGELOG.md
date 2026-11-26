@@ -4,6 +4,11 @@
 
 ---
 
+## 1.2.0 (native interface, preview)
+
+- **A native window.** Study Assistant now also runs as a native desktop program (Qt) instead of a web page in a window: `python run_qt.py`, or `StudyAssistantNative.exe` from the native installer. Native pages: the menu, Home, Calendar (week, day, month, terms, auto-plan) and Task List, Library (with a PDF reader), Note Reader (up to three windows, notes with tabs, highlights), Courses (tiles, a course page with Overview, Homework, Exams, Outline, Resources), Quiz (all four quizzes, notes and hints, save for later) and Settings (appearance, eye rest, quizzes), with Rest Now. The data folder is the same, so both versions can be used on the same files.
+- **Not native yet (opens the classic page inside the window):** dragging and resizing blocks in the Calendar, the course tree, merging courses, the syllabus and outline editors, Tidy Up, Prompt for AI, the getting-started tutorial, the other Settings sections, and the links from a note to its lecture slides and to the textbook.
+
 ## 1.1.3 (2026-11-25)
 
 - **A guided tour for every new course.** After you add a course, the app offers a short tour (also on the course page: **Set Up Tour**) that takes you to the syllabus (**Add Syllabus** reads the grading, the letter grades, the instructor and the outline, and the Overview is built from it), to **Update Files** (homework, exams and other files from the course's folder, with the type guessed from each name) and to **Prompt for AI** with the course already chosen (homework helpers, grade explanations and exam pages). It uses the same box, arrow and helper card as the Getting Started tour, and skipping it does not switch the tutorial off.

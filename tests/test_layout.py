@@ -10,7 +10,7 @@ PACKAGES = ["core", "library", "study", "datafiles", "desktop", "planner", "view
 
 
 def test_the_root_holds_only_the_entry_points():
-    assert sorted(p.name for p in ROOT.glob("*.py")) == ["app.py", "launcher.py", "run.py", "run_qt.py", "version.py"]
+    assert sorted(p.name for p in ROOT.glob("*.py")) == ["app.py", "launcher.py", "launcher_qt.py", "run.py", "run_qt.py", "version.py"]
 
 
 @pytest.mark.usefixtures("fresh_data")

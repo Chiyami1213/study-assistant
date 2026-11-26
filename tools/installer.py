@@ -38,6 +38,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))     # the projec
 from version import VERSION  # noqa: E402
 
 APP_NAME = "Study Assistant"
+
+
+def app_exe(program):
+    """The exe of the installed program: the native app when this package has it, else the classic one."""
+    native = program / "dist" / "StudyAssistantNative" / "StudyAssistantNative.exe"
+    return native if native.exists() else program / "dist" / "StudyAssistant" / "StudyAssistant.exe"
+
 UNINSTALL_NAME = "Uninstall Study Assistant.exe"
 UNINSTALL_SCRIPT = "uninstall_study_assistant.py"                 # used instead of the exe when this runs from source
 MARKER = ".study-assistant-install.json"                          # written into the program folder by the installer; the uninstaller needs it
@@ -84,7 +91,7 @@ def copy_tree(source, target, progress):
 def make_shortcuts(program, name="Study Assistant", places=("desktop", "start")):
     """Shortcuts to the app: "desktop" (an icon on the Desktop) and "start" (an entry in the Start menu). Returns the paths made. The real Desktop is
     asked from Windows (it can be inside OneDrive). A test install makes none unless SA_INSTALL_SHORTCUT_DIR names a scratch folder for them."""
-    exe = program / "dist" / "StudyAssistant" / "StudyAssistant.exe"
+    exe = app_exe(program)
     test_dir = os.environ.get("SA_INSTALL_SHORTCUT_DIR")
     if not exe.exists() or os.name != "nt" or (os.environ.get("SA_INSTALL_PROGRAM_DIR") and not test_dir):
         return []
@@ -146,7 +153,7 @@ def register(program, data, size_bytes, key_name=None, display_name=APP_NAME):
         return False
     try:
         import winreg
-        exe = program / "dist" / "StudyAssistant" / "StudyAssistant.exe"
+        exe = app_exe(program)
         if getattr(sys, "frozen", False):
             command = f'"{program / UNINSTALL_NAME}" --uninstall'
         else:
@@ -828,7 +835,7 @@ def build_install_wizard():
         if state["ok"]:
             wiz.label(f, f"Study Assistant {VERSION} has been installed.", size=10, pady=(0, 6))
             wiz.label(f, "Start it from its shortcut. The extracted package folder is no longer needed.", size=10, pady=(0, 8))
-            exe = (state["program"] or program) / "dist" / "StudyAssistant" / "StudyAssistant.exe"
+            exe = app_exe(state["program"] or program)
             wiz.vars["exe"] = exe
             wiz.vars["open"] = tk.BooleanVar(value=exe.exists() and not os.environ.get("SA_INSTALL_PROGRAM_DIR"))
             if exe.exists():

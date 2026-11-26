@@ -20,7 +20,9 @@ ROOT = Path(__file__).resolve().parent.parent
 INSTALLER = ROOT / "dist" / "installer" / "Install Study Assistant.exe"
 OUT = ROOT / "dist" / "release"
 SKIP_TOP = {".git", "__pycache__", "build", "static", "data", ".venv", "venv", "node_modules", ".claude", ".pytest_cache", ".idea", "tests", ".github", "tools"}   # only directly under the project
-SKIP_REL = {"dist/installer", "dist/release", "exports", "docs", "dist/StudyAssistant/project_path.txt"}
+SKIP_REL = {"dist/installer", "dist/release", "exports", "docs", "dist/StudyAssistant/project_path.txt", "dist/StudyAssistantNative/project_path.txt"}
+NATIVE = "--native" in sys.argv                   # the native (Qt) app: its own exe and its own zip; the classic exe is not in it, and the native exe is not in the classic zip
+OTHER = "dist/StudyAssistant" if NATIVE else "dist/StudyAssistantNative"
 SKIP_FILES = {"CLAUDE.md", ".gitignore", "build_exe.py", "build_installer.py", "build_release.py", "buildinfo.py"}      # developer files: people do not need them
 SKIP_SUFFIX = {".pyc", ".spec", ".tmp", ".part"}
 STORE = {".pdf", ".jpg", ".jpeg", ".png", ".webp", ".zip", ".gif"}
@@ -41,7 +43,7 @@ def program_files():
         rel = here.relative_to(ROOT)
         top = not rel.parts
         dns[:] = sorted(d for d in dns if not (d == "__pycache__" or (top and d in SKIP_TOP)) and not _is_link(here / d)
-                        and (rel / d).as_posix() not in SKIP_REL)
+                        and (rel / d).as_posix() not in SKIP_REL and (rel / d).as_posix() != OTHER)
         for f in sorted(fns):
             p = here / f
             if p.suffix.lower() not in SKIP_SUFFIX and not _is_link(p) and not (top and f in SKIP_FILES) and (rel / f).as_posix() not in SKIP_REL:
@@ -50,7 +52,7 @@ def program_files():
 
 
 def readme():
-    return "\r\n".join([f"Study Assistant {VERSION}: clean installation package", "",
+    return "\r\n".join([f"Study Assistant {VERSION}{' (native interface)' if NATIVE else ''}: clean installation package", "",
                         "1. Extract this whole zip (right click > Extract All).",
                         "2. Open the extracted folder and run \"Install Study Assistant.exe\". Keep the payload folder next to it.",
                         "3. The installer copies the program to Documents\\study-assistant, puts a shortcut on the Desktop and lists Study Assistant under",
@@ -63,11 +65,11 @@ def readme():
 
 
 def make_zip():
-    exe = ROOT / "dist" / "StudyAssistant" / "StudyAssistant.exe"
+    exe = ROOT / "dist" / ("StudyAssistantNative" if NATIVE else "StudyAssistant") / ("StudyAssistantNative.exe" if NATIVE else "StudyAssistant.exe")
     if not exe.exists() or not INSTALLER.exists():
-        raise SystemExit("Build the app and the installer first (python tools/build_release.py).")
+        raise SystemExit("Build the app and the installer first (python tools/build_release.py" + (" --native" if NATIVE else "") + ").")
     OUT.mkdir(parents=True, exist_ok=True)
-    final = OUT / f"StudyAssistant-{VERSION}-Windows-Installer.zip"
+    final = OUT / (f"StudyAssistant-Native-{VERSION}-Windows-Installer.zip" if NATIVE else f"StudyAssistant-{VERSION}-Windows-Installer.zip")
     part = final.with_name(final.name + ".part")
     files = program_files()
     with zipfile.ZipFile(part, "w", zipfile.ZIP_DEFLATED, compresslevel=6, allowZip64=True) as z:
@@ -95,14 +97,18 @@ def make_zip():
     with open(final, "rb") as f:
         for block in iter(lambda: f.read(1 << 20), b""):
             h.update(block)
-    (OUT / "SHA256SUMS.txt").write_text(f"{h.hexdigest()}  {final.name}\n", encoding="utf-8")      # lets people check the download before they run it
+    (OUT / ("SHA256SUMS-Native.txt" if NATIVE else "SHA256SUMS.txt")).write_text(f"{h.hexdigest()}  {final.name}\n", encoding="utf-8")      # lets people check the download before they run it
     return final, len(files)
 
 
 def main():
     if "--no-build" not in sys.argv:
-        import build_exe
-        build_exe.main()                            # the app, then the installer
+        if NATIVE:
+            import build_exe_qt
+            build_exe_qt.main()                     # the native app, then the installer
+        else:
+            import build_exe
+            build_exe.main()                        # the app, then the installer
     final, n = make_zip()
     print(f"Built: {final}  ({final.stat().st_size / 2**20:.0f} MB, {n} program files)")
 
