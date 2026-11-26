@@ -9,17 +9,19 @@ from core.database import data_path
 
 class PdfPage(QWidget):
     back_requested = Signal()
+    page_changed = Signal(int)                           # the page now shown (1-based), for what is remembered
 
-    def __init__(self):
+    def __init__(self, has_back=True, margins=(24, 16, 24, 8)):
         super().__init__()
         self.setObjectName("page")
         self.doc = QPdfDocument(self)
         lay = QVBoxLayout(self)
-        lay.setContentsMargins(24, 16, 24, 8)
+        lay.setContentsMargins(*margins)
         bar = QHBoxLayout()
-        back = QPushButton("‹ Back")
-        back.clicked.connect(self.back_requested.emit)
-        bar.addWidget(back)
+        if has_back:
+            back = QPushButton("‹ Back")
+            back.clicked.connect(self.back_requested.emit)
+            bar.addWidget(back)
         self.title = QLabel()
         self.title.setStyleSheet("font-size: 17px; font-weight: 700; background: transparent;")
         bar.addWidget(self.title, 1)
@@ -44,17 +46,18 @@ class PdfPage(QWidget):
         self.view.pageNavigator().currentPageChanged.connect(self._shown)
         lay.addWidget(self.view, 1)
 
-    def open(self, book):
+    def open(self, book, page=1):
         self.title.setText(book["title"])
         self.doc.load(str(data_path(book["pdf_path"])))
         n = max(1, self.doc.pageCount())
+        page = max(1, min(n, int(page or 1)))
         self.page.blockSignals(True)
         self.page.setMaximum(n)
-        self.page.setValue(1)
+        self.page.setValue(page)
         self.page.blockSignals(False)
         self.total.setText(f"/ {n}")
         self.view.setZoomMode(QPdfView.ZoomMode.FitToWidth)
-        self.view.pageNavigator().jump(0, self.view.pageNavigator().currentLocation(), 0)
+        self.view.pageNavigator().jump(page - 1, self.view.pageNavigator().currentLocation(), 0)
 
     def _go(self, n):
         self.view.pageNavigator().jump(n - 1, self.view.pageNavigator().currentLocation(), 0)
@@ -63,6 +66,7 @@ class PdfPage(QWidget):
         self.page.blockSignals(True)
         self.page.setValue(index + 1)
         self.page.blockSignals(False)
+        self.page_changed.emit(index + 1)
 
     def _zoom(self, factor):
         self.view.setZoomMode(QPdfView.ZoomMode.Custom)

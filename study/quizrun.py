@@ -210,6 +210,17 @@ def _is_right(q, res):
     return res.get("chosen") == q["a"] if q["kind"] == "mc" else bool(res.get("got"))
 
 
+def book_questions(book, seed):
+    """The quiz questions of an HTML note (the same set the Quiz tab asks), in an order that depends on `seed` (the same all session, another next time), or None when it has none."""
+    for cid in book["course_ids"]:
+        course = crud.get_course(cid)
+        for ch in course_chapters(course) if course else []:
+            if ch["book"]["id"] == book["id"]:
+                rng = random.Random(seed * 1000003 + book["id"])
+                return [shuffled(q, rng) for q in ch["questions"]]
+    return None
+
+
 def new_run(chapter, part="concept", mode=MODE_END):
     """A quiz of one part of a chapter, started: the questions (their options in a new order), the order they are asked in, and nothing answered yet."""
     pool = chapter_parts(chapter).get(part) or []

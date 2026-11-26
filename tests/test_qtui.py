@@ -350,3 +350,61 @@ def test_the_calendar_draws_week_day_and_month_and_the_task_list_works(qapp, fre
     edit.estimate.setValue(90)
     edit._save()
     assert task_store.list_tasks()[-1].title == "Lab Report 1" and task_store.list_tasks()[-1].estimate_minutes == 90
+
+
+def test_a_note_for_the_native_reader_keeps_its_highlights_in_the_stored_page(qapp, fresh_data):
+    import base64
+    import json
+    from core import crud
+    from core.database import DATA_DIR, data_path, stored_path
+    from qtui import notehtml
+    f = DATA_DIR / "pdfs" / "qt_hl_note.html"
+    f.parent.mkdir(parents=True, exist_ok=True)
+    f.write_text("<html><head><title>T</title></head><body><section id='s1'><h2>One</h2></section></body></html>", encoding="utf-8")
+    cid = crud.add_course("QT 40", "Notes", "Fall 2026", 0, "Active")
+    bid = crud.add_book("Guide", "", "", stored_path(f), None, [cid], "Notes", "2026", "1")
+    book = crud.get_book(bid)
+    page = notehtml.note_html(book, f.read_text(encoding="utf-8"), "s1")
+    assert "qwebchannel.js" in page and "highlight(BOOK" in page and "RESTORED = null" in page          # nothing saved yet
+    # the page reports a highlight: it is written into the stored page
+    key = "sg:T:highlights"
+    msg = base64.b64encode(json.dumps({"key": key, "value": "[1,2]"}).encode()).decode()
+    notehtml.HighlightBridge().highlight(str(bid), msg)
+    assert 'id="sa-highlights"' in data_path(book["pdf_path"]).read_text(encoding="utf-8")
+    again = notehtml.note_html(crud.get_book(bid), data_path(book["pdf_path"]).read_text(encoding="utf-8"), "s1")
+    assert '"value": "[1,2]"' in again and "sa-highlights" not in again.split("RESTORED")[0]          # handed back to the page, and the block is not shown twice
+
+
+def test_the_note_reader_shows_notes_with_tabs_and_a_pdf_and_remembers_them(qapp, fresh_data):
+    import pymupdf
+    from core import crud, settings
+    from core.database import DATA_DIR, stored_path
+    from qtui.pages.notereader_page import NoteReaderPage
+    cid = crud.add_course("QT 41", "Reader", "Fall 2026", 0, "Active")
+    note = DATA_DIR / "pdfs" / "qt_reader_note.html"
+    note.parent.mkdir(parents=True, exist_ok=True)
+    note.write_text('<html><body><section id="s1"><h2>One</h2><p>text</p></section><section id="quiz"><h2>Quiz</h2></section>'
+                    '<section id="errata"><h2>Errata</h2></section></body></html>', encoding="utf-8")
+    nid = crud.add_book("Chapter 1 Notes", "", "", stored_path(note), None, [cid], "Notes", "2026", "1")
+    pdf = DATA_DIR / "pdfs" / "qt_reader_book.pdf"
+    doc = pymupdf.open()
+    for i in range(3):
+        doc.new_page().insert_text((72, 72), f"page {i + 1}")
+    doc.save(str(pdf))
+    doc.close()
+    pid = crud.add_book("The Book", "", "", stored_path(pdf), 3, [cid], "Textbook", "2026")
+    settings.set_lab({"windows": [{"id": "r1", "type": "reference", "book": pid}, {"id": "n1", "type": "notes"}], "course": cid})
+    page = NoteReaderPage()
+    kinds = {w.win["type"]: w for w in page.windows}
+    nw, rw = kinds["notes"], kinds["reference"]
+    assert [nw.tabs.tabText(i) for i in range(nw.tabs.count())] == ["Notes", "Quiz", "Errata"] and nw.book["id"] == nid
+    nw.tabs.setCurrentIndex(2)
+    assert settings.get_lab()["tabs"][str(nid)] == "Errata"                             # the tab the note was left on is remembered
+    assert rw.book["id"] == pid and rw.pdf.doc.pageCount() == 3
+    rw._remember_page(2)
+    assert settings.get_lab()["pages"][str(pid)] == 2
+    # windows: a third can be added, and the saved list follows
+    page._add("reference")
+    assert len(page.windows) == 3 and not page.add.isEnabled() and [w["id"] for w in settings.get_lab()["windows"]] == ["r1", "n1", "r2"]
+    page._close("r2")
+    assert len(page.windows) == 2 and page.add.isEnabled()

@@ -9,6 +9,7 @@ from qtui.pages.calendar_page import CalendarPage
 from qtui.pages.courses_page import CoursesPage
 from qtui.pages.home_page import HomePage
 from qtui.pages.library_page import LibraryPage
+from qtui.pages.notereader_page import NoteReaderPage
 from qtui.pages.pdf_page import PdfPage
 from qtui.pages.quiz_page import QuizPage
 from qtui.pages.settings_page import SettingsPage
@@ -16,7 +17,7 @@ from qtui.pages.web_page import WebPage
 from qtui.sidebar import Sidebar
 from qtui.theme import RAIL_W
 
-CLASSIC = ["Note Reader"]            # the pages still drawn by the classic interface
+CLASSIC = []            # the pages still drawn by the classic interface
 
 
 class MainWindow(QMainWindow):
@@ -44,6 +45,9 @@ class MainWindow(QMainWindow):
         self.library.classic_requested.connect(lambda what: self.show_page("Classic Library"))
         self.pages["Library"] = self.library
         self.stack.addWidget(self.library)
+        self.reader = NoteReaderPage()
+        self.pages["Note Reader"] = self.reader
+        self.stack.addWidget(self.reader)
         self.calendar = CalendarPage(self._colors())
         self.calendar.classic_requested.connect(lambda what: self.show_page("Classic Calendar"))
         self.calendar.changed.connect(self._planner_changed)

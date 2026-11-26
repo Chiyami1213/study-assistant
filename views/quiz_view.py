@@ -38,14 +38,7 @@ from study.quizrun import (PASS, STRONG, MODE_END, MODE_EACH, PART_LABEL, shuffl
 from study import quizrun
 def book_questions(book):
     """The quiz questions of an HTML note (the same set the Quiz tab asks), or None if it has none."""
-    for cid in book["course_ids"]:
-        course = crud.get_course(cid)
-        for ch in course_chapters(course) if course else []:
-            if ch["book"]["id"] == book["id"]:
-                seed = st.session_state.setdefault("_quiz_seed", random.randint(1, 10 ** 9))      # the same order all session, another next time
-                rng = random.Random(seed * 1000003 + book["id"])
-                return [shuffled(q, rng) for q in ch["questions"]]
-    return None
+    return quizrun.book_questions(book, st.session_state.setdefault("_quiz_seed", random.randint(1, 10 ** 9)))      # the same order all session, another next time
 
 
 # ---------- Overview: how well the materials are understood ----------
