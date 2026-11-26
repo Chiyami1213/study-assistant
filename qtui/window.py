@@ -1,4 +1,6 @@
 """The main window: the menu on the left (it floats over the page when it opens) and the page beside it."""
+import os
+
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import QLabel, QMainWindow, QStackedWidget, QVBoxLayout, QWidget
 
@@ -95,7 +97,8 @@ class MainWindow(QMainWindow):
         first = crud.courses_by_status("Active")
         self.course = first[0]["id"] if first else None
         self.apply_theme()
-        self.show_page("Home")
+        start = os.environ.get("STUDY_ASSISTANT_QT_START")               # for tests: the page to open first
+        self.show_page(start if start in self.pages else "Home")
 
     def _colors(self):
         dark = QGuiApplication.styleHints().colorScheme().name == "Dark"
