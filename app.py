@@ -124,6 +124,8 @@ section[data-testid="stSidebar"] > div:first-child:hover .st-key-nav_collapse {{
 section[data-testid="stSidebar"].nav-collapsed .st-key-nav_expand {{display: block !important;}}
 section[data-testid="stSidebar"].nav-collapsed .st-key-nav_collapse {{display: none !important;}}
 .st-key-nav_head [data-testid="stButton"] {{display: flex; justify-content: flex-end;}}
+/* Rest Now has a tooltip, which wraps its button in a box that sat at the right edge of the wide menu (outside the narrow rail): keep it at the left like the other items */
+.st-key-nav_rest [data-testid="stTooltipHoverTarget"], .st-key-nav_rest [data-testid="stButton"] {{display: block !important; width: 100% !important; justify-content: flex-start !important;}}
 .st-key-nav_expand [data-testid="stButton"] {{justify-content: flex-start;}}
 .st-key-nav_head button {{margin: 0 7px 0 0 !important;}}
 .st-key-nav_expand button {{margin: 0 0 0 10px !important;}}

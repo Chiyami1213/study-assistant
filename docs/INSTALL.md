@@ -11,7 +11,8 @@ Everything is on the [Releases](https://github.com/Chiyami1213/study-assistant/r
 
 | Your computer | What to download | Steps |
 |---|---|---|
-| **Windows 10 or 11** | `StudyAssistant-<version>-Windows-Installer.zip` | [Install on Windows](#install-on-windows-10-or-11) |
+| **Windows 10 or 11** (the native interface, version 1.2.0 and newer) | `StudyAssistant-Native-<version>-Windows-Installer.zip` (about 340 MB) | [Install on Windows](#install-on-windows-10-or-11) |
+| **Windows 10 or 11** (the classic web interface, version 1.1.3) | `StudyAssistant-<version>-Windows-Installer.zip` from the [v1.1.3 release](https://github.com/Chiyami1213/study-assistant/releases/tag/v1.1.3) | [Install on Windows](#install-on-windows-10-or-11) |
 | **Mac with Apple silicon** (M1, M2, M3, M4 or newer) | `StudyAssistant-<version>-macOS-Apple-Silicon.dmg` | [Install on a Mac](#install-on-a-mac) |
 | **Mac with an Intel processor** | `StudyAssistant-<version>-macOS-Intel.dmg` | [Install on a Mac](#install-on-a-mac) |
 
@@ -19,7 +20,7 @@ Not sure which Mac you have? Click the Apple menu, then **About This Mac**. If i
 
 ## Install on Windows 10 or 11
 
-1. On the [Releases](https://github.com/Chiyami1213/study-assistant/releases) page, download `StudyAssistant-<version>-Windows-Installer.zip` from the newest release.
+1. On the [Releases](https://github.com/Chiyami1213/study-assistant/releases) page, download `StudyAssistant-Native-<version>-Windows-Installer.zip` from the newest release (the steps are the same for the classic `StudyAssistant-<version>-Windows-Installer.zip` of version 1.1.3).
 2. Extract the **whole** zip (right-click > Extract All) and open the extracted folder. Keep the `payload` folder next to `Install Study Assistant.exe`.
 3. Run `Install Study Assistant.exe`. If Windows SmartScreen says it protected your PC, choose **More info > Run anyway** (see the note below).
 4. Follow the setup wizard:
@@ -69,6 +70,6 @@ The pictures show an update from an older version; on a first install the second
 > **Your antivirus, Windows SmartScreen or macOS may warn about the app, or block it.** It is a false alarm: **Study Assistant does not contain a virus**, and the whole source code
 > is here to read. Programs that are new and not code-signed are often flagged until many people have run them. If it blocks the file, choose "More info > Run anyway"
 > (Windows SmartScreen) or "Open Anyway" (macOS), or allow the file in your security software. Only download it from the [Releases](https://github.com/Chiyami1213/study-assistant/releases) page, and check the file against
-> the SHA-256 checksum published next to it (`SHA256SUMS.txt` for the Windows zip, `SHA256SUMS-macOS-Apple-Silicon.txt` or `SHA256SUMS-macOS-Intel.txt` for a Mac disk image): in PowerShell `Get-FileHash <file>`, on a Mac `shasum -a 256 <file>`.
+> the SHA-256 checksum published next to it (`SHA256SUMS-Native.txt` for the native Windows zip, `SHA256SUMS.txt` for the classic one, `SHA256SUMS-macOS-Apple-Silicon.txt` or `SHA256SUMS-macOS-Intel.txt` for a Mac disk image): in PowerShell `Get-FileHash <file>`, on a Mac `shasum -a 256 <file>`.
 
 The app starts empty; add your own courses and files.
