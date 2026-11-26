@@ -286,3 +286,24 @@ def test_the_window_opens_a_course_from_the_menu_and_its_quiz(qapp, fresh_data):
     assert w.page == "Courses" and w.courses.course["id"] == cid and w.stack.currentWidget() is w.courses
     w.courses.quiz_requested.emit(cid)
     assert w.page == "Quiz" and w.quiz.course["id"] == cid
+
+
+def test_home_lists_the_work_due_and_a_check_marks_it_done_and_undo_puts_it_back(qapp, fresh_data):
+    from core import crud
+    from library import homedata
+    from qtui.pages.home_page import HomePage
+    cid = crud.add_course("QT 20", "Home", "Fall 2026", 0, "Active")
+    hid = crud.add_homework(cid, "HW 9", "2099-12-01", "", "")
+    page = HomePage()
+    courses = crud.list_courses(active_only=True)
+    homework = {c["id"]: crud.list_homework(c["id"]) for c in courses}
+    items = homedata.upcoming_items(courses, homework)
+    assert [(i[2], i[3]) for i in items] == [("HW 9", "Homework")]
+    assert homedata.progress(courses, homework)[0][1:] == (0, 1)
+    assert "HW 9" in "".join(l.text() for l in page.findChildren(__import__("PySide6.QtWidgets", fromlist=["QLabel"]).QLabel))
+    page._complete("Homework", hid)                                     # the check: done on Home, and in the Task List when it is the same work
+    assert crud.list_homework(cid)[0]["status"] == "verified"
+    homework = {c["id"]: crud.list_homework(c["id"]) for c in courses}
+    assert homedata.upcoming_items(courses, homework) == [] and [r[1] for r in homedata.completed_items(courses, homework)] == ["HW 9"]
+    page._undo("Homework", hid)
+    assert crud.list_homework(cid)[0]["status"] == "todo"

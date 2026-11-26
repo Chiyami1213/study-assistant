@@ -6,6 +6,7 @@ from core import crud, settings
 from qtui import server, theme
 from qtui.eyerest import EyeRestController
 from qtui.pages.courses_page import CoursesPage
+from qtui.pages.home_page import HomePage
 from qtui.pages.library_page import LibraryPage
 from qtui.pages.pdf_page import PdfPage
 from qtui.pages.quiz_page import QuizPage
@@ -14,7 +15,7 @@ from qtui.pages.web_page import WebPage
 from qtui.sidebar import Sidebar
 from qtui.theme import RAIL_W
 
-CLASSIC = ["Home", "Calendar", "Note Reader"]            # the pages still drawn by the classic interface
+CLASSIC = ["Calendar", "Note Reader"]            # the pages still drawn by the classic interface
 
 
 class MainWindow(QMainWindow):
@@ -42,6 +43,13 @@ class MainWindow(QMainWindow):
         self.library.classic_requested.connect(lambda what: self.show_page("Classic Library"))
         self.pages["Library"] = self.library
         self.stack.addWidget(self.library)
+        self.home = HomePage()
+        self.home.course_requested.connect(self.choose_course)
+        self.home.classic_requested.connect(lambda what: self.show_page("Classic Home"))
+        self.pages["Home"] = self.home
+        self.stack.addWidget(self.home)
+        self.pages["Classic Home"] = WebPage("Home") if use_server else QLabel("Home (classic page)")
+        self.stack.addWidget(self.pages["Classic Home"])
         self.courses = CoursesPage()
         self.courses.open_book.connect(self.open_book)
         self.courses.quiz_requested.connect(self.open_quiz)
@@ -102,8 +110,10 @@ class MainWindow(QMainWindow):
             view.ensure(self.course if name == "Courses" else None)
         if name == "Quiz":
             self.quiz.set_course(self.course)
+        if name == "Home":
+            self.home.refresh()                              # what was done elsewhere shows at once
         self.stack.setCurrentWidget(view)
-        self.sidebar.set_current({"Classic Settings": "Settings", "Classic Library": "Library", "Classic Courses": "Courses"}.get(name, name), self.course)
+        self.sidebar.set_current({"Classic Settings": "Settings", "Classic Library": "Library", "Classic Courses": "Courses", "Classic Home": "Home"}.get(name, name), self.course)
 
     def open_book(self, book_id):
         """A PDF is read here; the other files (the interactive notes, helpers and grade pages) are still opened by the classic Library."""
