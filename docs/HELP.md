@@ -18,6 +18,10 @@ computer and read again to keep your tasks and events up to date (**Sync Now**, 
 
 **How do I remove what Auto-Plan placed?** Calendar > **Clear Auto-Plan** removes the sessions it made that have not started (the ones you placed yourself stay), or use the bin on a single tile.
 
+**What are the quizzes of a chapter?** Courses > Quiz lists each chapter of your notes with the quizzes the note has: **Conceptual Questions**, a timed **Speed Round**, **Guided Practice** (numerical problems step by step) and a **Closed-Book Round** (write each equation on paper with the notes shut, open the model answer, then press I Had It or Not Yet). Take them separately; the scores count together in the chapter's total, and a quiz can be saved for later (not the speed round). A note may have any mix of them.
+
+**How do I take a rest when I want one?** Press **Rest Now** in the menu (above Settings). It starts an eye rest at once and the 20-minute reminder starts again from that moment. Reminders and their length are in Settings > Eye Rest.
+
 **How do I see the getting-started tutorial again?** Click **Show the Tutorial** at the right of the Home title (it is there once you skipped or finished it), or use Settings > Help > **Show the Tutorial Again**. **Start the Tour** on Home shows you where to click, step by step: a box and an arrow point at what to use, a helper card in the corner explains it, and **Skip Tutorial** closes it at any time. The left and right arrow keys move between the steps (not while you are typing in a field).
 
 **How do I get study guides, helpers and grade pages made by an AI assistant into the app?** Library > Import > **Prompt for AI**: choose the course, the kind of page and its number, and your assistant

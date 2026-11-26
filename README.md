@@ -73,7 +73,9 @@ Questions about installing, antivirus warnings, your files, backups, shortcuts a
 ## What's new
 
 **1.1.3**
-- **Three quizzes for every chapter** in the course Quiz tab: conceptual questions, a timed speed round and guided numerical practice, taken separately and counted together in the chapter's total.
+- **Up to four quizzes for every chapter** in the course Quiz tab: conceptual questions, a timed speed round, guided numerical practice and a closed-book round of equations to write from memory, taken separately and counted together in the chapter's total. Guides may have any mix of them.
+- **Rest Now** in the menu starts an eye rest whenever you want one and starts the 20-minute reminder again.
+- A **tidier course menu**: the courses are indented beside a thin grey line, a section's courses have their own line.
 - A **guided tour for every new course** (syllabus, files, AI pages), **Home** also lists lab reports and projects, and **Prompt for AI** follows the newest study guide rules.
 
 **1.1.2**
