@@ -31,10 +31,11 @@ class CourseList(QWidget):
     def fill(self, current_course, page):
         while self.lay.count():
             item = self.lay.takeAt(0)
-            if item.widget():
-                item.widget().hide()
-                item.widget().setParent(None)
-                item.widget().deleteLater()
+            w = item.widget()
+            if w is not None:
+                w.hide()
+                w.setParent(None)
+                w.deleteLater()
         self.spans, self.course_buttons = [], {}
         collapsed = set(settings.get_collapsed())
         for status in SECTIONS:

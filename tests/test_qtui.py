@@ -238,3 +238,51 @@ def test_the_quiz_page_takes_a_quiz_saves_it_for_later_and_records_the_attempt(q
     page.view_attempts(chapters[0])
     assert page.run == {"phase": "view"}
     page.leave()
+
+
+def test_the_courses_page_lists_filters_opens_a_course_and_edits_it(qapp, fresh_data):
+    from core import crud
+    from qtui.course_dialogs import AddCourseDialog, EditCourseDialog
+    from qtui.pages.courses_page import CourseTile, CoursesPage
+    a = crud.add_course("QT 10", "Alpha", "Fall 2026", 0, "Active")
+    crud.add_course("QT 11", "Beta", "Fall 2026", 0, "Completed")
+    page = CoursesPage()
+    assert [t.course["id"] for t in page.findChildren(CourseTile)] == [a]                 # the Active tab is the usual one
+    page._set_filter("All")
+    assert len(page.findChildren(CourseTile)) == 2
+    page._set_filter("Completed")
+    assert [t.course["name"] for t in page.findChildren(CourseTile)] == ["Beta"]
+    # a course page with its six tabs; each is built when it is chosen
+    page.open_course(a)
+    assert [page.tabs.tabText(i) for i in range(page.tabs.count())] == ["Overview", "Homework", "Exams", "Outline", "Resources", "Quiz"]
+    for i in range(page.tabs.count()):
+        page.tabs.setCurrentIndex(i)
+    crud.add_homework(a, "HW 1", "2099-12-01", "", "")
+    page.tabs.setCurrentIndex(1)
+    # adding and editing
+    add = AddCourseDialog()
+    add.name.setText("Gamma")
+    add.code.setText("QT 12")
+    add._save()
+    assert crud.get_course(add.course_id)["name"] == "Gamma"
+    edit = EditCourseDialog(crud.get_course(add.course_id))
+    edit.name.setText("Gamma Two")
+    edit.sem.setText("Spring 2027")
+    edit._save()
+    assert crud.get_course(add.course_id)["name"] == "Gamma Two" and crud.get_course(add.course_id)["semester"] == "Spring 2027"
+    edit2 = EditCourseDialog(crud.get_course(add.course_id))
+    edit2.status.setCurrentText("Self-Study")
+    edit2._save()
+    assert crud.course_status(crud.get_course(add.course_id)) == "Self-Study"
+    page.show_grid()
+
+
+def test_the_window_opens_a_course_from_the_menu_and_its_quiz(qapp, fresh_data):
+    from core import crud
+    from qtui.window import MainWindow
+    cid = crud.add_course("QT 13", "Menu", "Fall 2026", 0, "Active")
+    w = MainWindow(use_server=False)
+    w.choose_course(cid)
+    assert w.page == "Courses" and w.courses.course["id"] == cid and w.stack.currentWidget() is w.courses
+    w.courses.quiz_requested.emit(cid)
+    assert w.page == "Quiz" and w.quiz.course["id"] == cid

@@ -5,6 +5,7 @@ from PySide6.QtWidgets import QLabel, QMainWindow, QStackedWidget, QVBoxLayout, 
 from core import crud, settings
 from qtui import server, theme
 from qtui.eyerest import EyeRestController
+from qtui.pages.courses_page import CoursesPage
 from qtui.pages.library_page import LibraryPage
 from qtui.pages.pdf_page import PdfPage
 from qtui.pages.quiz_page import QuizPage
@@ -13,7 +14,7 @@ from qtui.pages.web_page import WebPage
 from qtui.sidebar import Sidebar
 from qtui.theme import RAIL_W
 
-CLASSIC = ["Home", "Calendar", "Note Reader", "Courses"]            # the pages still drawn by the classic interface
+CLASSIC = ["Home", "Calendar", "Note Reader"]            # the pages still drawn by the classic interface
 
 
 class MainWindow(QMainWindow):
@@ -41,11 +42,21 @@ class MainWindow(QMainWindow):
         self.library.classic_requested.connect(lambda what: self.show_page("Classic Library"))
         self.pages["Library"] = self.library
         self.stack.addWidget(self.library)
+        self.courses = CoursesPage()
+        self.courses.open_book.connect(self.open_book)
+        self.courses.quiz_requested.connect(self.open_quiz)
+        self.courses.classic_requested.connect(self.open_classic_courses)
+        self.courses.changed.connect(self._courses_changed)
+        self.pages["Courses"] = self.courses
+        self.stack.addWidget(self.courses)
+        self.pages["Classic Courses"] = WebPage("Courses") if use_server else QLabel("Courses (classic page)")
+        self.stack.addWidget(self.pages["Classic Courses"])
         self.quiz = QuizPage(self._colors())
         self.pages["Quiz"] = self.quiz
         self.stack.addWidget(self.quiz)
         self.pdf = PdfPage()
-        self.pdf.back_requested.connect(lambda: self.show_page("Library"))
+        self.back_page = "Library"
+        self.pdf.back_requested.connect(lambda: self.show_page(self.back_page))
         self.stack.addWidget(self.pdf)
         self.pages["Classic Library"] = WebPage("Library") if use_server else QLabel("Library (classic page)")
         self.stack.addWidget(self.pages["Classic Library"])
@@ -92,13 +103,14 @@ class MainWindow(QMainWindow):
         if name == "Quiz":
             self.quiz.set_course(self.course)
         self.stack.setCurrentWidget(view)
-        self.sidebar.set_current({"Classic Settings": "Settings", "Classic Library": "Library"}.get(name, name), self.course)
+        self.sidebar.set_current({"Classic Settings": "Settings", "Classic Library": "Library", "Classic Courses": "Courses"}.get(name, name), self.course)
 
     def open_book(self, book_id):
         """A PDF is read here; the other files (the interactive notes, helpers and grade pages) are still opened by the classic Library."""
         book = crud.get_book(book_id)
         if not book:
             return
+        self.back_page = self.page if self.page in ("Library", "Courses") else "Library"
         if book["pdf_path"].lower().endswith(".pdf"):
             self.pdf.open(book)
             self.stack.setCurrentWidget(self.pdf)
@@ -110,3 +122,19 @@ class MainWindow(QMainWindow):
     def choose_course(self, cid):
         self.course = cid
         self.show_page("Courses")
+        self.courses.open_course(cid)
+
+    def open_quiz(self, cid):
+        self.course = cid
+        self.show_page("Quiz")
+
+    def open_classic_courses(self, what, cid):
+        """The parts of the Courses page that are still classic: the tree, merging, the syllabus, the outline editor, the tour (opened at the course when there is one)."""
+        if not self.use_server:
+            return
+        self.pages["Classic Courses"].load(server.url("Courses", cid))
+        self.show_page("Classic Courses")
+
+    def _courses_changed(self):
+        self.sidebar.refresh_courses()
+        self.quiz.reload_courses()
