@@ -514,15 +514,17 @@ class LibraryPage(QWidget):
         chosen = dlg.chosen()
         if not chosen:
             return
-        kept = []
+        kept, notices = [], []
         QApplication.setOverrideCursor(Qt.WaitCursor)
         try:
-            added, replaced, problems = LI.import_all(chosen, remember, self._default_course(), kept)
+            added, replaced, problems = LI.import_all(chosen, remember, self._default_course(), kept, notices)
         finally:
             QApplication.restoreOverrideCursor()
         text = f"Imported {added} file{'s' if added != 1 else ''}" + (f" and replaced {replaced}" if replaced else "") + (f", kept {len(kept)} as they were" if kept else "") + "."
         if problems:
             text += "\n\nNot imported:\n" + "\n".join(problems[:6])
+        if notices:                                                  # a replaced guide with a different quiz: what was found and what was erased
+            text += "\n\nQuiz changes found:\n" + "\n".join(notices)
         QMessageBox.information(self.window(), heading, text)
         self.refresh()
 

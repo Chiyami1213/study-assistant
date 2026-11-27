@@ -90,6 +90,7 @@ The app has no note builder any more (the old `notes/` chapter folders and the `
   `<script type="application/json" id="sa-highlights">` (`study/hlstore.py`): the open page reports each change through the hidden box `hl_sink` (in `app.py`), `hlstore.save` embeds it, a copy is put in
   `static/hl/<book id>.json` which the opening page reads before the guide's own script, and the block is taken out of the page the window shows (a save must not reload the window). Replacing a stored
   note (Update From Folder, Replace) carries the block over (`hlstore.carry_over`). Library import: a file the Library has already (Changed, or In Library by name) is Replaced (the usual) or Kept (`Candidate.existing`).
+  Every Replace of an html guide also checks its quiz (`views/library_import.import_candidate` -> `study/quizrun.quiz_discrepancies`, which compares `quiz_fingerprint` of the old and the new page for each part: conceptual, speed, guided, closed-book): a quiz that is the same keeps every score and saved run; a part whose questions differ has its attempts and saved run erased (`erase_changed`; a copy goes to `<data folder>/quiz_erased`) and the student is told what was found (`import_all(..., notices)`, shown by the Library and Course import windows). A new import path that replaces a stored guide must go through `import_candidate`.
 
 ## Homework Helpers and Grade Explanations are written outside the app too
 

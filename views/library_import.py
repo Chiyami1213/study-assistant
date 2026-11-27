@@ -253,7 +253,23 @@ def import_candidate(c, remember=False, default_course=None):
                 data = hlstore.carry_over(dest.read_text(encoding="utf-8", errors="replace"), data.decode("utf-8", errors="replace")).encode("utf-8")
             except OSError:
                 pass
+        old_text = None
+        if not is_pdf:
+            try:
+                old_text = dest.read_text(encoding="utf-8", errors="replace")
+            except OSError:
+                pass
         dest.write_bytes(data)                                              # the stored copy is ours to replace; the source file is untouched
+        c.quiz_notice = None
+        if old_text is not None:                                            # does the quiz of the new guide ask something else? Then the old record is erased and the student is told
+            try:
+                from study import quizrun
+                changes = quizrun.quiz_discrepancies(old_text, data.decode("utf-8", errors="replace"))
+                quizrun.clear_caches()
+                if changes:
+                    c.quiz_notice = quizrun.discrepancy_notice(book["title"], changes, quizrun.erase_changed(book, changes))
+            except Exception:
+                pass
         crud._exec("UPDATE books SET total_pages=? WHERE id=?", (info.get("pages"), c.book_id))
         try:
             from library import covers
@@ -279,9 +295,9 @@ def import_candidate(c, remember=False, default_course=None):
     return book_id
 
 
-def import_all(candidates, remember=False, default_course=None, kept=None):
+def import_all(candidates, remember=False, default_course=None, kept=None, notices=None):
     """Import the given candidates. Returns (new books, replaced books, [problems]). A file the Library has already and that is set to Keep is left out (its name is added to `kept` when
-    a list is given); with `remember` it is still marked as seen, so an update does not offer it again."""
+    a list is given); with `remember` it is still marked as seen, so an update does not offer it again. When a replaced guide has a different quiz, what was found and erased is added to `notices` (a list)."""
     added = replaced = 0
     problems = []
     for c in candidates:
@@ -293,6 +309,8 @@ def import_all(candidates, remember=False, default_course=None, kept=None):
                     kept.append(c.name)
                 continue
             import_candidate(c, remember, default_course)
+            if notices is not None and getattr(c, "quiz_notice", None):
+                notices.append(c.quiz_notice)
             if c.status in ("Changed", "In Library") and c.book_id:
                 replaced += 1
             else:
@@ -364,10 +382,10 @@ def _table(candidates, key):
     return chosen
 
 
-def _summary(added, replaced, problems, kept=()):
+def _summary(added, replaced, problems, kept=(), notices=()):
     import streamlit as st
     text = f"Imported {added} file{'s' if added != 1 else ''}" + (f" and replaced {replaced}" if replaced else "") + (f", kept {len(kept)} as they were" if kept else "") + "."
-    st.session_state["lib_toast"] = text + (f" Not imported: {'; '.join(problems[:3])}" if problems else "")
+    st.session_state["lib_toast"] = text + (f" Not imported: {'; '.join(problems[:3])}" if problems else "") + ("".join(" " + n for n in notices))
 
 
 def _scans():
@@ -403,8 +421,8 @@ def zip_dialog(default_course=None):
         st.markdown(f"**{len(cands)} files found, {new} new.** Check the type, title and course of each, and uncheck what you do not want.")
         chosen = _table(cands, f"bulk_zip_table_{up.file_id}")
         if st.button(f"Import {len(chosen)} File{'s' if len(chosen) != 1 else ''}", key="bulk_zip_go", type="primary", disabled=not chosen):
-            kept = []
-            _summary(*import_all(chosen, False, default_course, kept), kept)
+            kept, notices = [], []
+            _summary(*import_all(chosen, False, default_course, kept, notices), kept, notices)
             st.rerun()
     dialog()
 
@@ -433,8 +451,8 @@ def files_body(ups, default_course=None):
     st.markdown(f"**{len(cands)} file{'s' if len(cands) != 1 else ''} found, {new} new.** Check the type, title and course of each, and uncheck what you do not want.")
     chosen = _table(cands, f"bulk_files_table_{len(cands)}")
     if st.button(f"Import {len(chosen)} File{'s' if len(chosen) != 1 else ''}", key="bulk_files_go", type="primary", disabled=not chosen):
-        kept = []
-        _summary(*import_all(chosen, False, default_course, kept), kept)
+        kept, notices = [], []
+        _summary(*import_all(chosen, False, default_course, kept, notices), kept, notices)
         st.rerun()
 
 
@@ -489,8 +507,8 @@ def folder_dialog(course_id=None):
             for c in cands:
                 if c.status == "In Library" and c.book_id:
                     settings.remember_import_source(c.key, c.size, c.mtime, c.book_id)
-            kept = []
-            _summary(*import_all(chosen, True, course_id, kept), kept)
+            kept, notices = [], []
+            _summary(*import_all(chosen, True, course_id, kept, notices), kept, notices)
             st.rerun()
     dialog()
 

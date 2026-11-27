@@ -250,7 +250,7 @@ def test_delete_all_events_and_a_series_with_nothing_before_is_deleted(seeded):
     assert crud.list_meetings(cid) == []
     first = _series(cid, {1, 3})
     start = store.get_term().start
-    day = start + timedelta(days=(1 - start.weekday()) % 7)                                                # the first Tuesday of the term: nothing is before it
+    day = min(start + timedelta(days=(wd - start.weekday()) % 7) for wd in (1, 3))                         # the first Tuesday or Thursday of the term (the series meets on both): nothing is before it
     assert "deleted" in cs.delete_occurrences("course", first, day, "following") and crud.list_meetings(cid) == []
     other = _series(cid, {1})
     with pytest.raises(Exception):

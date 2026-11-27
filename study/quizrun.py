@@ -1,5 +1,6 @@
 """The quizzes of a course, without Streamlit and without Qt: which chapters and parts a note has, how a quiz is started, scored and saved for later. The classic page (`views/quiz_view.py`) and the native one
 (`qtui/pages/quiz_page.py`) both use it. See quiz_view.py for what the quizzes do (modes, notes and hints, the three scores)."""
+import hashlib
 import json
 import random
 import re
@@ -45,17 +46,24 @@ def shuffled(q, rng):
     return {**q, "o": [o[i] for i in order], "a": order.index(q["a"])}
 
 
-@lru_cache(maxsize=64)
-def _questions(path, mtime):
+def _questions_of(text):
     # only real questions: the open "think of an answer" items of some notes are replaced by written multiple-choice ones; a guide that has only open (essay) questions keeps them
-    found = quizzes.parse(open(path, encoding="utf-8", errors="replace").read())
+    found = quizzes.parse(text)
     return [x for x in found if x["kind"] == "mc"] or [x for x in found if x["kind"] == "open"]
 
 
 @lru_cache(maxsize=64)
-def _extra_parts(path, mtime):
+def _questions(path, mtime, size=0):
+    return _questions_of(open(path, encoding="utf-8", errors="replace").read())
+
+
+@lru_cache(maxsize=64)
+def _extra_parts(path, mtime, size=0):
+    return _extra_of(open(path, encoding="utf-8", errors="replace").read())
+
+
+def _extra_of(text):
     """{"speed": {questions, n, limit} or None, "guided": [step questions of the guided practice, in order], "closed": [equations of the closed-book round]} of a note."""
-    text = open(path, encoding="utf-8", errors="replace").read()
     try:
         defs = macros.from_html(text)
         out = {"speed": None, "guided": [], "closed": []}
@@ -96,7 +104,7 @@ def _count(chapter, part, qs):
 
 
 @lru_cache(maxsize=64)
-def _sections(path, mtime):
+def _sections(path, mtime, size=0):
     return quizgen.sections_of(open(path, encoding="utf-8", errors="replace").read())
 
 
@@ -109,14 +117,14 @@ def course_chapters(course):
         path = data_path(b["pdf_path"])
         if not path.exists():
             continue
-        secs = _sections(str(path), path.stat().st_mtime)
+        secs = _sections(str(path), path.stat().st_mtime, path.stat().st_size)
         defs = macros.from_html(path.read_text(encoding="utf-8", errors="replace"))
         secs = [{**x, "title": quizzes._md(x["title"], defs)} for x in secs]      # titles as Markdown with TeX math
         own = []
         text = path.read_text(encoding="utf-8", errors="replace")
         subs = {m.group(1): (m.group(2), quizzes._md(re.sub(r"<[^>]+>", "", m.group(3)), defs))          # subsections: "s1-1" -> ("1.1", title)
                 for m in re.finditer(r'data-t="([^"]+)"[^>]*><span class="n">([\d.]+)</span>(.*?)</a>', text, re.S)}
-        for qq in _questions(str(path), path.stat().st_mtime):
+        for qq in _questions(str(path), path.stat().st_mtime, path.stat().st_size):
             if qq.get("section"):                                       # the note names the subsection each question tests
                 top = re.match(r"s\d+", qq["section"])
                 num, title = subs.get(qq["section"], (None, None))
@@ -133,7 +141,7 @@ def course_chapters(course):
             if qq.get("_num"):
                 qq["tag"] = (labels.get(qq.get("sec")) or ref(qq["_num"])) + " · " + qq["tag"].replace("Self-check · ", "") + " (self-check)"
         qs = own
-        extra = _extra_parts(str(path), path.stat().st_mtime)
+        extra = _extra_parts(str(path), path.stat().st_mtime, path.stat().st_size)
         if qs or extra["speed"] or extra["guided"] or extra["closed"]:
             out.append({"book": b, "questions": qs, "path": path, "speed": extra["speed"], "guided": extra["guided"], "closed": extra["closed"],
                         "name": (f"Lec {b['lecture']} · " if b.get("lecture") else "") + b["title"]})
@@ -219,6 +227,83 @@ def book_questions(book, seed):
                 rng = random.Random(seed * 1000003 + book["id"])
                 return [shuffled(q, rng) for q in ch["questions"]]
     return None
+
+
+def _signature(items):
+    return hashlib.sha1(json.dumps(items, sort_keys=True, default=str).encode("utf-8")).hexdigest()
+
+
+def quiz_fingerprint(text):
+    """{part: (number of questions, signature)} of the quizzes a guide's page has: the same parts the Quiz page offers. Two pages with the same fingerprint of a part ask the same quiz."""
+    out = {}
+    qs = _questions_of(text)
+    if qs:
+        out["concept"] = (len(qs), _signature(qs))
+    extra = _extra_of(text)
+    if extra.get("speed"):
+        out["speed"] = (len(extra["speed"]["questions"]), _signature([extra["speed"]["questions"], extra["speed"].get("n")]))
+    if extra.get("guided"):
+        out["guided"] = (len(extra["guided"]), _signature(extra["guided"]))
+    if extra.get("closed"):
+        out["closed"] = (len(extra["closed"]), _signature(extra["closed"]))
+    return out
+
+
+def quiz_discrepancies(old_text, new_text):
+    """The quizzes that are different in a newer copy of a guide: [{part, label, old, new}] (the number of questions before and after; 0 = the guide did not have it / has it no more). Empty when
+    every quiz is the same, which is the usual case after a small edit of the notes."""
+    old, new = quiz_fingerprint(old_text), quiz_fingerprint(new_text)
+    out = []
+    for part in PART_LABEL:
+        if old.get(part, (0, ""))[1] != new.get(part, (0, ""))[1]:
+            out.append({"part": part, "label": PART_LABEL[part], "old": old.get(part, (0,))[0], "new": new.get(part, (0,))[0]})
+    return out
+
+
+def clear_caches():
+    for f in (_questions, _extra_parts, _sections):
+        f.cache_clear()
+
+
+def erase_changed(book, changes):
+    """A guide was replaced by one whose quiz is different: the record of the quizzes that changed is erased (the attempts and the saved, unfinished run), because the old scores say nothing about
+    the new questions. A quiz that is the same keeps everything. A quiz the old guide did not have has nothing to erase. A copy of the erased attempts is kept in <data folder>/quiz_erased.
+    Returns {"attempts": n, "saved": m}."""
+    clear_caches()
+    attempts = saved = 0
+    gone = []
+    for ch in changes:
+        if not ch["old"]:
+            continue
+        rows = crud.book_quiz_attempts(book["id"], ch["part"])
+        gone += [dict(r) for r in rows]
+        attempts += len(rows)
+        if rows:
+            crud.delete_book_quiz_attempts(book["id"], ch["part"])
+        for cid in book["course_ids"]:
+            if saved_progress(cid, book["id"], ch["part"]):
+                saved += 1
+            _drop_progress(cid, book["id"], ch["part"])
+    if gone:
+        try:
+            folder = DATA_DIR / "quiz_erased"
+            folder.mkdir(parents=True, exist_ok=True)
+            (folder / f"{datetime.now().strftime('%Y-%m-%d %H-%M-%S')} book {book['id']}.json").write_text(json.dumps(gone, default=str), encoding="utf-8")
+        except OSError:
+            pass
+    return {"attempts": attempts, "saved": saved}
+
+
+def discrepancy_notice(title, changes, erased):
+    """The sentence shown to the student after a replace that found a different quiz."""
+    parts = "; ".join(f"{c['label']} ({c['old']} questions before, {c['new']} now)" if c["old"] else f"{c['label']} (new, {c['new']} questions)" for c in changes)
+    done = [c["label"] for c in changes if c["old"]]
+    text = f"{title}: the quiz is different from the old guide: {parts}."
+    if done:
+        text += f" The previous record of {', '.join(done)} was erased ({erased['attempts']} attempt{'s' if erased['attempts'] != 1 else ''}"
+        text += f", {erased['saved']} saved for later" if erased["saved"] else ""
+        text += ")."
+    return text
 
 
 def new_run(chapter, part="concept", mode=MODE_END):

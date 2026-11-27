@@ -382,9 +382,11 @@ class CoursesPage(QWidget):
         if dlg.exec():
             chosen = dlg.chosen()
             if chosen:
-                added, replaced, problems = LI.import_all(chosen, True, self.course["id"], [])
+                notices = []
+                added, replaced, problems = LI.import_all(chosen, True, self.course["id"], [], notices)
                 QMessageBox.information(self.window(), "Update Files", f"Imported {added} file{'s' if added != 1 else ''}" + (f" and replaced {replaced}" if replaced else "") + "."
-                                        + (("\n\nNot imported:\n" + "\n".join(problems[:6])) if problems else ""))
+                                        + (("\n\nNot imported:\n" + "\n".join(problems[:6])) if problems else "")
+                                        + (("\n\nQuiz changes found:\n" + "\n".join(notices)) if notices else ""))
                 self.open_course(self.course["id"])
 
     def _build_tab(self, index):

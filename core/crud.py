@@ -665,6 +665,18 @@ def quiz_attempts(course_id, book_id, part=None):
     return _all("SELECT * FROM quiz_attempts WHERE course_id=? AND book_id=? ORDER BY id DESC", (course_id, book_id))
 
 
+def book_quiz_attempts(book_id, part=None):
+    """Every recorded attempt of a note's quizzes, of any course (of one part when `part` is given)."""
+    if part:
+        return _all("SELECT * FROM quiz_attempts WHERE book_id=? AND part=? ORDER BY id", (book_id, part))
+    return _all("SELECT * FROM quiz_attempts WHERE book_id=? ORDER BY id", (book_id,))
+
+
+def delete_book_quiz_attempts(book_id, part):
+    """Delete the recorded attempts of one quiz of a note. Only done when the note was replaced by a guide whose quiz is different (study/quizrun.py `erase_changed`)."""
+    _exec("DELETE FROM quiz_attempts WHERE book_id=? AND part=?", (book_id, part))
+
+
 def clear_quiz_attempts(course_id, book_id=None):
     """Delete the recorded attempts of a course's quizzes (of one quiz when book_id is given). Only done when the user asks."""
     if book_id is None:

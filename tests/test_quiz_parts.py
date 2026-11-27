@@ -165,3 +165,40 @@ def test_speed_round_time_is_seconds_per_question_from_settings():
     settings.set_quiz(use_guide_time=True)
     assert quiz_view.speed_limit(ch) == 90                                                                  # or the guide's own limit when Settings says so
     settings.set_quiz(speed_seconds=5, use_guide_time=False)
+
+
+NOTE_BODY = NOTE.split("<body>", 1)[1].rsplit("</body>", 1)[0]
+
+
+def _replace_with(book_id, new_text):
+    """Replace the stored page of a note the way the import does (the Library's Replace)."""
+    from views import library_import as LI
+    book = crud.get_book(book_id)
+    notices = []
+    cand = LI.Candidate(key="k", name="n.html", size=len(new_text), mtime=0.0, status="Changed", book_id=book_id, reader=lambda: new_text.encode("utf-8"))
+    cand.existing = "Replace"
+    LI.import_all([cand], False, None, None, notices)
+    return notices
+
+
+def test_a_replaced_guide_keeps_the_record_when_its_quiz_is_the_same_and_erases_it_when_the_quiz_changed():
+    from core.database import DATA_DIR
+    from study import quizrun
+    cid = crud.add_course("AE 9", "Guides", "Fall 2026", 0, "Active")
+    bid = _add_note(cid, 9, NOTE_BODY)
+    crud.add_quiz_attempt(cid, bid, 1, 2, part="concept")
+    crud.add_quiz_attempt(cid, bid, 2, 3, part="speed")
+    ch = {c["book"]["id"]: c for c in quizrun.course_chapters(crud.get_course(cid))}[bid]
+    quizrun._save_progress(cid, quizrun.new_run(ch, "concept"))
+    assert quizrun.saved_progress(cid, bid, "concept")
+    # the same quiz, other text around it: nothing is touched and nobody is told
+    assert _replace_with(bid, "<html><body><p>a new paragraph</p>" + NOTE_BODY + "</body></html>") == []
+    assert len(crud.quiz_attempts(cid, bid)) == 2 and quizrun.saved_progress(cid, bid, "concept")
+    # one conceptual question is different: that record goes (and its saved run), the speed round's stays, the student is told
+    changed = NOTE_BODY.replace('"What?"', '"What else?"')
+    notices = _replace_with(bid, "<html><body>" + changed + "</body></html>")
+    assert len(notices) == 1 and "Conceptual Questions" in notices[0] and "erased" in notices[0] and "Speed Round" not in notices[0]
+    assert [a["part"] for a in crud.quiz_attempts(cid, bid)] == ["speed"] and quizrun.saved_progress(cid, bid, "concept") is None
+    assert list((DATA_DIR / "quiz_erased").glob("*.json"))                                                 # a copy of what was erased
+    ch = {c["book"]["id"]: c for c in quizrun.course_chapters(crud.get_course(cid))}[bid]
+    assert ch["questions"][0]["q"] == "What else?"                                                         # the Quiz page reads the new questions, not a cached old copy
