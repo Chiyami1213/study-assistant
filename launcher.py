@@ -87,6 +87,27 @@ def watch_parent(parent_pid):
     threading.Thread(target=loop, daemon=True).start()
 
 
+_CRASH_FILE = None
+
+
+def _crash_report():
+    """A hard crash of the server (exit 3221225477, an access violation inside a library) leaves no message: with this, Python writes where every thread was into <data folder>/logs/crash.log."""
+    global _CRASH_FILE
+    try:
+        import faulthandler
+        folder = importlib.import_module("core.database").DATA_DIR / "logs"
+        folder.mkdir(parents=True, exist_ok=True)
+        path = folder / "crash.log"
+        if path.exists() and path.stat().st_size > 1 << 20:
+            path.write_text("", encoding="utf-8")
+        _CRASH_FILE = open(path, "a", encoding="utf-8")
+        _CRASH_FILE.write(f"\n--- {time.strftime('%Y-%m-%d %H:%M:%S')} server pid {os.getpid()} started\n")
+        _CRASH_FILE.flush()
+        faulthandler.enable(file=_CRASH_FILE, all_threads=True)
+    except Exception:
+        pass
+
+
 def run_server(port, parent_pid=None):
     """Child mode: run the Streamlit server in this process (needs the main thread for its signal handlers)."""
     if parent_pid:
@@ -94,6 +115,7 @@ def run_server(port, parent_pid=None):
     project = find_project()
     os.chdir(project)
     sys.path.insert(0, str(project))
+    _crash_report()
     from streamlit.web import bootstrap
     options = {"server.headless": True, "server.port": port, "server.address": "127.0.0.1",
                "global.developmentMode": False, "browser.gatherUsageStats": False,

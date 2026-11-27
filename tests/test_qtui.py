@@ -408,3 +408,33 @@ def test_the_note_reader_shows_notes_with_tabs_and_a_pdf_and_remembers_them(qapp
     assert len(page.windows) == 3 and not page.add.isEnabled() and [w["id"] for w in settings.get_lab()["windows"]] == ["r1", "n1", "r2"]
     page._close("r2")
     assert len(page.windows) == 2 and page.add.isEnabled()
+
+
+def test_server_keeper_restarts_a_crashed_server(qapp, monkeypatch):
+    """The hidden server that draws the classic pages is started again when it stops on its own, and the classic pages are told to load again once it answers."""
+    import subprocess
+    import sys
+    from qtui import server
+    crashed = subprocess.Popen([sys.executable, "-c", "import sys; sys.exit(3)"])
+    crashed.wait()
+    started, reloaded = [], []
+    alive = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(30)"])
+    monkeypatch.setattr(server, "start", lambda log=None: started.append(log) or alive)
+    monkeypatch.setattr(server, "ready", lambda timeout=0.4: True)
+    holder = {"proc": crashed, "log": None}
+    keeper = server.Keeper(holder, lambda: reloaded.append(1), interval_ms=10**6)
+    try:
+        keeper.check()                                             # sees the stop, starts it again
+        assert started == [None] and holder["proc"] is alive and not reloaded
+        keeper.check()                                             # it answers: the pages load again
+        assert reloaded == [1]
+        keeper.check()                                             # still running: nothing happens
+        assert started == [None] and reloaded == [1]
+        for _ in range(5):                                         # a loop of crashes is not restarted for ever
+            holder["proc"] = crashed
+            keeper.waiting = False
+            keeper.check()
+        assert len(started) <= 5
+    finally:
+        keeper.stop()
+        alive.terminate()

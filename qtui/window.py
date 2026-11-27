@@ -134,6 +134,12 @@ class MainWindow(QMainWindow):
         self.stack.setCurrentWidget(view)
         self.sidebar.set_current({"Classic Settings": "Settings", "Classic Library": "Library", "Classic Courses": "Courses", "Classic Home": "Home", "Classic Calendar": "Calendar"}.get(name, name), self.course)
 
+    def reload_classic(self):
+        """The hidden server was started again after a crash: every classic page that was open loads its address again."""
+        for page in self.pages.values():
+            if isinstance(page, WebPage) and page._loaded:
+                page.load(page._url)
+
     def open_book(self, book_id):
         """A PDF is read here; the other files (the interactive notes, helpers and grade pages) are still opened by the classic Library."""
         book = crud.get_book(book_id)

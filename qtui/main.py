@@ -22,14 +22,19 @@ def run(argv=None):
     folder.mkdir(parents=True, exist_ok=True)
     profile.setPersistentStoragePath(str(folder))
     profile.setCachePath(str(folder / "cache"))
-    proc = None
+    holder = {"proc": None, "log": None}
     if use_server and not server.ready():
-        proc = server.start()
-        atexit.register(lambda: proc.poll() is None and proc.terminate())
+        holder["log"] = server.open_log()
+        holder["proc"] = server.start(holder["log"])
+        atexit.register(lambda: holder["proc"] and holder["proc"].poll() is None and holder["proc"].terminate())
     from qtui.window import MainWindow
     win = MainWindow(use_server=use_server)
     win.show()
+    keeper = server.Keeper(holder, win.reload_classic) if holder["proc"] else None     # a crashed hidden server is started again (the classic pages would stay on "Connection error")
     code = app.exec()
+    if keeper:
+        keeper.stop()
+    proc = holder["proc"]
     if proc is not None and proc.poll() is None:
         try:
             import launcher                                           # stops the server and the page renderers it started
