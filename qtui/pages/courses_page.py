@@ -542,8 +542,7 @@ class CoursesPage(QWidget):
             lay.addWidget(QLabel("No homework yet."))
             return
         finished = crud.course_status(course) == "Completed"
-        upcoming = [] if finished else [h for h in homework if not h["due_date"] or h["due_date"] >= today]
-        past = list(homework) if finished else [h for h in homework if h["due_date"] and h["due_date"] < today]
+        upcoming, not_graded, past = cd.homework_groups(homework, today, finished)
 
         def row(h):
             status, css = cd._homework_status(h, today)
@@ -557,6 +556,10 @@ class CoursesPage(QWidget):
                 lay.addWidget(row(h))
             if not upcoming:
                 lay.addWidget(QLabel("Nothing due."))
+        if not_graded:                                                         # handed in, waiting for a grade
+            lay.addWidget(self._h(f"Not Graded ({len(not_graded)})"))
+            for h in not_graded:
+                lay.addWidget(row(h))
         lay.addWidget(self._h(f"Past Homework ({len(past)})"))
         for h in reversed(past):
             lay.addWidget(row(h))

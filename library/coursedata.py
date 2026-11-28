@@ -100,6 +100,20 @@ def _homework_status(h, today):
     return "Open", "open"
 
 
+def homework_groups(homework, today, finished=False):
+    """(upcoming, not_graded, past) of a course's homework in date order. Not graded: handed in (marked done) and no grade yet, whatever its date,
+    so Upcoming holds only what is still to do. Upcoming: not handed in and due today or later (or no date); a completed course has none.
+    Past: the rest (due before today, or graded)."""
+    def ungraded(h):
+        return h["status"] == "verified" and (h.get("score") is None or not h.get("points"))
+
+    not_graded = [h for h in homework if ungraded(h)]
+    rest = [h for h in homework if not ungraded(h)]
+    upcoming = [] if finished else [h for h in rest if not h["due_date"] or h["due_date"] >= today]
+    past = [h for h in rest if h not in upcoming]
+    return upcoming, not_graded, past
+
+
 def _homework_items(course):
     return sorted((h for h in crud.list_homework(course["id"]) if crud.in_part(h["title"], course.get("part"))),
                   key=lambda h: (h["due_date"] or "9999-12-31", crud._natural_key(h["title"])))

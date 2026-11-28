@@ -14,7 +14,7 @@ from library import syllabus
 from views import icons, tutorial
 from library import photos
 from views import course_tree, library_view, quiz_view
-from library.coursedata import (SORTS, TERM_RANK, _semester_key, _sorted_groups, _when, _homework_book, _exam_book, _percent, _homework_status, _homework_items, _exam_items,
+from library.coursedata import (homework_groups, SORTS, TERM_RANK, _semester_key, _sorted_groups, _when, _homework_book, _exam_book, _percent, _homework_status, _homework_items, _exam_items,
                                   coming_up, _syllabus_data)      # the pure part of the course pages: shared with the native interface
 
 COLUMNS = 5
@@ -739,8 +739,7 @@ def _homework(course):
         st.caption("No homework yet.")
         return
     finished = crud.course_status(course) == "Completed"               # a completed course has nothing upcoming, dated or not
-    upcoming = [] if finished else [h for h in homework if not h["due_date"] or h["due_date"] >= today]
-    past = list(homework) if finished else [h for h in homework if h["due_date"] and h["due_date"] < today]
+    upcoming, not_graded, past = homework_groups(homework, today, finished)
 
     def rows(items):
         out = ""
@@ -760,6 +759,9 @@ def _homework(course):
             st.markdown(f'<div class="dl-list">{rows(upcoming)}</div>', unsafe_allow_html=True)
         else:
             st.caption("Nothing due.")
+    if not_graded:                                                      # handed in, waiting for a grade
+        st.subheader(f"Not Graded ({len(not_graded)})")
+        st.markdown(f'<div class="dl-list">{rows(not_graded)}</div>', unsafe_allow_html=True)
     st.subheader(f"Past Homework ({len(past)})")
     if past:
         st.markdown(f'<div class="dl-list">{rows(list(reversed(past)))}</div>', unsafe_allow_html=True)      # the most recent first
