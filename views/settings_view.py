@@ -6,7 +6,7 @@ import streamlit as st
 
 from core import database, settings
 
-SECTIONS = ["Appearance", "Eye Rest", "Quizzes", "Study Planner", "Backup", "Keyboard Shortcuts", "Help", "Report an Issue", "Danger Zone", "About"]
+SECTIONS = ["Appearance", "Eye Rest", "Quizzes", "Home", "Study Planner", "Backup", "Keyboard Shortcuts", "Help", "Report an Issue", "Danger Zone", "About"]
 
 
 def _slug(name):
@@ -35,6 +35,21 @@ def _quiz_section():
         if new != {k: quiz[k] for k in new}:
             settings.set_quiz(**new)
             st.rerun()
+
+
+def _home_section():
+    """How many days before an exam its countdown tile starts to show on Home."""
+    _section("Home")
+    home = settings.get_home()
+    st.caption("Home shows a countdown tile, in the course's color, for each exam. A midterm shows this many days before its own day; the finals all show this many days before the first final. 0 hides them.")
+    cols = st.columns([3, 3, 2])
+    mid = cols[0].number_input("Midterm Countdown Starts (Days Before)", 0, 120, home["midterm_days"], 1, key="home_midterm_days", help="how many days before a midterm its countdown tile shows on home")
+    fin = cols[1].number_input("Final Exam Countdown Starts (Days Before the First Final)", 0, 120, home["final_days"], 1, key="home_final_days",
+                               help="how many days before the first final the countdown tiles of all finals show on home")
+    new = {"midterm_days": int(mid), "final_days": int(fin)}
+    if new != home:
+        settings.set_home(**new)
+        st.rerun()
 
 
 def _jump_bar():
@@ -153,6 +168,7 @@ def render():
             st.rerun()
 
     _quiz_section()
+    _home_section()
     _planner_section()
     _backup_section()
     _section("Keyboard Shortcuts")

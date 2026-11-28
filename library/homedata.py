@@ -11,11 +11,12 @@ def _plural(n, word):
 
 
 def _term_stats(today):
-    """[(big text, small text)] for the term: current week number (holidays count) and days until winter break.
+    """[(big text, small text)] for the term: current week number (holidays count), days until the last day of lectures and days until winter break.
 
     Winter break starts the day after the last day of finals (the end of the exam period)."""
     sem = settings.get_semester()
     start, exam_end = date.fromisoformat(sem["start"]), date.fromisoformat(sem["exam_end"])
+    last_lecture = date.fromisoformat(sem["end"])                    # the last day of classes (the exam period follows)
     break_start = exam_end + timedelta(days=1)
     day = lambda d: f"{d.strftime('%a, %b')} {d.day}"
     if today < start:
@@ -24,8 +25,12 @@ def _term_stats(today):
         return [("Winter Break", f"Started {day(break_start)}")]
     week = (today - start).days // 7 + 1           # week 1 is the week classes start; holiday weeks are counted
     total = (exam_end - start).days // 7 + 1
-    return [(f"Week {week}", f"Of {total}"),
-            (_plural((break_start - today).days, "Day"), f"Until Winter Break · {day(break_start)}")]
+    out = [(f"Week {week}", f"Of {total}")]
+    if today < last_lecture:
+        out.append((_plural((last_lecture - today).days, "Day"), f"Until Last Day of Lectures · {day(last_lecture)}"))
+    elif today == last_lecture:
+        out.append(("Today", f"Last Day of Lectures · {day(last_lecture)}"))
+    return out + [(_plural((break_start - today).days, "Day"), f"Until Winter Break · {day(break_start)}")]
 
 
 EXAM_RE = re.compile(r"midterm|final|exam", re.I)
@@ -104,30 +109,33 @@ def upcoming_items(courses, homework, today=None):
 
 
 FINAL_RE = re.compile(r"final", re.I)
-FINALS_LEAD_DAYS = 21                 # the countdown tiles start 3 weeks before the first final
 
 
 def is_final(title):
     return bool(FINAL_RE.search(title)) and not re.search(r"midterm", title, re.I)
 
 
-def final_countdowns(courses, today=None):
-    """[{id, day, time, title, course, days, big, small}] of the final exams that still count down, earliest first: one for each final exam of the active courses. They show from 3 weeks before the
-    first final (the earliest one that has not passed) until each exam day; a final marked done has no tile. `big` is the countdown ("In 12 Days", "Tomorrow", "Today"), `small` what it is."""
+def exam_countdowns(courses, today=None):
+    """[{id, day, time, title, course, color, kind, days, big, small, when}] of the exams that count down on Home, earliest first: one tile for each exam of the active courses. A midterm (or any exam that
+    is not a final) shows from `midterm_days` before its day (Settings > Home, 14 by default); the finals show from `final_days` before the FIRST final (21), all of them together. A finished exam has
+    no tile and neither has one that has passed. `big` is the countdown ("12 Days", "Tomorrow", "Today"), `color` the course's color."""
     today = today or date.today()
+    lead = settings.get_home()
     by_id = {c["id"]: c for c in courses}
-    finals = [e for e in crud.list_events(today.isoformat(), "2100-12-31") if e["course_id"] in by_id and is_final(e["title"])]
-    if not finals or today < date.fromisoformat(min(e["date"] for e in finals)) - timedelta(days=FINALS_LEAD_DAYS):
-        return []
+    exams = [e for e in crud.list_events(today.isoformat(), "2100-12-31") if e["course_id"] in by_id and EXAM_RE.search(e["title"])]
+    finals = [e for e in exams if is_final(e["title"])]
+    final_open = bool(finals) and lead["final_days"] > 0 and today >= date.fromisoformat(min(e["date"] for e in finals)) - timedelta(days=lead["final_days"])
     out = []
-    for e in sorted(finals, key=lambda e: (e["date"], e.get("time") or "", e["id"])):
+    for e in sorted(exams, key=lambda e: (e["date"], e.get("time") or "", e["id"])):
         if e.get("done"):
             continue
         n = (date.fromisoformat(e["date"]) - today).days
-        big = "Today" if n == 0 else "Tomorrow" if n == 1 else f"{n} Days"
+        final = is_final(e["title"])
+        if final and not final_open or not final and (lead["midterm_days"] <= 0 or n > lead["midterm_days"]):
+            continue
         c = by_id[e["course_id"]]
-        out.append({"id": e["id"], "day": e["date"], "time": e.get("time") or "", "title": e["title"], "course": c, "days": n, "big": big,
-                    "small": f"{c['code']} · {e['title']}", "when": _when(e["date"], e.get("time") or "")})
+        out.append({"id": e["id"], "day": e["date"], "time": e.get("time") or "", "title": e["title"], "course": c, "color": crud.course_color(c), "kind": "Final" if final else "Midterm",
+                    "days": n, "big": "Today" if n == 0 else "Tomorrow" if n == 1 else f"{n} Days", "small": f"{c['code']} · {e['title']}", "when": _when(e["date"], e.get("time") or "")})
     return out
 
 

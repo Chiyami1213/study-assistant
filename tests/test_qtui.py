@@ -94,7 +94,7 @@ def test_the_window_has_the_menu_the_settings_page_and_rest_now(qapp, fresh_data
     # a change on the Settings page is saved
     from PySide6.QtWidgets import QSpinBox
     spins = w.settings_page.findChildren(QSpinBox)
-    assert len(spins) == 4                                            # rest length, skips, required rest, seconds per question
+    assert len(spins) == 6                                            # rest length, skips, required rest, seconds per question, midterm and final countdown days
     spins[3].setValue(9)
     assert settings.get_quiz()["speed_seconds"] == 9
     settings.set_quiz(speed_seconds=5)

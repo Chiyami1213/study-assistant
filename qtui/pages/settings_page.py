@@ -1,4 +1,4 @@
-"""Settings (native): Appearance, Eye Rest and Quizzes. The other sections (Study Planner, Backup, Keyboard Shortcuts ...) are still on the classic page, reached with the button at the bottom."""
+"""Settings (native): Appearance, Eye Rest, Quizzes and Home. The other sections (Study Planner, Backup, Keyboard Shortcuts ...) are still on the classic page, reached with the button at the bottom."""
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QGridLayout, QHBoxLayout, QLabel, QPushButton, QScrollArea, QSpinBox, QVBoxLayout, QWidget
 
@@ -119,6 +119,18 @@ class SettingsPage(QScrollArea):
         guide.setToolTip("uses the total time written in each study guide instead of the seconds per question")
         guide.toggled.connect(lambda v: (settings.set_quiz(use_guide_time=bool(v)), spin.setEnabled(not v)))
         row.addWidget(guide, 0, Qt.AlignBottom)
+        row.addStretch(1)
+        root.addLayout(row)
+
+        # Home
+        root.addWidget(self._label("Home", "h2"))
+        root.addWidget(self._label("Home shows a countdown tile, in the course's color, for each exam. A midterm shows this many days before its own day; the finals all show this many days before the first final. 0 hides them."))
+        home = settings.get_home()
+        row = QHBoxLayout()
+        row.addWidget(self._field("Midterm Countdown Starts (Days Before)", self._spin(0, 120, home["midterm_days"], lambda v: settings.set_home(midterm_days=v)),
+                                  "how many days before a midterm its countdown tile shows on home"))
+        row.addWidget(self._field("Final Exam Countdown Starts (Days Before the First Final)", self._spin(0, 120, home["final_days"], lambda v: settings.set_home(final_days=v)),
+                                  "how many days before the first final the countdown tiles of all finals show on home"))
         row.addStretch(1)
         root.addLayout(row)
 

@@ -412,6 +412,25 @@ def set_quiz(**values):
     _save(data)
 
 
+DEFAULT_HOME = {"midterm_days": 14, "final_days": 21}
+
+
+def get_home():
+    """Home settings: how many days before an exam its countdown tile starts to show. A midterm (or any exam that is not a final) counts from its own day; the finals count from the first final. 0 hides them."""
+    saved = _load().get("home", {})
+    out = dict(DEFAULT_HOME)
+    for k, v in saved.items():
+        if k in out and type(v) is int:
+            out[k] = max(0, min(120, v))
+    return out
+
+
+def set_home(**values):
+    data = _load()
+    data["home"] = {**get_home(), **{k: v for k, v in values.items() if k in DEFAULT_HOME}}
+    _save(data)
+
+
 DEFAULT_SEMESTER = {"start": "2026-08-24", "end": "2026-12-08", "exam_end": "2026-12-18"}
 
 

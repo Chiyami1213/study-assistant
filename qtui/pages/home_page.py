@@ -82,26 +82,27 @@ class HomePage(QWidget):
             row.addStretch(1)
             self.lay.addLayout(row)
         courses = crud.list_courses(active_only=True)
-        finals = hd.final_countdowns(courses, today) if courses else []
-        if finals:                                                             # from 3 weeks before the first final: a tile for each final exam
-            self.lay.addWidget(self._h("Final Exams"))
+        exams = hd.exam_countdowns(courses, today) if courses else []
+        if exams:                                                              # a tile for each exam that is near (Settings > Home: how near), in the course's color
+            self.lay.addWidget(self._h("Exam Countdown"))
             holder = QWidget()
             holder.setObjectName("page")
             row = FlowLayout(holder, 12, 12)                                   # a new line when the tiles do not fit
-            for f in finals:
+            for f in exams:
                 box = QFrame()
                 box.setObjectName("card")
+                box.setStyleSheet(f"QFrame#card {{ background: {f['color']}; border: none; }}")
                 box.setCursor(Qt.PointingHandCursor)
                 box.setToolTip("open the course")
                 box.mousePressEvent = lambda e, cid=f["course"]["id"]: self.course_requested.emit(cid)
                 bl = QVBoxLayout(box)
                 bl.setContentsMargins(16, 8, 16, 8)
                 b = QLabel(f["big"])
-                b.setStyleSheet(f"font-size: 22px; font-weight: 700; background: transparent; color: {PILL['late'] if f['days'] <= 1 else 'inherit'};")
+                b.setStyleSheet("font-size: 22px; font-weight: 700; background: transparent; color: #ffffff;")
                 bl.addWidget(b)
                 for text in (f["small"], f["when"]):
                     s = QLabel(text)
-                    s.setObjectName("muted")
+                    s.setStyleSheet("background: transparent; color: rgba(255, 255, 255, 0.88);")
                     bl.addWidget(s)
                 row.addWidget(box)
             self.lay.addWidget(holder)
