@@ -7,6 +7,7 @@ from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QProgressBar, QPushBu
 
 from core import crud, settings
 from library import homedata as hd
+from qtui.flow import FlowLayout
 
 PILL = {"late": "#d64545", "open": "#3b82f6"}
 
@@ -81,6 +82,29 @@ class HomePage(QWidget):
             row.addStretch(1)
             self.lay.addLayout(row)
         courses = crud.list_courses(active_only=True)
+        finals = hd.final_countdowns(courses, today) if courses else []
+        if finals:                                                             # from 3 weeks before the first final: a tile for each final exam
+            self.lay.addWidget(self._h("Final Exams"))
+            holder = QWidget()
+            holder.setObjectName("page")
+            row = FlowLayout(holder, 12, 12)                                   # a new line when the tiles do not fit
+            for f in finals:
+                box = QFrame()
+                box.setObjectName("card")
+                box.setCursor(Qt.PointingHandCursor)
+                box.setToolTip("open the course")
+                box.mousePressEvent = lambda e, cid=f["course"]["id"]: self.course_requested.emit(cid)
+                bl = QVBoxLayout(box)
+                bl.setContentsMargins(16, 8, 16, 8)
+                b = QLabel(f["big"])
+                b.setStyleSheet(f"font-size: 22px; font-weight: 700; background: transparent; color: {PILL['late'] if f['days'] <= 1 else 'inherit'};")
+                bl.addWidget(b)
+                for text in (f["small"], f["when"]):
+                    s = QLabel(text)
+                    s.setObjectName("muted")
+                    bl.addWidget(s)
+                row.addWidget(box)
+            self.lay.addWidget(holder)
         if not courses:
             hint = QLabel("Add a course under Courses to get started. Set the term dates in the Calendar (Edit Schedule) to see the week and the days left in the term.")
             hint.setWordWrap(True)

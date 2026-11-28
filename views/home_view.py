@@ -26,6 +26,11 @@ def render():
         chips = "".join(f'<div class="home-stat"><b>{big}</b><span>{small}</span></div>' for big, small in _term_stats(date.today()))
         st.markdown(f'<div class="home-stats">{chips}</div>', unsafe_allow_html=True)
     courses = crud.list_courses(active_only=True)
+    finals = homedata.final_countdowns(courses) if courses else []
+    if finals:                                          # from 3 weeks before the first final: a tile for each final exam
+        st.subheader("Final Exams")
+        tiles = "".join(f'<div class="home-stat"><b>{html.escape(f["big"])}</b><span>{html.escape(f["small"])}</span><span>{html.escape(f["when"])}</span></div>' for f in finals)
+        st.markdown(f'<div class="home-stats" style="flex-wrap: wrap;">{tiles}</div>', unsafe_allow_html=True)
     if not courses:
         st.info("Add a course under Courses to get started. Set the term dates in the Calendar (Edit Schedule) to see the week and the days left in the term."); return
 

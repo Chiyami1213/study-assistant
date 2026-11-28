@@ -103,6 +103,34 @@ def upcoming_items(courses, homework, today=None):
     return items
 
 
+FINAL_RE = re.compile(r"final", re.I)
+FINALS_LEAD_DAYS = 21                 # the countdown tiles start 3 weeks before the first final
+
+
+def is_final(title):
+    return bool(FINAL_RE.search(title)) and not re.search(r"midterm", title, re.I)
+
+
+def final_countdowns(courses, today=None):
+    """[{id, day, time, title, course, days, big, small}] of the final exams that still count down, earliest first: one for each final exam of the active courses. They show from 3 weeks before the
+    first final (the earliest one that has not passed) until each exam day; a final marked done has no tile. `big` is the countdown ("In 12 Days", "Tomorrow", "Today"), `small` what it is."""
+    today = today or date.today()
+    by_id = {c["id"]: c for c in courses}
+    finals = [e for e in crud.list_events(today.isoformat(), "2100-12-31") if e["course_id"] in by_id and is_final(e["title"])]
+    if not finals or today < date.fromisoformat(min(e["date"] for e in finals)) - timedelta(days=FINALS_LEAD_DAYS):
+        return []
+    out = []
+    for e in sorted(finals, key=lambda e: (e["date"], e.get("time") or "", e["id"])):
+        if e.get("done"):
+            continue
+        n = (date.fromisoformat(e["date"]) - today).days
+        big = "Today" if n == 0 else "Tomorrow" if n == 1 else f"{n} Days"
+        c = by_id[e["course_id"]]
+        out.append({"id": e["id"], "day": e["date"], "time": e.get("time") or "", "title": e["title"], "course": c, "days": n, "big": big,
+                    "small": f"{c['code']} · {e['title']}", "when": _when(e["date"], e.get("time") or "")})
+    return out
+
+
 def completed_items(courses, homework, today=None):
     """[(day, title, kind, course, id)] recently completed (due in the last week or still to come), the earliest first."""
     today = today or date.today()
